@@ -1,4 +1,4 @@
-1. Anything the lab's redaction script removes stays removed.
+1. Always-redact details (exact training hyperparameters, data-mix proportions, customer names and employee names) are removed whatever is ruled. Every other confidential detail is ruled on case by case.
 2. Log IDs, timestamps, the type of violation and the policy clause at issue are never changed.
 3. Evidence may be generalized but not removed. A generalized span must keep the property that makes it evidence: if a log line shows a run used production data, the generalized line must still show that.
 4. Use the least coarsening that hides the confidential detail.
