@@ -62,8 +62,7 @@ def _sentence_case(text: str) -> str:
 
 def templated_report(scenario: Scenario) -> Report:
     """Return the report a competent auditor would write for a scenario."""
-    blueprint = BLUEPRINTS[scenario.violation_type]
-    variant = variant_for(blueprint, scenario.label, scenario.difficulty)
+    variant = variant_for(BLUEPRINTS[scenario.violation_type], scenario.label, scenario.difficulty)
     by_id = {entry.log_id: entry for entry in scenario.logs}
     evidence = tuple(
         EvidenceQuote(log_id=log_id, quote=by_id[log_id].text)
@@ -71,8 +70,8 @@ def templated_report(scenario: Scenario) -> Report:
     )
     cited = ", ".join(scenario.key_evidence_ids)
     reasoning = (
-        f"The claim under audit is: {blueprint.claim} "
-        f"The deciding details are the {', '.join(blueprint.separating_cues)}, "
+        f"The claim under audit is: {scenario.claim} "
+        f"The deciding details are the {', '.join(scenario.separating_cues)}, "
         f"recorded in {cited}. {_CONCLUSIONS[scenario.label]}"
     )
     return Report(

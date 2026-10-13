@@ -8,25 +8,22 @@ from typing import Annotated
 
 import typer
 from inspect_ai.model import Model
-from pydantic import TypeAdapter
 
 from redaction_escalation.domain.models import Split
 from redaction_escalation.domain.policies import Policy
-from redaction_escalation.domain.results import PolicySummary, summarize_all
+from redaction_escalation.domain.roles import Role, Stance
+from redaction_escalation.domain.summary import summary_table
 from redaction_escalation.infra.log_setup import configure_logging, get_logger
-from redaction_escalation.infra.settings import Role, get_settings
-from redaction_escalation.infra.storage import write_json, write_jsonl, write_text
-from redaction_escalation.pipeline.analysis import load_logs, results_from_logs, summary_table
+from redaction_escalation.infra.settings import get_settings
+from redaction_escalation.infra.storage import write_jsonl
+from redaction_escalation.pipeline.analysis import analyze_run
 from redaction_escalation.pipeline.mock import mock_model
-from redaction_escalation.pipeline.prompting import Stance
 from redaction_escalation.pipeline.runner import run_experiment
 from redaction_escalation.scenarios.generator import build_split
 from redaction_escalation.scenarios.reports import templated_report
 
 app = typer.Typer(no_args_is_help=True, help=__doc__)
 log = get_logger(__name__)
-
-_SUMMARIES = TypeAdapter(tuple[PolicySummary, ...])
 
 
 @app.callback()
@@ -89,15 +86,7 @@ def analyze(
     log_dir: Annotated[Path, typer.Argument(help="A directory of Inspect logs from `run`.")],
 ) -> None:
     """Compute the headline numbers for a run and write them under REDESC_RESULTS_DIR."""
-    results = results_from_logs(load_logs(log_dir))
-    if not results:
-        log.error("no_results", log_dir=str(log_dir))
+    summaries = analyze_run(log_dir, get_settings().results_dir / log_dir.name)
+    if not summaries:
         raise typer.Exit(code=1)
-    summaries = summarize_all(results)
-    out_dir = get_settings().results_dir / log_dir.name
-    write_jsonl(out_dir / "samples.jsonl", results)
-    write_json(out_dir / "summary.json", summaries, _SUMMARIES)
-    table = summary_table(summaries)
-    write_text(out_dir / "summary.md", table + "\n")
-    typer.echo(table)
-    log.info("analysis_written", samples=len(results), directory=str(out_dir))
+    typer.echo(summary_table(summaries))

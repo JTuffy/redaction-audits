@@ -13,15 +13,7 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
-class Role(StrEnum):
-    """The model roles in the pipeline, as Inspect `model_roles` keys."""
-
-    ADVOCATE = "advocate"
-    REFEREE = "referee"
-    VIEWER = "viewer"
-    GUESSER = "guesser"
-    JUDGE = "judge"
+from redaction_escalation.domain.roles import Role
 
 
 class LogFormat(StrEnum):
@@ -29,10 +21,6 @@ class LogFormat(StrEnum):
 
     CONSOLE = "console"
     JSON = "json"
-
-
-MOCK_PROVIDER = "mockllm"
-MOCK_MODEL = f"{MOCK_PROVIDER}/model"
 
 
 class Settings(BaseSettings):

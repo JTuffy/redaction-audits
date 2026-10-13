@@ -27,11 +27,12 @@ from redaction_escalation.domain.models import (
     SecretType,
 )
 from redaction_escalation.domain.policies import Policy
+from redaction_escalation.domain.roles import Role, Stance
 from redaction_escalation.infra.log_setup import get_logger
-from redaction_escalation.infra.settings import MOCK_PROVIDER, Role, get_settings
+from redaction_escalation.infra.settings import get_settings
+from redaction_escalation.pipeline.mock import is_mock
 from redaction_escalation.pipeline.parsing import ReplyFormatError, parse_reply
 from redaction_escalation.pipeline.prompting import (
-    Stance,
     advocate_prompt,
     guesser_prompt,
     judge_prompt,
@@ -66,8 +67,7 @@ async def ask[T: Reply](
     """
     settings = get_settings()
     model = get_model(role=role.value)
-    use_cache = settings.cache_replies and not str(model).startswith(MOCK_PROVIDER)
-    cache: CachePolicy | bool = _CACHE if use_cache else False
+    cache: CachePolicy | bool = _CACHE if settings.cache_replies and not is_mock(model) else False
     messages: list[ChatMessage] = [ChatMessageUser(content=prompt)]
     attempts = settings.parse_attempts
     for attempt in range(1, attempts + 1):

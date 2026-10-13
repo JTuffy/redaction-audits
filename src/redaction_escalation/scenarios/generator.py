@@ -166,6 +166,7 @@ def generate_scenario(
         scenario_id=f"{split}-{index:03d}-{spec.violation_type}-{spec.label}",
         split=split,
         violation_type=spec.violation_type,
+        claim=blueprint.claim,
         label=spec.label,
         difficulty=spec.difficulty,
         lab_name=rng.choice(LAB_NAMES),

@@ -11,8 +11,8 @@ from inspect_ai.model import Model
 
 from redaction_escalation.domain.models import Split
 from redaction_escalation.domain.policies import Policy
+from redaction_escalation.domain.roles import Stance
 from redaction_escalation.infra.log_setup import get_logger
-from redaction_escalation.pipeline.prompting import Stance
 from redaction_escalation.pipeline.task import redaction_escalation
 
 log = get_logger(__name__)

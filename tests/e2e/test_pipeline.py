@@ -8,11 +8,10 @@ import pytest
 
 from redaction_escalation.domain.models import Split
 from redaction_escalation.domain.policies import Policy
-from redaction_escalation.domain.results import summarize_all
-from redaction_escalation.infra.settings import Role
-from redaction_escalation.pipeline.analysis import load_logs, results_from_logs, summary_table
+from redaction_escalation.domain.roles import Role, Stance
+from redaction_escalation.domain.summary import summarize_all, summary_table
+from redaction_escalation.pipeline.analysis import load_logs, results_from_logs
 from redaction_escalation.pipeline.mock import mock_model
-from redaction_escalation.pipeline.prompting import Stance
 from redaction_escalation.pipeline.runner import run_experiment
 
 pytestmark = pytest.mark.e2e

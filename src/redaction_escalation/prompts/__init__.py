@@ -24,6 +24,8 @@ class PromptName(StrEnum):
     REFEREE = "referee"
     VIEWER = "viewer"
     GUESSER = "guesser"
+    CONTEXT_PRIOR = "context_prior"
+    CONTEXT_REPORT = "context_report"
     JUDGE = "judge"
     RETRY = "retry"
 

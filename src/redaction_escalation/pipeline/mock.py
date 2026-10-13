@@ -17,7 +17,9 @@ from inspect_ai.model import ChatMessage, GenerateConfig, Model, ModelOutput, ge
 from inspect_ai.tool import ToolChoice, ToolInfo
 
 from redaction_escalation.domain.registry import REGISTRY
-from redaction_escalation.infra.settings import MOCK_MODEL
+
+MOCK_PROVIDER: Final = "mockllm"
+MOCK_MODEL: Final = f"{MOCK_PROVIDER}/model"
 
 _REPORT = re.compile(r"<report>(.*?)</report>", re.DOTALL)
 _EVIDENCE = re.compile(r"<evidence>(.*?)</evidence>", re.DOTALL)
@@ -121,3 +123,8 @@ def scripted_reply(
 def mock_model() -> Model:
     """A mockllm model that answers with `scripted_reply`."""
     return get_model(MOCK_MODEL, custom_outputs=scripted_reply, memoize=False)
+
+
+def is_mock(model: Model) -> bool:
+    """Whether a model is a mockllm stand-in (whose replies are never worth caching)."""
+    return str(model).startswith(MOCK_PROVIDER)

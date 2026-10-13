@@ -113,6 +113,7 @@ class Scenario(Frozen):
     scenario_id: str
     split: Split
     violation_type: ViolationType
+    claim: str = Field(min_length=1)
     label: Label
     difficulty: Difficulty | None = None
     lab_name: str

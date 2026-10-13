@@ -12,14 +12,13 @@ from redaction_escalation.domain.models import (
 )
 from redaction_escalation.domain.policies import Policy, apply_text_redaction
 from redaction_escalation.domain.registry import spec_for
-from redaction_escalation.domain.results import (
+from redaction_escalation.domain.scoring import (
     SampleResult,
     TrialRecord,
     sample_result,
     secrets_in_report,
-    summarize,
-    summarize_all,
 )
+from redaction_escalation.domain.summary import summarize, summarize_all
 from redaction_escalation.scenarios.reports import templated_report
 
 

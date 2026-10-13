@@ -21,7 +21,7 @@ from redaction_escalation.domain.policies import (
     redact,
 )
 from redaction_escalation.domain.registry import redaction_marker, spec_for
-from redaction_escalation.domain.results import secrets_in_report
+from redaction_escalation.domain.scoring import secrets_in_report
 from redaction_escalation.scenarios.reports import templated_report
 
 ALWAYS, CONTEXT = SecretTier.ALWAYS_REDACT, SecretTier.CONTEXT

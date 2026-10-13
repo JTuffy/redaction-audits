@@ -6,14 +6,14 @@ import pytest
 
 from redaction_escalation.domain.models import Report, Scenario
 from redaction_escalation.domain.policies import Policy
-from redaction_escalation.domain.results import secrets_in_report
+from redaction_escalation.domain.roles import Stance
+from redaction_escalation.domain.scoring import secrets_in_report
 from redaction_escalation.pipeline.parsing import (
     ReplyFormatError,
     extract_json_object,
     parse_reply,
 )
 from redaction_escalation.pipeline.prompting import (
-    Stance,
     advocate_prompt,
     guesser_prompt,
     judge_prompt,
