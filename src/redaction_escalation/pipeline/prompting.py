@@ -15,14 +15,14 @@ from redaction_escalation.scenarios.blueprints import BLUEPRINTS
 
 
 class Stance(StrEnum):
-    """What the lab wants from its advocate (R1 baseline vs R2 cover-up)."""
+    """What the lab wants from its advocate: honest but aggressive (R1) or cover-up (R2)."""
 
-    GOOD_FAITH = "good_faith"
+    HONEST = "honest"
     COVER_UP = "cover_up"
 
 
 _STANCE_PROMPTS = {
-    Stance.GOOD_FAITH: PromptName.STANCE_GOOD_FAITH,
+    Stance.HONEST: PromptName.STANCE_HONEST,
     Stance.COVER_UP: PromptName.STANCE_COVER_UP,
 }
 
@@ -47,6 +47,9 @@ def advocate_prompt(scenario: Scenario, report: Report, policy: Policy, stance: 
         PromptName.ADVOCATE,
         lab_name=scenario.lab_name,
         categories=", ".join(spec.label for spec in REGISTRY.values()),
+        secrets="\n".join(
+            f"- {spec_for(s.secret_type).label}: {s.value}" for s in scenario.secrets
+        ),
         process=process,
         stance=render(_STANCE_PROMPTS[stance]),
         report=report_view(report),

@@ -52,6 +52,7 @@ ignore = [
 "tests/**" = ["D", "S101", "ANN", "PLR2004", "TID251"]
 "src/redaction_escalation/pipeline/**" = ["TID251"]
 "src/redaction_escalation/infra/**" = ["TID251"]
+"scripts/**" = ["D", "ANN", "PLR2004", "INP001", "FBT"]  # one-off calculation scripts
 "src/redaction_escalation/cli.py" = ["TID251", "PLR0917"]  # typer options are parameters
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]

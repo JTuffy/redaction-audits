@@ -56,7 +56,7 @@ def run(
     policy: Annotated[
         list[Policy] | None, typer.Option(help="Policies to run; repeat the flag. Default: all.")
     ] = None,
-    stance: Annotated[Stance, typer.Option(help="The advocate's stance.")] = Stance.GOOD_FAITH,
+    stance: Annotated[Stance, typer.Option(help="The advocate's stance.")] = Stance.HONEST,
     limit: Annotated[int | None, typer.Option(help="Run only the first N samples.")] = None,
     mock: Annotated[bool, typer.Option(help="Use the scripted offline model.")] = False,
     analyze_after: Annotated[bool, typer.Option(help="Summarize the run when done.")] = True,

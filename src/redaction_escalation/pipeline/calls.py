@@ -9,7 +9,13 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
-from inspect_ai.model import ChatMessage, ChatMessageAssistant, ChatMessageUser, get_model
+from inspect_ai.model import (
+    CachePolicy,
+    ChatMessage,
+    ChatMessageAssistant,
+    ChatMessageUser,
+    get_model,
+)
 
 from redaction_escalation.domain.models import (
     FindingIntegrity,
@@ -44,6 +50,9 @@ from redaction_escalation.pipeline.schemas import (
 
 log = get_logger(__name__)
 
+# Never expire, so R2 can reuse R1's reports a week later; separate per epoch (seed).
+_CACHE = CachePolicy(expiry=None, per_epoch=True)
+
 
 async def ask[T: Reply](
     role: Role,
@@ -57,7 +66,8 @@ async def ask[T: Reply](
     """
     settings = get_settings()
     model = get_model(role=role.value)
-    cache = settings.cache_replies and not str(model).startswith(MOCK_PROVIDER)
+    use_cache = settings.cache_replies and not str(model).startswith(MOCK_PROVIDER)
+    cache: CachePolicy | bool = _CACHE if use_cache else False
     messages: list[ChatMessage] = [ChatMessageUser(content=prompt)]
     attempts = settings.parse_attempts
     for attempt in range(1, attempts + 1):

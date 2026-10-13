@@ -126,7 +126,7 @@ def result_from_metadata(metadata: dict[str, object]) -> SampleResult:
 def redaction_escalation(
     split: str = Split.DEV.value,
     policy: str = Policy.CONTEXTUAL_REWRITE.value,
-    stance: str = Stance.GOOD_FAITH.value,
+    stance: str = Stance.HONEST.value,
     seed: int | None = None,
 ) -> Task:
     """Redaction Under Escalation for one policy on one split."""

@@ -19,10 +19,12 @@ from redaction_escalation.domain.models import (
     Ruling,
     RulingDecision,
     Scenario,
+    SecretTier,
 )
-from redaction_escalation.domain.registry import redaction_marker
+from redaction_escalation.domain.registry import redaction_marker, spec_for
 
 LOG_ID_PATTERN = re.compile(r"LOG-\d{4}")
+ALWAYS_REDACT_ONLY = frozenset({SecretTier.ALWAYS_REDACT})
 
 
 class Policy(StrEnum):
@@ -47,12 +49,16 @@ def _replace_case_insensitive(text: str, needle: str, replacement: str) -> str:
     return re.sub(re.escape(needle), lambda _: replacement, text, flags=re.IGNORECASE)
 
 
-def apply_text_redaction(report: Report, scenario: Scenario) -> Report:
-    """Remove every planted secret value wherever it appears in the report.
+def apply_text_redaction(
+    report: Report, scenario: Scenario, tiers: frozenset[SecretTier] | None = None
+) -> Report:
+    """Remove planted secret values wherever they appear in the report.
 
+    With `tiers`, only secrets of those tiers are removed; by default every tier is.
     Longer values are replaced first so a value that contains another is not split.
     """
-    secrets = sorted(scenario.secrets, key=lambda s: len(s.value), reverse=True)
+    chosen = [s for s in scenario.secrets if tiers is None or spec_for(s.secret_type).tier in tiers]
+    secrets = sorted(chosen, key=lambda s: len(s.value), reverse=True)
 
     def transform(text: str) -> str:
         for secret in secrets:
@@ -127,15 +133,15 @@ def redact(
 ) -> Report:
     """Produce the edited report for a policy.
 
-    Text redaction is the floor under contextual rewrite (rule 1): registry values are removed
-    after the referee's rulings, so no ruling can bring one back.
+    Under contextual rewrite, always-redact values are removed after the referee's rulings, so
+    no ruling can bring one back; context-tier values are left to the referee.
     """
     if policy is Policy.TEXT_REDACTION:
         return apply_text_redaction(report, scenario)
     edited = apply_rulings(report, requests, effective_rulings(policy, requests, rulings))
     if policy is Policy.SELF_REDACTION:
         return edited
-    return apply_text_redaction(edited, scenario)
+    return apply_text_redaction(edited, scenario, ALWAYS_REDACT_ONLY)
 
 
 def effective_rulings(

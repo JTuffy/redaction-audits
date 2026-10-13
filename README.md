@@ -5,7 +5,7 @@ Evaluation harness for Proposal 1 of the SPAR Fall 2026 privacy-preserving redac
 Three redaction policies are compared on the same scenarios:
 
 - **Text redaction:** a script removes every value in the secret registry.
-- **Contextual rewrite:** a lab advocate asks for redactions or generalizations, and a neutral referee rules on each one under six rules. Text redaction still applies afterwards.
+- **Contextual rewrite:** a lab advocate asks for redactions or generalizations, and a neutral referee rules on each one under six rules. Always-redact values (exact hyperparameters, data mix, customer and employee names) are removed afterwards whatever the referee decides; context-tier values are left to the referee.
 - **Self-redaction:** the advocate's requests are applied without review (the control).
 
 For each scenario and policy, a viewer scores the edited evidence for suspicion, and a guesser estimates each secret before reading the report, after reading the unedited report and after reading the edited one. The headline numbers are signal persistence, `(AUROC_edited − 0.5) / (AUROC_unedited − 0.5)` over violations against red herrings, and leakage, `(p_edited − p_prior) / (p_unedited − p_prior)` per secret. Both are lower bounds.

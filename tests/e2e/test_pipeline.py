@@ -25,7 +25,7 @@ def log_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     logs = run_experiment(
         split=Split.DEV,
         policies=list(Policy),
-        stance=Stance.GOOD_FAITH,
+        stance=Stance.HONEST,
         model_roles={role.value: model for role in Role},
         log_dir=directory,
     )

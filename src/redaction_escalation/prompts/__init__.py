@@ -16,7 +16,7 @@ class PromptName(StrEnum):
     """Every prompt template in the package."""
 
     ADVOCATE = "advocate"
-    STANCE_GOOD_FAITH = "stance_good_faith"
+    STANCE_HONEST = "stance_honest"
     STANCE_COVER_UP = "stance_cover_up"
     PROCESS_REFEREE = "process_referee"
     PROCESS_SELF = "process_self"

@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from redaction_escalation.domain.models import (
     EvidenceQuote,
+    PlantedSecret,
     RedactionAction,
     RedactionRequest,
     Report,
     Ruling,
     RulingDecision,
     Scenario,
+    SecretTier,
+    ViolationType,
 )
 from redaction_escalation.domain.policies import (
     Policy,
@@ -17,7 +20,15 @@ from redaction_escalation.domain.policies import (
     is_protected_span,
     redact,
 )
-from redaction_escalation.domain.registry import redaction_marker
+from redaction_escalation.domain.registry import redaction_marker, spec_for
+from redaction_escalation.domain.results import secrets_in_report
+from redaction_escalation.scenarios.reports import templated_report
+
+ALWAYS, CONTEXT = SecretTier.ALWAYS_REDACT, SecretTier.CONTEXT
+
+
+def _tier(secret: PlantedSecret) -> SecretTier:
+    return spec_for(secret.secret_type).tier
 
 
 def _report(text: str) -> Report:
@@ -92,19 +103,24 @@ def test_rulings_skip_protected_spans_and_stray_indices() -> None:
     assert apply_rulings(report, requests, rulings) == report
 
 
-def test_contextual_rewrite_keeps_text_redaction_as_floor(
-    violation: Scenario, violation_report: Report
+def test_contextual_rewrite_floor_is_always_redact_tier_only(
+    dev_scenarios: tuple[Scenario, ...],
 ) -> None:
-    value = violation.secrets[0].value
-    requests = [_request(value, replacement=value)]  # tries to "generalize" to the same value
+    scenario = next(s for s in dev_scenarios if s.violation_type is ViolationType.CLASSIFIER_OFF)
+    report = templated_report(scenario)
+    present = secrets_in_report(scenario, report)
+    always = [s for s in scenario.secrets if s.secret_type in present and _tier(s) is ALWAYS]
+    context = [s for s in scenario.secrets if s.secret_type in present and _tier(s) is CONTEXT]
+    assert always
+    assert context
+    # The referee keeps every span, and an always-redact value is "generalized" to itself.
+    requests = [_request(always[0].value, replacement=always[0].value)]
     edited = redact(
-        Policy.CONTEXTUAL_REWRITE,
-        violation_report,
-        violation,
-        requests,
-        [_ruling(0, RulingDecision.GRANT)],
+        Policy.CONTEXTUAL_REWRITE, report, scenario, requests, [_ruling(0, RulingDecision.GRANT)]
     )
-    assert value not in edited.redactable_text()
+    text = edited.redactable_text()
+    assert all(s.value not in text for s in always)
+    assert all(s.value in text for s in context)
 
 
 def test_self_redaction_grants_everything_and_skips_text_redaction(

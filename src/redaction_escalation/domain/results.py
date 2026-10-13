@@ -33,6 +33,7 @@ from redaction_escalation.domain.models import (
     Ruling,
     Scenario,
     SecretGuess,
+    SecretTier,
     SecretType,
     ViolationType,
 )
@@ -214,6 +215,10 @@ def _weighted_leakage(results: Sequence[SampleResult]) -> float | None:
     return weighted_mean(values, weights)
 
 
+def _always_redact(secret_type: SecretType) -> bool:
+    return spec_for(secret_type).tier is SecretTier.ALWAYS_REDACT
+
+
 def _mean(values: Sequence[float]) -> float:
     return sum(values) / len(values) if values else 0.0
 
@@ -237,7 +242,9 @@ def summarize(policy: Policy, results: Sequence[SampleResult], *, seed: int = 0)
         errors_edited=error_rates(positives, negatives),
         leakage_mean=bootstrap_interval(results, _weighted_leakage, seed=seed),
         leakage_tail=tail_share([value for value, _ in scored]),
-        verbatim_leak_rate=_mean([float(o.verbatim_after_edit) for o in outcomes]),
+        verbatim_leak_rate=_mean(
+            [float(o.verbatim_after_edit) for o in outcomes if _always_redact(o.secret_type)]
+        ),
         secrets_scored=len(scored),
         evidence_loss=_mean([r.evidence_loss for r in results]),
         redaction_volume=_mean([r.redaction_volume for r in results]),
