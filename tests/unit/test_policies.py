@@ -21,7 +21,7 @@ from redaction_escalation.domain.policies import (
     redact,
 )
 from redaction_escalation.domain.registry import redaction_marker, spec_for
-from redaction_escalation.domain.scoring import secrets_in_report
+from redaction_escalation.domain.scoring import secrets_in_evidence
 from redaction_escalation.scenarios.reports import templated_report
 
 ALWAYS, CONTEXT = SecretTier.ALWAYS_REDACT, SecretTier.CONTEXT
@@ -108,12 +108,12 @@ def test_contextual_rewrite_floor_is_always_redact_tier_only(
 ) -> None:
     scenario = next(s for s in dev_scenarios if s.violation_type is ViolationType.CLASSIFIER_OFF)
     report = templated_report(scenario)
-    present = secrets_in_report(scenario, report)
+    present = secrets_in_evidence(scenario, report)
     always = [s for s in scenario.secrets if s.secret_type in present and _tier(s) is ALWAYS]
     context = [s for s in scenario.secrets if s.secret_type in present and _tier(s) is CONTEXT]
     assert always
     assert context
-    # The referee keeps every span, and an always-redact value is "generalized" to itself.
+    # The honest executor keeps every span, and an always-redact value is "generalized" to itself.
     requests = [_request(always[0].value, replacement=always[0].value)]
     edited = redact(
         Policy.CONTEXTUAL_REWRITE, report, scenario, requests, [_ruling(0, RulingDecision.GRANT)]

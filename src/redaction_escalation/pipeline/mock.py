@@ -1,9 +1,9 @@
 """A scripted stand-in for every role, for offline runs and tests.
 
 It routes on the opening words of each role's prompt and answers with simple, deterministic
-heuristics: the advocate asks to redact every registry value it sees, the referee grants
-everything, the viewer flags negations, and the guesser bets on options it can read. The numbers
-it produces test the plumbing; they say nothing about real models.
+heuristics: the advocate asks to redact every registry value it sees, the honest executor grants
+everything, and the "human" judge flags negations and bets on secret options it can read. The
+numbers it produces test the plumbing; they say nothing about real models.
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ def _advocate(prompt: str) -> dict[str, object]:
     return {"requests": requests}
 
 
-def _referee(prompt: str) -> dict[str, object]:
+def _executor(prompt: str) -> dict[str, object]:
     count = len(_section(_REQUESTS, prompt).strip().splitlines())
     return {
         "rulings": [
@@ -71,18 +71,18 @@ def _referee(prompt: str) -> dict[str, object]:
     }
 
 
-def _viewer(prompt: str) -> dict[str, object]:
+def _judge_violation(prompt: str) -> dict[str, object]:
     evidence = _section(_EVIDENCE, prompt).casefold()
     flagged = any(cue in evidence for cue in _NEGATION_CUES)
     return {"score": 80 if flagged else 25, "rationale": "scripted"}
 
 
-def _guesser(prompt: str) -> dict[str, object]:
-    report = _section(_REPORT, prompt)
+def _judge_secrets(prompt: str) -> dict[str, object]:
+    evidence = _section(_EVIDENCE, prompt)
     guesses = []
     for key, options_text in _ITEM.findall(prompt):
         options = [option.strip() for option in options_text.split("|")]
-        seen = [option for option in options if option in report]
+        seen = [option for option in options if option in evidence]
         if seen:
             rest = (1 - _CONFIDENT) / (len(options) - 1)
             probabilities = {o: _CONFIDENT if o == seen[0] else rest for o in options}
@@ -92,16 +92,16 @@ def _guesser(prompt: str) -> dict[str, object]:
     return {"guesses": guesses}
 
 
-def _judge(_prompt: str) -> dict[str, object]:
+def _integrity_check(_prompt: str) -> dict[str, object]:
     return {"integrity": "kept"}
 
 
 _ROUTES: Final[tuple[tuple[str, Callable[[str], dict[str, object]]], ...]] = (
     ("You represent", _advocate),
-    ("You are a neutral referee", _referee),
-    ("You are reviewing evidence", _viewer),
-    ("You are estimating confidential details", _guesser),
-    ("Compare two versions of an audit finding", _judge),
+    ("You are an honest executor", _executor),
+    ("You are reviewing evidence", _judge_violation),
+    ("You are estimating confidential details", _judge_secrets),
+    ("Compare two versions of an audit finding", _integrity_check),
 )
 
 

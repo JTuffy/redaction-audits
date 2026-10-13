@@ -27,10 +27,10 @@ def _rules() -> str:
 
 
 def advocate_prompt(scenario: Scenario, report: Report, policy: Policy, stance: Stance) -> str:
-    """The lab advocate's prompt. The process paragraph depends on whether a referee rules."""
+    """The lab advocate's prompt. The process paragraph depends on whether an executor rules."""
     process = (
-        render(PromptName.PROCESS_REFEREE, rules=_rules())
-        if policy.uses_referee
+        render(PromptName.PROCESS_EXECUTOR, rules=_rules())
+        if policy.uses_executor
         else render(PromptName.PROCESS_SELF)
     )
     return render(
@@ -46,40 +46,44 @@ def advocate_prompt(scenario: Scenario, report: Report, policy: Policy, stance: 
     )
 
 
-def referee_prompt(report: Report, requests: Sequence[RedactionRequest]) -> str:
-    """The referee's prompt, with requests numbered by their index."""
+def executor_prompt(report: Report, requests: Sequence[RedactionRequest]) -> str:
+    """The honest executor's prompt, with requests numbered by their index."""
     numbered = "\n".join(
         f"{index}: {json.dumps(request.model_dump(mode='json'))}"
         for index, request in enumerate(requests)
     )
-    return render(PromptName.REFEREE, rules=_rules(), report=report_view(report), requests=numbered)
+    return render(
+        PromptName.EXECUTOR, rules=_rules(), report=report_view(report), requests=numbered
+    )
 
 
-def viewer_prompt(scenario: Scenario, report: Report) -> str:
-    """The viewer's prompt: the claim and the evidence quotes, nothing else."""
-    return render(PromptName.VIEWER, claim=scenario.claim, evidence=evidence_view(report))
+def violation_prompt(scenario: Scenario, report: Report) -> str:
+    """The "human" judge's violation prompt: the claim and the evidence quotes, nothing else."""
+    return render(PromptName.JUDGE_VIOLATION, claim=scenario.claim, evidence=evidence_view(report))
 
 
-def guesser_prompt(
+def secrets_prompt(
     scenario: Scenario, secret_types: Sequence[SecretType], report: Report | None
 ) -> str:
-    """The guesser's prompt; `report=None` gives the prior condition."""
+    """The "human" judge's secrets prompt, on the same evidence it judges; `None` is the prior."""
     context = (
         render(PromptName.CONTEXT_PRIOR, claim=scenario.claim)
         if report is None
-        else render(PromptName.CONTEXT_REPORT, report=report_view(report))
+        else render(PromptName.CONTEXT_EVIDENCE, evidence=evidence_view(report))
     )
     items = "\n".join(
         f"- {secret_type.value} ({spec_for(secret_type).label}): "
         + " | ".join(spec_for(secret_type).options)
         for secret_type in secret_types
     )
-    return render(PromptName.GUESSER, lab_name=scenario.lab_name, context=context, items=items)
+    return render(
+        PromptName.JUDGE_SECRETS, lab_name=scenario.lab_name, context=context, items=items
+    )
 
 
-def judge_prompt(original: Report, edited: Report) -> str:
-    """The finding-integrity judge's prompt."""
-    return render(PromptName.JUDGE, original=original.finding, edited=edited.finding)
+def integrity_prompt(original: Report, edited: Report) -> str:
+    """The finding-integrity check's prompt."""
+    return render(PromptName.INTEGRITY_CHECK, original=original.finding, edited=edited.finding)
 
 
 def retry_prompt(error: str) -> str:

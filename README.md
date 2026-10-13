@@ -5,10 +5,10 @@ Evaluation harness for Proposal 1 of the SPAR Fall 2026 privacy-preserving redac
 Three redaction policies are compared on the same scenarios:
 
 - **Text redaction:** a script removes every value in the secret registry.
-- **Contextual rewrite:** a lab advocate asks for redactions or generalizations, and a neutral referee rules on each one under six rules. Always-redact values (exact hyperparameters, data mix, customer and employee names) are removed afterwards whatever the referee decides; context-tier values are left to the referee.
+- **Contextual rewrite:** a lab advocate asks for redactions or generalizations, and an honest executor rules on each one under six rules. Always-redact values (exact hyperparameters, data mix, customer and employee names) are removed afterwards whatever the executor decides; context-tier values are left to the executor.
 - **Self-redaction:** the advocate's requests are applied without review (the control).
 
-For each scenario and policy, a viewer scores the edited evidence for suspicion, and a guesser estimates each secret before reading the report, after reading the unedited report and after reading the edited one. The headline numbers are signal persistence, `(AUROC_edited − 0.5) / (AUROC_unedited − 0.5)` over violations against red herrings, and leakage, `(p_edited − p_prior) / (p_unedited − p_prior)` per secret. Both are lower bounds.
+For each scenario and policy, a "human" judge sees only the claim and the quoted evidence and answers two questions: how likely the lab broke the claim, and a probability for each option of every planted secret. It answers on the edited evidence, on the unedited evidence and, for the secrets, with no evidence at all (the prior). The headline numbers are signal persistence, `(AUROC_edited − 0.5) / (AUROC_unedited − 0.5)` over violations against red herrings, and leakage, `(p_edited − p_prior) / (p_unedited − p_prior)` per secret. Both are lower bounds.
 
 The full specification is in the P1 Google Doc. `docs/architecture.md` explains how the code is laid out.
 
@@ -34,7 +34,7 @@ uv run redesc analyze logs/inspect/<run>    # recompute the summary from saved l
 
 Each run writes Inspect logs under `logs/inspect/<run>` (open them with `uv run inspect view`) and a summary under `results/<run>`: `summary.md`, `summary.json` and one `SampleResult` per line in `samples.jsonl`.
 
-Models are set per role with `REDESC_ADVOCATE_MODEL`, `REDESC_REFEREE_MODEL`, `REDESC_VIEWER_MODEL`, `REDESC_GUESSER_MODEL` and `REDESC_JUDGE_MODEL`. Model replies are cached, so conditions shared across policies (the prior and the unedited report) are paid for once.
+Models are set per role with `REDESC_ADVOCATE_MODEL`, `REDESC_EXECUTOR_MODEL`, `REDESC_JUDGE_MODEL` and `REDESC_INTEGRITY_CHECK_MODEL`. Model replies are cached, so conditions shared across policies (the prior and the unedited report) are paid for once.
 
 ## Development
 

@@ -1,9 +1,9 @@
 """Redaction policies and the deterministic parts of applying them.
 
 The policy is the independent variable of the experiment. Text redaction is fully mechanical.
-Contextual rewrite and self-redaction need an advocate (and, for contextual rewrite, a referee)
-to produce requests and rulings; this module applies those decisions to a report and enforces
-the rules that hold under every policy.
+Contextual rewrite and self-redaction need an advocate (and, for contextual rewrite, an honest
+executor) to produce requests and rulings; this module applies those decisions to a report and
+enforces the rules that hold under every policy.
 """
 
 from __future__ import annotations
@@ -40,8 +40,8 @@ class Policy(StrEnum):
         return self is not Policy.TEXT_REDACTION
 
     @property
-    def uses_referee(self) -> bool:
-        """Whether a referee rules on the requests."""
+    def uses_executor(self) -> bool:
+        """Whether an honest executor rules on the requests."""
         return self is Policy.CONTEXTUAL_REWRITE
 
 
@@ -99,7 +99,7 @@ def apply_rulings(
     requests: Sequence[RedactionRequest],
     rulings: Iterable[Ruling],
 ) -> Report:
-    """Apply referee (or self-redaction) rulings to a report.
+    """Apply honest executor (or self-redaction) rulings to a report.
 
     Protected spans are skipped whatever the ruling says, rulings that point at a missing
     request are ignored, and later requests never re-edit text an earlier one already replaced.
@@ -133,8 +133,8 @@ def redact(
 ) -> Report:
     """Produce the edited report for a policy.
 
-    Under contextual rewrite, always-redact values are removed after the referee's rulings, so
-    no ruling can bring one back; context-tier values are left to the referee.
+    Under contextual rewrite, always-redact values are removed after the honest executor's
+    rulings, so no ruling can bring one back; context-tier values are left to the executor.
     """
     if policy is Policy.TEXT_REDACTION:
         return apply_text_redaction(report, scenario)
@@ -147,7 +147,7 @@ def redact(
 def effective_rulings(
     policy: Policy, requests: Sequence[RedactionRequest], rulings: Iterable[Ruling]
 ) -> tuple[Ruling, ...]:
-    """The rulings a policy actually applies: none, all granted, or the referee's."""
+    """The rulings a policy actually applies: none, all granted, or the honest executor's."""
     if policy is Policy.TEXT_REDACTION:
         return ()
     if policy is Policy.SELF_REDACTION:

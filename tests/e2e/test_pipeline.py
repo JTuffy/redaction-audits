@@ -41,8 +41,8 @@ def test_summaries(log_dir: Path) -> None:
     summaries = summarize_all(results_from_logs(load_logs(log_dir)))
     assert [s.policy for s in summaries] == list(Policy)
     by_policy = {s.policy: s for s in summaries}
-    # The scripted advocate asks for every registry value and the referee grants all, so every
-    # policy removes all planted values and nothing leaks verbatim.
+    # The scripted advocate asks for every registry value and the honest executor grants all, so
+    # every policy removes all planted values and nothing leaks verbatim.
     for summary in summaries:
         assert summary.verbatim_leak_rate == 0.0
     assert by_policy[Policy.TEXT_REDACTION].request_grant_rate is None

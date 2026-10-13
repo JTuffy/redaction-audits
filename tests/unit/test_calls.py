@@ -12,7 +12,7 @@ from redaction_escalation.domain.roles import Role
 from redaction_escalation.pipeline import calls
 from redaction_escalation.pipeline.mock import MOCK_MODEL
 from redaction_escalation.pipeline.parsing import ReplyFormatError
-from redaction_escalation.pipeline.schemas import ViewerReply
+from redaction_escalation.pipeline.schemas import ViolationReply
 
 
 def _model(*replies: str) -> Model:
@@ -22,9 +22,9 @@ def _model(*replies: str) -> Model:
     return get_model(MOCK_MODEL, custom_outputs=outputs, memoize=False)
 
 
-def _ask_with(monkeypatch: pytest.MonkeyPatch, model: Model) -> ViewerReply:
+def _ask_with(monkeypatch: pytest.MonkeyPatch, model: Model) -> ViolationReply:
     monkeypatch.setattr(calls, "get_model", lambda **_: model)
-    return asyncio.run(calls.ask(Role.VIEWER, "prompt", ViewerReply))
+    return asyncio.run(calls.ask(Role.JUDGE, "prompt", ViolationReply))
 
 
 def test_recovers_after_one_unreadable_reply(monkeypatch: pytest.MonkeyPatch) -> None:

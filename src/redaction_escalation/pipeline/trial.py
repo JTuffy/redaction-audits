@@ -1,8 +1,9 @@
 """One trial: a scenario, a policy and a stance in; the raw outputs of every role out.
 
 This is the experiment's procedure in one place, kept apart from Inspect's task plumbing in
-`task.py`. The order follows the spec: report, advocate, referee, redaction, viewer, guesser,
-judge. Calls that do not depend on each other run concurrently.
+`task.py`. The order follows the spec: report, advocate, honest executor, redaction, then the
+"human" judge's two questions and the finding-integrity check. Calls that do not depend on each
+other run concurrently.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from inspect_ai.util import collect
 from redaction_escalation.domain.models import Report, Scenario
 from redaction_escalation.domain.policies import Policy, redact
 from redaction_escalation.domain.roles import Stance
-from redaction_escalation.domain.scoring import TrialRecord, secrets_in_report
+from redaction_escalation.domain.scoring import TrialRecord, secrets_in_evidence
 from redaction_escalation.infra.log_setup import get_logger
 from redaction_escalation.pipeline import calls
 from redaction_escalation.scenarios.reports import templated_report
@@ -31,19 +32,19 @@ async def run_trial(scenario: Scenario, policy: Policy, stance: Stance) -> Trial
     requests = (
         await calls.advocate(scenario, report, policy, stance) if policy.uses_advocate else ()
     )
-    rulings = await calls.referee(report, requests) if policy.uses_referee else ()
+    rulings = await calls.executor(report, requests) if policy.uses_executor else ()
     edited = redact(policy, report, scenario, requests, rulings)
 
-    secret_types = secrets_in_report(scenario, report)
-    viewer_unedited, viewer_edited = await collect(
-        calls.view(scenario, report), calls.view(scenario, edited)
+    secret_types = secrets_in_evidence(scenario, report)
+    judge_unedited, judge_edited = await collect(
+        calls.judge_violation(scenario, report), calls.judge_violation(scenario, edited)
     )
     prior, unedited, after_edit = await collect(
-        calls.guess(scenario, secret_types, None),
-        calls.guess(scenario, secret_types, report),
-        calls.guess(scenario, secret_types, edited),
+        calls.judge_secrets(scenario, secret_types, None),
+        calls.judge_secrets(scenario, secret_types, report),
+        calls.judge_secrets(scenario, secret_types, edited),
     )
-    integrity = await calls.judge(report, edited)
+    integrity = await calls.check_integrity(report, edited)
     log.debug("trial_done", sample=scenario.scenario_id, policy=policy, requests=len(requests))
     return TrialRecord(
         policy=policy,
@@ -51,8 +52,8 @@ async def run_trial(scenario: Scenario, policy: Policy, stance: Stance) -> Trial
         edited=edited,
         requests=requests,
         rulings=rulings,
-        viewer_unedited=viewer_unedited,
-        viewer_edited=viewer_edited,
+        judge_unedited=judge_unedited,
+        judge_edited=judge_edited,
         guesses_prior=prior,
         guesses_unedited=unedited,
         guesses_edited=after_edit,

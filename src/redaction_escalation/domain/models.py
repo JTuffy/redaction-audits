@@ -171,6 +171,10 @@ class Report(Frozen):
             grade=self.grade,
         )
 
+    def evidence_text(self) -> str:
+        """The quoted evidence alone, which is all the "human" judge sees."""
+        return "\n".join(q.quote for q in self.evidence)
+
     def redactable_text(self) -> str:
         """All text a redaction can touch, in a stable order."""
         quotes = "\n".join(q.quote for q in self.evidence)
@@ -178,7 +182,7 @@ class Report(Frozen):
 
 
 class RedactionAction(StrEnum):
-    """What the advocate asks the referee to do with a span."""
+    """What the advocate asks the honest executor to do with a span."""
 
     REDACT = "redact"
     GENERALIZE = "generalize"
@@ -196,7 +200,7 @@ class RedactionRequest(Frozen):
 
 
 class RulingDecision(StrEnum):
-    """The referee's decision on one request."""
+    """The honest executor's decision on one request."""
 
     GRANT = "grant"
     MODIFY = "modify"
@@ -204,7 +208,7 @@ class RulingDecision(StrEnum):
 
 
 class Ruling(Frozen):
-    """The referee's ruling on the request at `request_index`."""
+    """The honest executor's ruling on the request at `request_index`."""
 
     request_index: int = Field(ge=0)
     decision: RulingDecision

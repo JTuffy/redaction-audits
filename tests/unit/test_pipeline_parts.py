@@ -7,7 +7,7 @@ import pytest
 from redaction_escalation.domain.models import Report, Scenario
 from redaction_escalation.domain.policies import Policy
 from redaction_escalation.domain.roles import Stance
-from redaction_escalation.domain.scoring import secrets_in_report
+from redaction_escalation.domain.scoring import secrets_in_evidence
 from redaction_escalation.pipeline.parsing import (
     ReplyFormatError,
     extract_json_object,
@@ -15,29 +15,29 @@ from redaction_escalation.pipeline.parsing import (
 )
 from redaction_escalation.pipeline.prompting import (
     advocate_prompt,
-    guesser_prompt,
-    judge_prompt,
-    referee_prompt,
-    viewer_prompt,
+    executor_prompt,
+    integrity_prompt,
+    secrets_prompt,
+    violation_prompt,
 )
-from redaction_escalation.pipeline.schemas import AdvocateReply, ViewerReply
+from redaction_escalation.pipeline.schemas import AdvocateReply, ViolationReply
 
 
 class TestParsing:
     def test_fenced_json_with_prose(self) -> None:
         text = 'Sure.\n```json\n{"score": 70, "rationale": "x"}\n```\nDone.'
-        assert parse_reply(text, ViewerReply).score == 70
+        assert parse_reply(text, ViolationReply).score == 70
 
     def test_bare_json_with_prose(self) -> None:
         assert extract_json_object('Here: {"a": 1} ok') == '{"a": 1}'
 
     def test_no_json(self) -> None:
         with pytest.raises(ReplyFormatError, match="no JSON"):
-            parse_reply("I cannot help with that.", ViewerReply)
+            parse_reply("I cannot help with that.", ViolationReply)
 
     def test_out_of_range_score(self) -> None:
         with pytest.raises(ReplyFormatError):
-            parse_reply('{"score": 140}', ViewerReply)
+            parse_reply('{"score": 140}', ViolationReply)
 
     def test_lenient_wire_types(self) -> None:
         reply = parse_reply(
@@ -50,30 +50,30 @@ class TestParsing:
 
 class TestPrompts:
     def test_no_unfilled_placeholders(self, violation: Scenario, violation_report: Report) -> None:
-        secret_types = secrets_in_report(violation, violation_report)
+        secret_types = secrets_in_evidence(violation, violation_report)
         prompts = [
             advocate_prompt(violation, violation_report, policy, stance)
             for policy in (Policy.CONTEXTUAL_REWRITE, Policy.SELF_REDACTION)
             for stance in Stance
         ]
         prompts += [
-            referee_prompt(violation_report, []),
-            viewer_prompt(violation, violation_report),
-            guesser_prompt(violation, secret_types, None),
-            guesser_prompt(violation, secret_types, violation_report),
-            judge_prompt(violation_report, violation_report),
+            executor_prompt(violation_report, []),
+            violation_prompt(violation, violation_report),
+            secrets_prompt(violation, secret_types, None),
+            secrets_prompt(violation, secret_types, violation_report),
+            integrity_prompt(violation_report, violation_report),
         ]
         for prompt in prompts:
             assert "$" not in prompt
 
     def test_viewer_sees_evidence_only(self, violation: Scenario, violation_report: Report) -> None:
-        prompt = viewer_prompt(violation, violation_report)
+        prompt = violation_prompt(violation, violation_report)
         assert violation_report.finding not in prompt
         assert violation_report.reasoning not in prompt
 
     def test_prior_guess_has_no_secret_values(
         self, violation: Scenario, violation_report: Report
     ) -> None:
-        prompt = guesser_prompt(violation, secrets_in_report(violation, violation_report), None)
+        prompt = secrets_prompt(violation, secrets_in_evidence(violation, violation_report), None)
         context = prompt.split("For each item")[0]
         assert all(secret.value not in context for secret in violation.secrets)

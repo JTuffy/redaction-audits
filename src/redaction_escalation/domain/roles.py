@@ -6,13 +6,17 @@ from enum import StrEnum
 
 
 class Role(StrEnum):
-    """The model roles in a trial. The values double as Inspect `model_roles` keys."""
+    """The model roles in a trial. The values double as Inspect `model_roles` keys.
+
+    The auditor is templated in the MVP, so it has no role yet. JUDGE is the "human" judge: one
+    outside party that answers both the violation question and the secrets question.
+    INTEGRITY_CHECK is a measurement, not a participant.
+    """
 
     ADVOCATE = "advocate"
-    REFEREE = "referee"
-    VIEWER = "viewer"
-    GUESSER = "guesser"
+    EXECUTOR = "executor"
     JUDGE = "judge"
+    INTEGRITY_CHECK = "integrity_check"
 
 
 class Stance(StrEnum):

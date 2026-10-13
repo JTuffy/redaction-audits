@@ -67,8 +67,8 @@ def redaction_scorer() -> Scorer:
         result = sample_result(_scenario_of(state), record)
         return Score(
             value={
-                "viewer_unedited": result.viewer_unedited,
-                "viewer_edited": result.viewer_edited,
+                "judge_unedited": result.judge_unedited,
+                "judge_edited": result.judge_edited,
                 "evidence_loss": result.evidence_loss,
                 "redaction_volume": result.redaction_volume,
             },

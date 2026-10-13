@@ -16,7 +16,7 @@ from redaction_escalation.domain.scoring import (
     SampleResult,
     TrialRecord,
     sample_result,
-    secrets_in_report,
+    secrets_in_evidence,
 )
 from redaction_escalation.domain.summary import summarize, summarize_all
 from redaction_escalation.scenarios.reports import templated_report
@@ -44,8 +44,8 @@ def _record(scenario: Scenario, edited_confidence: float | None) -> TrialRecord:
         edited=apply_text_redaction(report, scenario),
         requests=(),
         rulings=(),
-        viewer_unedited=80 if scenario.label is Label.VIOLATION else 30,
-        viewer_edited=60 if scenario.label is Label.VIOLATION else 40,
+        judge_unedited=80 if scenario.label is Label.VIOLATION else 30,
+        judge_edited=60 if scenario.label is Label.VIOLATION else 40,
         guesses_prior=_guesses(scenario, None),
         guesses_unedited=_guesses(scenario, 0.85),
         guesses_edited=_guesses(scenario, edited_confidence),
@@ -53,10 +53,10 @@ def _record(scenario: Scenario, edited_confidence: float | None) -> TrialRecord:
     )
 
 
-def test_secrets_in_report_excludes_noise_secret(
+def test_secrets_in_evidence_excludes_noise_secret(
     violation: Scenario, violation_report: Report
 ) -> None:
-    present = secrets_in_report(violation, violation_report)
+    present = secrets_in_evidence(violation, violation_report)
     assert present
     assert set(present) <= {s.secret_type for s in violation.secrets}
 

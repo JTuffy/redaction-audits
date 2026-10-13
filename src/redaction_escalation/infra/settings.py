@@ -31,10 +31,9 @@ class Settings(BaseSettings):
     )
 
     advocate_model: str = "anthropic/claude-sonnet-5-5"
-    referee_model: str = "anthropic/claude-sonnet-5-5"
-    viewer_model: str = "openai/gpt-5.6-terra"
-    guesser_model: str = "anthropic/claude-sonnet-5-5"
-    judge_model: str = "anthropic/claude-haiku-5-5"
+    executor_model: str = "anthropic/claude-sonnet-5-5"
+    judge_model: str = "openai/gpt-5.6-terra"
+    integrity_check_model: str = "anthropic/claude-haiku-5-5"
 
     inspect_log_dir: Path = Path("logs/inspect")
     results_dir: Path = Path("results")

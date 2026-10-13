@@ -36,10 +36,10 @@ class Call:
 
 AUDITOR = Call("sonnet", 3000, 900, 1500)
 ADVOCATE = Call("sonnet", 1800, 600, 1000)
-REFEREE = Call("sonnet", 2400, 500, 1000)
-VIEWER = Call("terra", 700, 150, 500)
-GUESSER = Call("sonnet", 1600, 350, 700)
-JUDGE = Call("haiku", 500, 20, 0)
+EXECUTOR = Call("sonnet", 2400, 500, 1000)
+JUDGE_VIOLATION = Call("terra", 700, 150, 500)
+JUDGE_SECRETS = Call("sonnet", 1600, 350, 700)
+INTEGRITY = Call("haiku", 500, 20, 0)
 GENERATE = (Call("opus", 2500, 3000, 2000), Call("sonnet", 4000, 800, 1000))
 
 
@@ -49,13 +49,13 @@ def p1_unit(policies=("text", "self", "ctx"), shared=True, model=None) -> float:
     def c(call: Call) -> float:
         return call.cost(model)
 
-    total = c(AUDITOR) + c(VIEWER) + 2 * c(GUESSER) if shared else 0.0
+    total = c(AUDITOR) + c(JUDGE_VIOLATION) + 2 * c(JUDGE_SECRETS) if shared else 0.0
     for policy in policies:
-        total += c(VIEWER) + c(GUESSER)
+        total += c(JUDGE_VIOLATION) + c(JUDGE_SECRETS)
         if policy in ("self", "ctx"):
-            total += c(ADVOCATE) + c(JUDGE)
+            total += c(ADVOCATE) + c(INTEGRITY)
         if policy == "ctx":
-            total += c(REFEREE)
+            total += c(EXECUTOR)
     return total
 
 
@@ -92,14 +92,19 @@ def main() -> None:
     case = p2_conversation() + p2_conversation(redacted=False) + prior + judge
     r2 = p1_unit(("self", "ctx"), shared=False)
     r3 = p1_unit(("text", "ctx"))
-    r5 = AUDITOR.cost() + p1_unit(("ctx",), shared=False) + VIEWER.cost() + GUESSER.cost()
-    r6 = 2 * (REFEREE.cost() + VIEWER.cost() + GUESSER.cost() + JUDGE.cost())
-    bound = 200 * 2 * (GUESSER.cost("opus") + VIEWER.cost("opus"))
+    r5 = (
+        AUDITOR.cost()
+        + p1_unit(("ctx",), shared=False)
+        + JUDGE_VIOLATION.cost()
+        + JUDGE_SECRETS.cost()
+    )
+    r6 = 2 * (EXECUTOR.cost() + JUDGE_VIOLATION.cost() + JUDGE_SECRETS.cost() + INTEGRITY.cost())
+    bound = 200 * 2 * (JUDGE_SECRETS.cost("opus") + JUDGE_VIOLATION.cost("opus"))
     opus_detective = (p2_conversation(model="opus") - p2_conversation()) * 0.45
     d3_d7 = 60 * (
         p2_conversation() * 1.45  # D3: redactor reads the whole conversation
         + p2_conversation()
-        + 40 * JUDGE.cost()  # D4: question monitor
+        + 40 * INTEGRITY.cost()  # D4: question monitor
         + case
         + gen  # D5: new case files
         + case  # D6: lab-aligned responder

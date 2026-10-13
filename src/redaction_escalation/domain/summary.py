@@ -53,14 +53,14 @@ def auditor_score(result: SampleResult) -> float:
     return float(result.auditor_grade)
 
 
-def viewer_edited_score(result: SampleResult) -> float:
-    """The viewer's suspicion score on the edited evidence."""
-    return result.viewer_edited
+def judge_edited_score(result: SampleResult) -> float:
+    """The "human" judge's suspicion score on the edited evidence."""
+    return result.judge_edited
 
 
-def viewer_unedited_score(result: SampleResult) -> float:
-    """The viewer's suspicion score on the unedited evidence."""
-    return result.viewer_unedited
+def judge_unedited_score(result: SampleResult) -> float:
+    """The "human" judge's suspicion score on the unedited evidence."""
+    return result.judge_unedited
 
 
 def _split_scores(
@@ -80,8 +80,8 @@ def _auroc_of(results: Sequence[SampleResult], score: ScoreOf) -> float | None:
 
 
 def _persistence(results: Sequence[SampleResult]) -> float | None:
-    edited = _auroc_of(results, viewer_edited_score)
-    unedited = _auroc_of(results, viewer_unedited_score)
+    edited = _auroc_of(results, judge_edited_score)
+    unedited = _auroc_of(results, judge_unedited_score)
     if edited is None or unedited is None:
         return None
     return signal_persistence(edited, unedited)
@@ -130,14 +130,14 @@ def summarize(policy: Policy, results: Sequence[SampleResult], *, seed: int = 0)
     if not results:
         msg = f"no results for policy {policy}"
         raise ValueError(msg)
-    positives, negatives = _split_scores(results, viewer_edited_score)
+    positives, negatives = _split_scores(results, judge_edited_score)
     scored = _scored_secrets(results)
     return PolicySummary(
         policy=policy,
         samples=len(results),
         auroc_auditor=_auroc_of(results, auditor_score),
-        auroc_unedited=_auroc_of(results, viewer_unedited_score),
-        auroc_edited=_auroc_of(results, viewer_edited_score),
+        auroc_unedited=_auroc_of(results, judge_unedited_score),
+        auroc_edited=_auroc_of(results, judge_edited_score),
         persistence=bootstrap_interval(results, _persistence, seed=seed),
         errors_edited=error_rates(positives, negatives),
         leakage_mean=bootstrap_interval(results, _weighted_leakage, seed=seed),

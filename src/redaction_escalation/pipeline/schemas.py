@@ -26,13 +26,13 @@ class WireRequest(RedactionRequest):
 
 
 class WireRuling(Ruling):
-    """A ruling as the referee writes it."""
+    """A ruling as the honest executor writes it."""
 
     model_config = _LENIENT
 
 
 class WireGuess(SecretGuess):
-    """One secret's distribution as the guesser writes it."""
+    """One secret's distribution as the "human" judge writes it."""
 
     model_config = _LENIENT
 
@@ -49,26 +49,26 @@ class AdvocateReply(Reply):
     requests: tuple[WireRequest, ...] = ()
 
 
-class RefereeReply(Reply):
-    """The referee's rulings."""
+class ExecutorReply(Reply):
+    """The honest executor's rulings."""
 
     rulings: tuple[WireRuling, ...] = ()
 
 
-class ViewerReply(Reply):
-    """The viewer's suspicion score."""
+class ViolationReply(Reply):
+    """The "human" judge's suspicion score."""
 
     score: Grade
     rationale: str = ""
 
 
-class GuesserReply(Reply):
-    """The guesser's distributions, one per secret asked about."""
+class SecretsReply(Reply):
+    """The "human" judge's distributions, one per secret asked about."""
 
     guesses: tuple[WireGuess, ...]
 
 
-class JudgeReply(Reply):
+class IntegrityReply(Reply):
     """The judge's verdict on whether editing changed the finding."""
 
     integrity: FindingIntegrity

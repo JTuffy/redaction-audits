@@ -40,11 +40,11 @@ src/redaction_escalation/
 
 1. builds the auditor's report (`audit_report`; templated in the MVP);
 2. asks the advocate for redaction requests (contextual rewrite and self-redaction);
-3. asks the referee to rule on them (contextual rewrite only);
+3. asks the honest executor to rule on them (contextual rewrite only);
 4. applies the policy with `domain.policies.redact`;
-5. asks the viewer to score the unedited and the edited evidence;
-6. asks the guesser for each secret in the report under three conditions: prior, unedited, edited;
-7. asks the judge whether editing changed the finding (skipped when the finding is untouched).
+5. asks the "human" judge, which sees only the claim and the quoted evidence, how likely a violation is, on the unedited and the edited evidence;
+6. asks the "human" judge for each secret in the evidence under three conditions: prior, unedited, edited;
+7. runs the finding-integrity check: did editing change the finding (skipped when the finding is untouched)? This is a measurement, not a participant.
 
 It returns a `TrialRecord`. The Inspect solver in `task.py` only stores that record; the scorer turns it into a `SampleResult` with `domain.scoring.sample_result`, and the result travels in the score's metadata, so `analyze` can rebuild every number from the logs alone. Cross-sample metrics (AUROC, persistence, mean leakage and their intervals) are computed in `domain.summary`, outside Inspect.
 
@@ -54,8 +54,10 @@ Swapping the templated report for a model auditor means changing `audit_report` 
 
 - **A scenario carries its own claim.** Prompts read `scenario.claim`, so the pipeline never reaches into the scenario blueprints.
 - **Prompt text lives in `prompts/`, not in Python.** Changing a template changes the prompt hash and therefore the cache key, which is the point: a cached reply is only reused for an identical prompt.
-- **Leakage is scored only on secrets that appear in the unedited report.** For the others, the unedited report adds nothing over the prior and the ratio is undefined.
-- **Unreadable replies are re-asked once with the parsing error.** If the second reply is also unreadable, or the guesser still skips a secret, the sample errors; `analyze` excludes it and logs the count.
-- **Referee rulings that are missing count as denials**, and rulings that point at a request that does not exist are ignored.
+- **Terminology.** The roles are the auditor, the lab advocate, the honest executor and the "human" judge. The finding-integrity check is a measurement, not a role.
+- **The "human" judge sees evidence only, for both questions.** A judge that could read the finding would copy the auditor's verdict. The cost is that secrets restated only in the finding or reasoning are not scored.
+- **Leakage is scored only on secrets that appear in the unedited evidence.** For the others, the unedited evidence adds nothing over the prior and the ratio is undefined.
+- **Unreadable replies are re-asked once with the parsing error.** If the second reply is also unreadable, or the "human" judge still skips a secret, the sample errors; `analyze` excludes it and logs the count.
+- **Honest executor rulings that are missing count as denials**, and rulings that point at a request that does not exist are ignored.
 - **Spans that contain a log ID are never edited**, under any policy (rule 2).
 - **Scenarios are seeded per scenario** (`seed:index`), so adding scenarios never changes existing ones.

@@ -34,19 +34,19 @@ from redaction_escalation.pipeline.mock import is_mock
 from redaction_escalation.pipeline.parsing import ReplyFormatError, parse_reply
 from redaction_escalation.pipeline.prompting import (
     advocate_prompt,
-    guesser_prompt,
-    judge_prompt,
-    referee_prompt,
+    executor_prompt,
+    integrity_prompt,
     retry_prompt,
-    viewer_prompt,
+    secrets_prompt,
+    violation_prompt,
 )
 from redaction_escalation.pipeline.schemas import (
     AdvocateReply,
-    GuesserReply,
-    JudgeReply,
-    RefereeReply,
+    ExecutorReply,
+    IntegrityReply,
     Reply,
-    ViewerReply,
+    SecretsReply,
+    ViolationReply,
 )
 
 log = get_logger(__name__)
@@ -96,37 +96,39 @@ async def advocate(
     return (await ask(Role.ADVOCATE, prompt, AdvocateReply)).requests
 
 
-async def referee(report: Report, requests: Sequence[RedactionRequest]) -> tuple[Ruling, ...]:
-    """The referee's rulings. Requests left without a ruling are treated as denied."""
+async def executor(report: Report, requests: Sequence[RedactionRequest]) -> tuple[Ruling, ...]:
+    """The honest executor's rulings. Requests left without a ruling are treated as denied."""
     if not requests:
         return ()
-    return (await ask(Role.REFEREE, referee_prompt(report, requests), RefereeReply)).rulings
+    return (await ask(Role.EXECUTOR, executor_prompt(report, requests), ExecutorReply)).rulings
 
 
-async def view(scenario: Scenario, report: Report) -> int:
-    """The viewer's 0-100 suspicion score from the evidence alone."""
-    return (await ask(Role.VIEWER, viewer_prompt(scenario, report), ViewerReply)).score
+async def judge_violation(scenario: Scenario, report: Report) -> int:
+    """The "human" judge's 0-100 suspicion score from the evidence alone."""
+    return (await ask(Role.JUDGE, violation_prompt(scenario, report), ViolationReply)).score
 
 
-async def guess(
+async def judge_secrets(
     scenario: Scenario, secret_types: Sequence[SecretType], report: Report | None
 ) -> tuple[SecretGuess, ...]:
-    """The guesser's distributions over each secret's options; `report=None` is the prior."""
+    """The "human" judge's distributions over each secret's options; `report=None` is the prior."""
     if not secret_types:
         return ()
 
-    def covers_every_secret(reply: GuesserReply) -> None:
+    def covers_every_secret(reply: SecretsReply) -> None:
         missing = set(secret_types) - {g.secret_type for g in reply.guesses}
         if missing:
             msg = f"missing guesses for: {', '.join(sorted(missing))}"
             raise ReplyFormatError(msg)
 
-    prompt = guesser_prompt(scenario, secret_types, report)
-    return (await ask(Role.GUESSER, prompt, GuesserReply, covers_every_secret)).guesses
+    prompt = secrets_prompt(scenario, secret_types, report)
+    return (await ask(Role.JUDGE, prompt, SecretsReply, covers_every_secret)).guesses
 
 
-async def judge(original: Report, edited: Report) -> FindingIntegrity:
+async def check_integrity(original: Report, edited: Report) -> FindingIntegrity:
     """Whether editing changed the finding. An untouched finding is kept without a call."""
     if original.finding == edited.finding:
         return FindingIntegrity.KEPT
-    return (await ask(Role.JUDGE, judge_prompt(original, edited), JudgeReply)).integrity
+    return (
+        await ask(Role.INTEGRITY_CHECK, integrity_prompt(original, edited), IntegrityReply)
+    ).integrity
