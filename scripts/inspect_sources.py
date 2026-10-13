@@ -10,18 +10,20 @@ import polars as pl
 RAW = Path(__file__).resolve().parents[1] / "data" / "raw"
 
 
-def wildchat() -> None:
-    df = pl.scan_parquet(RAW / "wildchat" / "*.parquet")
-    print("WildChat schema:", df.collect_schema())
-    summary = df.select(
-        pl.len().alias("conversations"),
-        pl.col("timestamp").min().alias("first"),
-        pl.col("timestamp").max().alias("last"),
-        pl.col("hashed_ip").n_unique().alias("users"),
-        pl.col("model").n_unique().alias("models"),
-    ).collect()
-    print(summary)
-    print(df.group_by("model").len().sort("len", descending=True).head(5).collect())
+def malt() -> None:
+    files = sorted(RAW.glob("malt/*.parquet"))
+    if not files:
+        print("MALT: no files yet (accept the terms on Hugging Face, set HF_TOKEN, re-fetch)")
+        return
+    df = pl.scan_parquet(files)
+    schema = df.collect_schema()
+    print("MALT columns:", list(schema))
+    print("rows:", df.select(pl.len()).collect().item())
+    for column in ("model", "run_source", "has_chain_of_thought", "manually_reviewed"):
+        if column in schema:
+            print(df.group_by(column).len().sort("len", descending=True).head(8).collect())
+    if "labels" in schema:
+        print(df.select(pl.col("labels").explode().value_counts(sort=True)).collect())
 
 
 def philly() -> None:
@@ -35,5 +37,5 @@ def philly() -> None:
 
 
 if __name__ == "__main__":
-    wildchat()
+    malt()
     philly()
