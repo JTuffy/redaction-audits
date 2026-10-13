@@ -9,11 +9,14 @@ from __future__ import annotations
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from redaction.core.roles import Role
+
+type ReasoningEffort = Literal["none", "minimal", "low", "medium", "high"]
 
 
 class LogFormat(StrEnum):
@@ -35,6 +38,13 @@ class Settings(BaseSettings):
     judge_model: str = "openai/gpt-5.6-terra"
     integrity_check_model: str = "anthropic/claude-haiku-5-5"
 
+    # Reasoning is billed as output and dominates cost uncertainty, so each role is capped.
+    # The setting is part of the frozen protocol; how each provider maps it is checked on dev.
+    advocate_reasoning: ReasoningEffort = "low"
+    executor_reasoning: ReasoningEffort = "low"
+    judge_reasoning: ReasoningEffort = "minimal"
+    integrity_check_reasoning: ReasoningEffort = "none"
+
     inspect_log_dir: Path = Path("logs/inspect")
     results_dir: Path = Path("results")
     scenarios_dir: Path = Path("data/generated")
@@ -53,6 +63,11 @@ class Settings(BaseSettings):
         """The configured model for one role."""
         model: str = getattr(self, f"{role.value}_model")
         return model
+
+    def reasoning_for(self, role: Role) -> ReasoningEffort:
+        """The configured reasoning effort for one role."""
+        effort: ReasoningEffort = getattr(self, f"{role.value}_reasoning")
+        return effort
 
 
 @lru_cache(maxsize=1)

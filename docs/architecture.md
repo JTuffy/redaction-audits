@@ -61,7 +61,7 @@ scripts/
 6. asks the "human" judge for each secret in the evidence under three conditions: prior, unedited, edited;
 7. runs the finding-integrity check: did editing change the finding (skipped when the finding is untouched)? This is a measurement, not a participant.
 
-It returns a `TrialRecord`. The Inspect solver in `task.py` only stores that record; the scorer turns it into a `SampleResult` with `escalation.scoring.sample_result`, and the result travels in the score's metadata, so `p1 analyze` can rebuild every number from the logs alone. Cross-sample metrics are computed in `escalation.summary`, outside Inspect.
+It returns a `TrialRecord`. The Inspect solver in `task.py` only stores that record; the scorer turns it into a `SampleResult` with `escalation.scoring.sample_result`, and the result travels in the score's metadata, so `p1 analyze` can rebuild every number from the logs alone. Cross-sample metrics are computed in `escalation.summary`, outside Inspect; the MVP gate checks in `escalation.checks` and the trade-off plot in `escalation.plots`.
 
 Swapping the templated report for a model auditor means changing `audit_report` and adding an auditor role in `calls.py`; nothing in `task.py` or `core` changes.
 
@@ -72,6 +72,7 @@ Swapping the templated report for a model auditor means changing `audit_report` 
 - **Prompt text lives in `prompts/`, not in Python.** Changing a template changes the prompt hash and therefore the cache key: a cached reply is only reused for an identical prompt.
 - **The "human" judge sees evidence only, for both questions.** A judge that could read the finding would copy the auditor's verdict. The cost is that secrets restated only in the finding or reasoning are not scored.
 - **Leakage is scored only on secrets that appear in the unedited evidence.** For the others the ratio is undefined.
+- **Reasoning effort is set per role** (`REDACTION_*_REASONING`) and passed as Inspect's `reasoning_effort`. It is part of the frozen protocol because it moves both cost and results. How each provider maps the setting is unverified until the first real-model run on dev.
 - **Unreadable replies are re-asked once with the parsing error.** If the second reply is also unreadable, or the "human" judge still skips a secret, the sample errors; `p1 analyze` excludes it and logs the count.
 - **Missing executor rulings count as denials**, and rulings that point at a request that does not exist are ignored.
 - **Spans that contain a log ID are never edited**, under any policy (rule 2).

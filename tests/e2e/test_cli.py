@@ -40,7 +40,9 @@ def test_mock_run_then_analysis(isolated_settings: Path) -> None:
     )
     assert result.exit_code == 0, result.output
     (run_dir,) = (isolated_settings / "out").iterdir()
-    assert {p.name for p in run_dir.iterdir()} == {"samples.jsonl", "summary.json", "summary.md"}
+    written = {p.name for p in run_dir.iterdir()} - {"tradeoff.png"}
+    assert written == {"samples.jsonl", "summary.json", "summary.md", "checks.md"}
+    assert "MVP gate" in result.output
 
 
 def test_analyze_empty_directory_fails(isolated_settings: Path) -> None:

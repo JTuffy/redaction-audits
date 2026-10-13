@@ -14,6 +14,7 @@ from redaction.core.roles import Role, Stance
 from redaction.data.generator import build_split
 from redaction.data.reports import templated_report
 from redaction.escalation.analysis import analyze_run
+from redaction.escalation.checks import checks_table
 from redaction.escalation.mock import mock_model
 from redaction.escalation.policies import Policy
 from redaction.escalation.runner import run_experiment
@@ -92,7 +93,8 @@ def analyze(
     log_dir: Annotated[Path, typer.Argument(help="A directory of Inspect logs from `p1 run`.")],
 ) -> None:
     """Compute Proposal 1's headline numbers and write them under REDACTION_RESULTS_DIR."""
-    summaries = analyze_run(log_dir, get_settings().results_dir / log_dir.name)
-    if not summaries:
+    analysis = analyze_run(log_dir, get_settings().results_dir / log_dir.name)
+    if analysis is None:
         raise typer.Exit(code=1)
-    typer.echo(summary_table(summaries))
+    typer.echo(summary_table(analysis.summaries))
+    typer.echo("\nMVP gate:\n" + checks_table(analysis.checks))

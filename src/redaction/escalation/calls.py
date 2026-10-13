@@ -14,6 +14,7 @@ from inspect_ai.model import (
     ChatMessage,
     ChatMessageAssistant,
     ChatMessageUser,
+    GenerateConfig,
     get_model,
 )
 
@@ -68,10 +69,11 @@ async def ask[T: Reply](
     settings = get_settings()
     model = get_model(role=role.value)
     cache: CachePolicy | bool = _CACHE if settings.cache_replies and not is_mock(model) else False
+    config = GenerateConfig(reasoning_effort=settings.reasoning_for(role))
     messages: list[ChatMessage] = [ChatMessageUser(content=prompt)]
     attempts = settings.parse_attempts
     for attempt in range(1, attempts + 1):
-        output = await model.generate(messages, cache=cache)
+        output = await model.generate(messages, config=config, cache=cache)
         try:
             reply = parse_reply(output.completion, schema)
             if check is not None:

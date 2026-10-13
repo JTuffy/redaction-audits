@@ -41,7 +41,7 @@ uv run python scripts/inspect_sources.py          # profile the source data
 uv run python scripts/botec.py                    # reproduce the compute budget
 ```
 
-Each P1 run writes Inspect logs under `logs/inspect/<run>` (open them with `uv run inspect view`) and a summary under `results/<run>`: `summary.md`, `summary.json` and one `SampleResult` per line in `samples.jsonl`.
+Each P1 run writes Inspect logs under `logs/inspect/<run>` (open them with `uv run inspect view`) and a summary under `results/<run>`: `summary.md`, `summary.json`, one `SampleResult` per line in `samples.jsonl`, `checks.md` (the MVP gate: unedited "human" judge AUROC ≥ 0.65, and red-herring suspicion rising easy < medium < hard) and `tradeoff.png` (persistence against leakage, one point per policy).
 
 Models are set per role with `REDACTION_ADVOCATE_MODEL`, `REDACTION_EXECUTOR_MODEL`, `REDACTION_JUDGE_MODEL` and `REDACTION_INTEGRITY_CHECK_MODEL`. Model replies are cached, so conditions shared across policies (the prior and the unedited report) are paid for once.
 
