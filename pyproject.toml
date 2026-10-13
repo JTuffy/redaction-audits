@@ -1,0 +1,77 @@
+[project]
+name = "redaction-escalation"
+version = "0.1.0"
+description = "Evaluation harness for Redaction Under Escalation: how much audit signal and how many secrets survive lab-requested redaction."
+readme = "README.md"
+authors = [{ name = "Josh Tuffy", email = "jtuffy117@gmail.com" }]
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=1.13.0",
+    "inspect-ai>=0.3.279",
+    "openai>=3.29.0",
+    "pydantic>=2.14.1",
+    "pydantic-settings>=2.15.0",
+    "structlog>=26.1.0",
+    "typer>=0.27.3",
+]
+
+[project.scripts]
+redesc = "redaction_escalation.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.11.29,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.0",
+    "pre-commit>=4.7.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF", "N", "PL", "PT",
+    "RET", "ARG", "PTH", "TID", "D", "ANN", "S", "LOG", "G", "ERA", "PERF",
+]
+ignore = [
+    "D105", "D107",          # magic and __init__ docstrings
+    "D203", "D213",          # use the D211 / D212 conventions
+    "PLR0913",               # explicit parameters read better than config bags here
+    "S311",                  # random is used for reproducible sampling, not cryptography
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "S101", "ANN", "PLR2004", "TID251"]
+"src/redaction_escalation/pipeline/**" = ["TID251"]
+"src/redaction_escalation/infra/**" = ["TID251"]
+"src/redaction_escalation/cli.py" = ["TID251", "PLR0917"]  # typer options are parameters
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"inspect_ai".msg = "Keep the domain layer free of Inspect; import it only from pipeline/, infra/ or the CLI."
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+mypy_path = "src"
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --cov=redaction_escalation --cov-report=term-missing"
+markers = ["e2e: end-to-end pipeline runs against mock models"]
+filterwarnings = [
+    # Inspect's own retry setup uses a deprecated tenacity argument.
+    "ignore:The 'initial' parameter is deprecated:DeprecationWarning",
+]

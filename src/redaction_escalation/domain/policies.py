@@ -1,0 +1,160 @@
+"""Redaction policies and the deterministic parts of applying them.
+
+The policy is the independent variable of the experiment. Text redaction is fully mechanical.
+Contextual rewrite and self-redaction need an advocate (and, for contextual rewrite, a referee)
+to produce requests and rulings; this module applies those decisions to a report and enforces
+the rules that hold under every policy.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Iterable, Sequence
+from enum import StrEnum
+
+from redaction_escalation.domain.models import (
+    RedactionAction,
+    RedactionRequest,
+    Report,
+    Ruling,
+    RulingDecision,
+    Scenario,
+)
+from redaction_escalation.domain.registry import redaction_marker
+
+LOG_ID_PATTERN = re.compile(r"LOG-\d{4}")
+
+
+class Policy(StrEnum):
+    """The redaction regimes compared in the experiment."""
+
+    TEXT_REDACTION = "text_redaction"
+    CONTEXTUAL_REWRITE = "contextual_rewrite"
+    SELF_REDACTION = "self_redaction"
+
+    @property
+    def uses_advocate(self) -> bool:
+        """Whether this policy acts on advocate requests."""
+        return self is not Policy.TEXT_REDACTION
+
+    @property
+    def uses_referee(self) -> bool:
+        """Whether a referee rules on the requests."""
+        return self is Policy.CONTEXTUAL_REWRITE
+
+
+def _replace_case_insensitive(text: str, needle: str, replacement: str) -> str:
+    return re.sub(re.escape(needle), lambda _: replacement, text, flags=re.IGNORECASE)
+
+
+def apply_text_redaction(report: Report, scenario: Scenario) -> Report:
+    """Remove every planted secret value wherever it appears in the report.
+
+    Longer values are replaced first so a value that contains another is not split.
+    """
+    secrets = sorted(scenario.secrets, key=lambda s: len(s.value), reverse=True)
+
+    def transform(text: str) -> str:
+        for secret in secrets:
+            text = _replace_case_insensitive(
+                text, secret.value, redaction_marker(secret.secret_type)
+            )
+        return text
+
+    return report.with_text(transform)
+
+
+def is_protected_span(span: str) -> bool:
+    """Spans that contain a log ID are never changed under any policy."""
+    return LOG_ID_PATTERN.search(span) is not None
+
+
+def grant_all(requests: Sequence[RedactionRequest]) -> tuple[Ruling, ...]:
+    """Rulings for self-redaction: every request is granted as asked."""
+    return tuple(
+        Ruling(request_index=index, decision=RulingDecision.GRANT, reason="self-redaction")
+        for index in range(len(requests))
+    )
+
+
+def _replacement_for(request: RedactionRequest, ruling: Ruling) -> str | None:
+    """The text a granted or modified ruling puts in place of the span, if any."""
+    if ruling.decision is RulingDecision.DENY:
+        return None
+    if ruling.decision is RulingDecision.MODIFY and ruling.replacement:
+        return ruling.replacement
+    if request.action is RedactionAction.GENERALIZE and request.proposed_replacement:
+        return request.proposed_replacement
+    return f"[REDACTED: {request.category}]"
+
+
+def apply_rulings(
+    report: Report,
+    requests: Sequence[RedactionRequest],
+    rulings: Iterable[Ruling],
+) -> Report:
+    """Apply referee (or self-redaction) rulings to a report.
+
+    Protected spans are skipped whatever the ruling says, rulings that point at a missing
+    request are ignored, and later requests never re-edit text an earlier one already replaced.
+    """
+    edits: list[tuple[str, str]] = []
+    for ruling in rulings:
+        if not 0 <= ruling.request_index < len(requests):
+            continue
+        request = requests[ruling.request_index]
+        replacement = _replacement_for(request, ruling)
+        if replacement is None or is_protected_span(request.span):
+            continue
+        edits.append((request.span, replacement))
+
+    edits.sort(key=lambda edit: len(edit[0]), reverse=True)
+
+    def transform(text: str) -> str:
+        for span, replacement in edits:
+            text = text.replace(span, replacement)
+        return text
+
+    return report.with_text(transform)
+
+
+def redact(
+    policy: Policy,
+    report: Report,
+    scenario: Scenario,
+    requests: Sequence[RedactionRequest] = (),
+    rulings: Iterable[Ruling] = (),
+) -> Report:
+    """Produce the edited report for a policy.
+
+    Text redaction is the floor under contextual rewrite (rule 1): registry values are removed
+    after the referee's rulings, so no ruling can bring one back.
+    """
+    if policy is Policy.TEXT_REDACTION:
+        return apply_text_redaction(report, scenario)
+    edited = apply_rulings(report, requests, effective_rulings(policy, requests, rulings))
+    if policy is Policy.SELF_REDACTION:
+        return edited
+    return apply_text_redaction(edited, scenario)
+
+
+def effective_rulings(
+    policy: Policy, requests: Sequence[RedactionRequest], rulings: Iterable[Ruling]
+) -> tuple[Ruling, ...]:
+    """The rulings a policy actually applies: none, all granted, or the referee's."""
+    if policy is Policy.TEXT_REDACTION:
+        return ()
+    if policy is Policy.SELF_REDACTION:
+        return grant_all(requests)
+    return tuple(rulings)
+
+
+def granted_count(
+    policy: Policy, requests: Sequence[RedactionRequest], rulings: Iterable[Ruling]
+) -> int:
+    """How many requests a policy granted or modified (denials and stray rulings excluded)."""
+    return sum(
+        1
+        for ruling in effective_rulings(policy, requests, rulings)
+        if ruling.decision is not RulingDecision.DENY and 0 <= ruling.request_index < len(requests)
+    )
