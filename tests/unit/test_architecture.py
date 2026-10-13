@@ -7,16 +7,16 @@ from pathlib import Path
 
 import pytest
 
-PACKAGE = "redaction_escalation"
+PACKAGE = "redaction"
 ROOT = Path(__file__).parents[2] / "src" / PACKAGE
 
 # Which of the package's own layers each layer may import from.
 ALLOWED = {
-    "domain": {"domain"},
-    "scenarios": {"domain", "scenarios"},
-    "prompts": set(),
-    "infra": {"domain", "infra"},
-    "pipeline": {"domain", "scenarios", "prompts", "infra", "pipeline"},
+    "core": {"core"},
+    "data": {"core", "data"},
+    "infra": {"core", "infra"},
+    "escalation": {"core", "data", "infra", "escalation"},
+    "detective": {"core", "data", "infra", "detective"},
 }
 
 

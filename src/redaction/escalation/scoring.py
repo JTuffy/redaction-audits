@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from redaction_escalation.domain.metrics import evidence_loss, leakage, redaction_volume
-from redaction_escalation.domain.models import (
+from redaction.core.metrics import evidence_loss, leakage, redaction_volume
+from redaction.core.models import (
     Difficulty,
     FindingIntegrity,
     Frozen,
@@ -23,7 +23,7 @@ from redaction_escalation.domain.models import (
     SecretType,
     ViolationType,
 )
-from redaction_escalation.domain.policies import Policy, granted_count
+from redaction.escalation.policies import Policy, granted_count
 
 
 def secrets_in_evidence(scenario: Scenario, report: Report) -> tuple[SecretType, ...]:

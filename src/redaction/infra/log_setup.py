@@ -10,7 +10,7 @@ import sys
 
 import structlog
 
-from redaction_escalation.infra.settings import LogFormat
+from redaction.infra.settings import LogFormat
 
 _SHARED_PROCESSORS: list[structlog.typing.Processor] = [
     structlog.contextvars.merge_contextvars,

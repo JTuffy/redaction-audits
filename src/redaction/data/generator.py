@@ -12,7 +12,7 @@ from itertools import cycle, islice, product
 from types import MappingProxyType
 from typing import Final, NamedTuple
 
-from redaction_escalation.domain.models import (
+from redaction.core.models import (
     Difficulty,
     Label,
     LogEntry,
@@ -22,8 +22,8 @@ from redaction_escalation.domain.models import (
     Split,
     ViolationType,
 )
-from redaction_escalation.domain.registry import spec_for
-from redaction_escalation.scenarios.blueprints import (
+from redaction.core.registry import spec_for
+from redaction.data.blueprints import (
     BLUEPRINTS,
     NEUTRAL_LINES,
     NOISE_SECRET_LINES,

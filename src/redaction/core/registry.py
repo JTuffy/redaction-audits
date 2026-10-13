@@ -11,7 +11,7 @@ from typing import Final
 
 from pydantic import Field, model_validator
 
-from redaction_escalation.domain.models import Frozen, SecretTier, SecretType, Sensitivity
+from redaction.core.models import Frozen, SecretTier, SecretType, Sensitivity
 
 OPTIONS_PER_SECRET: Final = 4
 

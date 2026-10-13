@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from redaction_escalation.domain.models import (
+from redaction.core.models import (
     EvidenceQuote,
     PlantedSecret,
     RedactionAction,
@@ -12,7 +12,9 @@ from redaction_escalation.domain.models import (
     SecretTier,
     ViolationType,
 )
-from redaction_escalation.domain.policies import (
+from redaction.core.registry import redaction_marker, spec_for
+from redaction.data.reports import templated_report
+from redaction.escalation.policies import (
     Policy,
     apply_rulings,
     apply_text_redaction,
@@ -20,9 +22,7 @@ from redaction_escalation.domain.policies import (
     is_protected_span,
     redact,
 )
-from redaction_escalation.domain.registry import redaction_marker, spec_for
-from redaction_escalation.domain.scoring import secrets_in_evidence
-from redaction_escalation.scenarios.reports import templated_report
+from redaction.escalation.scoring import secrets_in_evidence
 
 ALWAYS, CONTEXT = SecretTier.ALWAYS_REDACT, SecretTier.CONTEXT
 

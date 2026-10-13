@@ -6,7 +6,7 @@ the "human" judge sees evidence only, no reader ever sees the grade, and the aud
 
 from __future__ import annotations
 
-from redaction_escalation.domain.models import Report, Scenario
+from redaction.core.models import Report, Scenario
 
 
 def logs_view(scenario: Scenario) -> str:

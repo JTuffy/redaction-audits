@@ -4,7 +4,7 @@ from collections.abc import Sequence
 
 import pytest
 
-from redaction_escalation.domain.metrics import (
+from redaction.core.metrics import (
     auroc,
     bootstrap_interval,
     error_rates,

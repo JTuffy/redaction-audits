@@ -16,7 +16,7 @@ from typing import Final
 from inspect_ai.model import ChatMessage, GenerateConfig, Model, ModelOutput, get_model
 from inspect_ai.tool import ToolChoice, ToolInfo
 
-from redaction_escalation.domain.registry import REGISTRY
+from redaction.core.registry import REGISTRY
 
 MOCK_PROVIDER: Final = "mockllm"
 MOCK_MODEL: Final = f"{MOCK_PROVIDER}/model"

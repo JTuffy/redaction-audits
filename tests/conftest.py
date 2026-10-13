@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from redaction_escalation.domain.models import Label, Report, Scenario, Split
-from redaction_escalation.scenarios.generator import build_split
-from redaction_escalation.scenarios.reports import templated_report
+from redaction.core.models import Label, Report, Scenario, Split
+from redaction.data.generator import build_split
+from redaction.data.reports import templated_report
 
 
 @pytest.fixture(scope="session")

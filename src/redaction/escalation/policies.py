@@ -12,7 +12,7 @@ import re
 from collections.abc import Iterable, Sequence
 from enum import StrEnum
 
-from redaction_escalation.domain.models import (
+from redaction.core.models import (
     RedactionAction,
     RedactionRequest,
     Report,
@@ -21,7 +21,7 @@ from redaction_escalation.domain.models import (
     Scenario,
     SecretTier,
 )
-from redaction_escalation.domain.registry import redaction_marker, spec_for
+from redaction.core.registry import redaction_marker, spec_for
 
 LOG_ID_PATTERN = re.compile(r"LOG-\d{4}")
 ALWAYS_REDACT_ONLY = frozenset({SecretTier.ALWAYS_REDACT})

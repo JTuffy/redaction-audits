@@ -15,13 +15,13 @@ from inspect_ai.model import ModelOutput
 from inspect_ai.scorer import Score, Scorer, Target, mean, scorer
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 
-from redaction_escalation.domain.models import Scenario, Split
-from redaction_escalation.domain.policies import Policy
-from redaction_escalation.domain.roles import Stance
-from redaction_escalation.domain.scoring import SampleResult, TrialRecord, sample_result
-from redaction_escalation.domain.views import logs_view, report_view
-from redaction_escalation.pipeline.trial import run_trial
-from redaction_escalation.scenarios.generator import build_split
+from redaction.core.models import Scenario, Split
+from redaction.core.roles import Stance
+from redaction.data.generator import build_split
+from redaction.escalation.policies import Policy
+from redaction.escalation.scoring import SampleResult, TrialRecord, sample_result
+from redaction.escalation.trial import run_trial
+from redaction.escalation.views import logs_view, report_view
 
 SCORER_NAME: Final = "redaction_scorer"
 _TRIAL_KEY: Final = "trial"
@@ -84,7 +84,7 @@ def result_from_metadata(metadata: dict[str, object]) -> SampleResult:
 
 
 @task
-def redaction_escalation(
+def redaction(
     split: str = Split.DEV.value,
     policy: str = Policy.CONTEXTUAL_REWRITE.value,
     stance: str = Stance.HONEST.value,
@@ -100,6 +100,6 @@ def redaction_escalation(
         dataset=dataset,
         solver=redaction_trial(chosen_policy, chosen_stance),
         scorer=redaction_scorer(),
-        name=f"redaction_escalation_{chosen_policy}",
+        name=f"redaction_{chosen_policy}",
         metadata={"split": chosen_split, "policy": chosen_policy, "stance": chosen_stance},
     )

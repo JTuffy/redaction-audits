@@ -10,13 +10,13 @@ from __future__ import annotations
 
 from inspect_ai.util import collect
 
-from redaction_escalation.domain.models import Report, Scenario
-from redaction_escalation.domain.policies import Policy, redact
-from redaction_escalation.domain.roles import Stance
-from redaction_escalation.domain.scoring import TrialRecord, secrets_in_evidence
-from redaction_escalation.infra.log_setup import get_logger
-from redaction_escalation.pipeline import calls
-from redaction_escalation.scenarios.reports import templated_report
+from redaction.core.models import Report, Scenario
+from redaction.core.roles import Stance
+from redaction.data.reports import templated_report
+from redaction.escalation import calls
+from redaction.escalation.policies import Policy, redact
+from redaction.escalation.scoring import TrialRecord, secrets_in_evidence
+from redaction.infra.log_setup import get_logger
 
 log = get_logger(__name__)
 

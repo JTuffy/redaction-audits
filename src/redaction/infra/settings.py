@@ -13,7 +13,7 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from redaction_escalation.domain.roles import Role
+from redaction.core.roles import Role
 
 
 class LogFormat(StrEnum):
@@ -24,10 +24,10 @@ class LogFormat(StrEnum):
 
 
 class Settings(BaseSettings):
-    """All tunable settings. Override any field with a `REDESC_` environment variable."""
+    """All tunable settings. Override any field with a `REDACTION_` environment variable."""
 
     model_config = SettingsConfigDict(
-        env_prefix="REDESC_", env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_prefix="REDACTION_", env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
     advocate_model: str = "anthropic/claude-sonnet-5-5"

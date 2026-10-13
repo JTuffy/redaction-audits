@@ -11,14 +11,14 @@ import random
 from types import MappingProxyType
 from typing import Final
 
-from redaction_escalation.domain.models import (
+from redaction.core.models import (
     Difficulty,
     EvidenceQuote,
     Label,
     Report,
     Scenario,
 )
-from redaction_escalation.scenarios.blueprints import BLUEPRINTS, variant_for
+from redaction.data.blueprints import BLUEPRINTS, variant_for
 
 BASE_GRADES: Final = MappingProxyType(
     {

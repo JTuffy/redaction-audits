@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from redaction_escalation.domain.models import (
+from redaction.core.models import (
     FindingIntegrity,
     Label,
     Report,
@@ -10,16 +10,16 @@ from redaction_escalation.domain.models import (
     SecretGuess,
     SecretType,
 )
-from redaction_escalation.domain.policies import Policy, apply_text_redaction
-from redaction_escalation.domain.registry import spec_for
-from redaction_escalation.domain.scoring import (
+from redaction.core.registry import spec_for
+from redaction.data.reports import templated_report
+from redaction.escalation.policies import Policy, apply_text_redaction
+from redaction.escalation.scoring import (
     SampleResult,
     TrialRecord,
     sample_result,
     secrets_in_evidence,
 )
-from redaction_escalation.domain.summary import summarize, summarize_all
-from redaction_escalation.scenarios.reports import templated_report
+from redaction.escalation.summary import summarize, summarize_all
 
 
 def _guesses(scenario: Scenario, confidence: float | None) -> tuple[SecretGuess, ...]:

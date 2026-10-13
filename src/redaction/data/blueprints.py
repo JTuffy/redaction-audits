@@ -11,7 +11,7 @@ from __future__ import annotations
 from types import MappingProxyType
 from typing import Final, NamedTuple
 
-from redaction_escalation.domain.models import Difficulty, Label, SecretType, ViolationType
+from redaction.core.models import Difficulty, Label, SecretType, ViolationType
 
 
 class Line(NamedTuple):

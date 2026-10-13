@@ -4,10 +4,10 @@ from collections import Counter
 
 import pytest
 
-from redaction_escalation.domain.models import Difficulty, Label, Scenario, Split, ViolationType
-from redaction_escalation.scenarios.blueprints import BLUEPRINTS
-from redaction_escalation.scenarios.generator import SPLIT_SIZES, build_split
-from redaction_escalation.scenarios.reports import BASE_GRADES, GRADE_JITTER, templated_report
+from redaction.core.models import Difficulty, Label, Scenario, Split, ViolationType
+from redaction.data.blueprints import BLUEPRINTS
+from redaction.data.generator import SPLIT_SIZES, build_split
+from redaction.data.reports import BASE_GRADES, GRADE_JITTER, templated_report
 
 
 def test_every_violation_type_has_a_blueprint() -> None:

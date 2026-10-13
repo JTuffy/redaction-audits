@@ -8,11 +8,11 @@ from collections.abc import Iterator
 import pytest
 from inspect_ai.model import Model, ModelOutput, get_model
 
-from redaction_escalation.domain.roles import Role
-from redaction_escalation.pipeline import calls
-from redaction_escalation.pipeline.mock import MOCK_MODEL
-from redaction_escalation.pipeline.parsing import ReplyFormatError
-from redaction_escalation.pipeline.schemas import ViolationReply
+from redaction.core.parsing import ReplyFormatError
+from redaction.core.roles import Role
+from redaction.escalation import calls
+from redaction.escalation.mock import MOCK_MODEL
+from redaction.escalation.schemas import ViolationReply
 
 
 def _model(*replies: str) -> Model:

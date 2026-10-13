@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
 
-from redaction_escalation.domain.models import (
+from redaction.core.models import (
     FindingIntegrity,
     Grade,
     RedactionRequest,

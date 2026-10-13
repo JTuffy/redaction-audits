@@ -7,12 +7,12 @@ from collections.abc import Sequence
 from types import MappingProxyType
 from typing import Final
 
-from redaction_escalation.domain.models import RedactionRequest, Report, Scenario, SecretType
-from redaction_escalation.domain.policies import Policy
-from redaction_escalation.domain.registry import REGISTRY, spec_for
-from redaction_escalation.domain.roles import Stance
-from redaction_escalation.domain.views import evidence_view, report_view
-from redaction_escalation.prompts import PromptName, render
+from redaction.core.models import RedactionRequest, Report, Scenario, SecretType
+from redaction.core.registry import REGISTRY, spec_for
+from redaction.core.roles import Stance
+from redaction.escalation.policies import Policy
+from redaction.escalation.prompts import PromptName, render
+from redaction.escalation.views import evidence_view, report_view
 
 _STANCE_PROMPTS: Final = MappingProxyType(
     {

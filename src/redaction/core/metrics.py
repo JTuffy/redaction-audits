@@ -12,7 +12,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Final
 
-from redaction_escalation.domain.models import Report
+from redaction.core.models import Report
 
 CHANCE_AUROC: Final = 0.5
 LEAKAGE_TAIL_THRESHOLD: Final = 0.8

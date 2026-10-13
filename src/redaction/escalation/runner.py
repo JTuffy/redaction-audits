@@ -9,11 +9,11 @@ from inspect_ai import eval as inspect_eval
 from inspect_ai.log import EvalLog
 from inspect_ai.model import Model
 
-from redaction_escalation.domain.models import Split
-from redaction_escalation.domain.policies import Policy
-from redaction_escalation.domain.roles import Stance
-from redaction_escalation.infra.log_setup import get_logger
-from redaction_escalation.pipeline.task import redaction_escalation
+from redaction.core.models import Split
+from redaction.core.roles import Stance
+from redaction.escalation.policies import Policy
+from redaction.escalation.task import redaction
+from redaction.infra.log_setup import get_logger
 
 log = get_logger(__name__)
 
@@ -30,10 +30,7 @@ def run_experiment(
     seed: int | None = None,
 ) -> list[EvalLog]:
     """Run one task per policy and return Inspect's logs (also written to `log_dir`)."""
-    tasks = [
-        redaction_escalation(split=split, policy=policy, stance=stance, seed=seed)
-        for policy in policies
-    ]
+    tasks = [redaction(split=split, policy=policy, stance=stance, seed=seed) for policy in policies]
     log.info(
         "run_started",
         split=split,

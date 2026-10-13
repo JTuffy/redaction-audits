@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from redaction_escalation.cli import app
-from redaction_escalation.infra.settings import get_settings
+from redaction.cli import app
+from redaction.infra.settings import get_settings
 
 pytestmark = pytest.mark.e2e
 
@@ -21,14 +21,14 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterat
         ("INSPECT_LOG_DIR", "logs"),
         ("RESULTS_DIR", "out"),
     ):
-        monkeypatch.setenv(f"REDESC_{name}", str(tmp_path / sub))
+        monkeypatch.setenv(f"REDACTION_{name}", str(tmp_path / sub))
     get_settings.cache_clear()
     yield tmp_path
     get_settings.cache_clear()
 
 
 def test_generate_writes_scenarios_and_reports(isolated_settings: Path) -> None:
-    result = CliRunner().invoke(app, ["generate", "--split", "dev"])
+    result = CliRunner().invoke(app, ["data", "generate", "--split", "dev"])
     assert result.exit_code == 0, result.output
     assert (isolated_settings / "data" / "dev_scenarios.jsonl").exists()
     assert (isolated_settings / "data" / "dev_reports.jsonl").exists()
@@ -36,7 +36,7 @@ def test_generate_writes_scenarios_and_reports(isolated_settings: Path) -> None:
 
 def test_mock_run_then_analysis(isolated_settings: Path) -> None:
     result = CliRunner().invoke(
-        app, ["run", "--mock", "--policy", "text_redaction", "--limit", "10"]
+        app, ["p1", "run", "--mock", "--policy", "text_redaction", "--limit", "10"]
     )
     assert result.exit_code == 0, result.output
     (run_dir,) = (isolated_settings / "out").iterdir()
@@ -46,5 +46,5 @@ def test_mock_run_then_analysis(isolated_settings: Path) -> None:
 def test_analyze_empty_directory_fails(isolated_settings: Path) -> None:
     empty = isolated_settings / "empty"
     empty.mkdir()
-    result = CliRunner().invoke(app, ["analyze", str(empty)])
+    result = CliRunner().invoke(app, ["p1", "analyze", str(empty)])
     assert result.exit_code == 1

@@ -4,23 +4,23 @@ from __future__ import annotations
 
 import pytest
 
-from redaction_escalation.domain.models import Report, Scenario
-from redaction_escalation.domain.policies import Policy
-from redaction_escalation.domain.roles import Stance
-from redaction_escalation.domain.scoring import secrets_in_evidence
-from redaction_escalation.pipeline.parsing import (
+from redaction.core.models import Report, Scenario
+from redaction.core.parsing import (
     ReplyFormatError,
     extract_json_object,
     parse_reply,
 )
-from redaction_escalation.pipeline.prompting import (
+from redaction.core.roles import Stance
+from redaction.escalation.policies import Policy
+from redaction.escalation.prompting import (
     advocate_prompt,
     executor_prompt,
     integrity_prompt,
     secrets_prompt,
     violation_prompt,
 )
-from redaction_escalation.pipeline.schemas import AdvocateReply, ViolationReply
+from redaction.escalation.schemas import AdvocateReply, ViolationReply
+from redaction.escalation.scoring import secrets_in_evidence
 
 
 class TestParsing:

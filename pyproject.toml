@@ -1,7 +1,7 @@
 [project]
-name = "redaction-escalation"
+name = "redaction-audits"
 version = "0.1.0"
-description = "Evaluation harness for Redaction Under Escalation: how much audit signal and how many secrets survive lab-requested redaction."
+description = "Evaluation harnesses for privacy-preserving redaction in AI audits: Redaction Under Escalation (P1) and Redaction Detective (P2)."
 readme = "README.md"
 authors = [{ name = "Josh Tuffy", email = "jtuffy117@gmail.com" }]
 requires-python = ">=3.12"
@@ -16,11 +16,17 @@ dependencies = [
 ]
 
 [project.scripts]
-redesc = "redaction_escalation.cli:app"
+redaction = "redaction.cli:app"
 
 [build-system]
 requires = ["uv_build>=0.11.29,<0.12.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "redaction"
+
+[tool.uv]
+default-groups = ["dev", "data"]
 
 [dependency-groups]
 data = [
@@ -53,13 +59,14 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D", "S101", "ANN", "PLR2004", "TID251"]
-"src/redaction_escalation/pipeline/**" = ["TID251"]
-"src/redaction_escalation/infra/**" = ["TID251"]
+# Escalation modules that drive Inspect; the rest of escalation/ stays Inspect-free.
+"src/redaction/escalation/{calls,trial,task,runner,analysis,mock}.py" = ["TID251"]
+"src/redaction/infra/**" = ["TID251"]
 "scripts/**" = ["D", "ANN", "PLR2004", "INP001", "FBT"]  # one-off calculation scripts
-"src/redaction_escalation/cli.py" = ["TID251", "PLR0917"]  # typer options are parameters
+"src/redaction/cli.py" = ["TID251", "PLR0917"]  # typer options are parameters
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"inspect_ai".msg = "Keep the domain layer free of Inspect; import it only from pipeline/, infra/ or the CLI."
+"inspect_ai".msg = "Keep core/, data/ and the pure escalation modules free of Inspect; see per-file-ignores."
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -73,7 +80,7 @@ plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers --cov=redaction_escalation --cov-report=term-missing"
+addopts = "-ra --strict-markers --cov=redaction --cov-report=term-missing"
 markers = ["e2e: end-to-end pipeline runs against mock models"]
 filterwarnings = [
     # Inspect's own retry setup uses a deprecated tenacity argument.

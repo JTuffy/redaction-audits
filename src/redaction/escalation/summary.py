@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Callable, Sequence
 
-from redaction_escalation.domain.metrics import (
+from redaction.core.metrics import (
     ErrorRates,
     Interval,
     auroc,
@@ -19,10 +19,10 @@ from redaction_escalation.domain.metrics import (
     tail_share,
     weighted_mean,
 )
-from redaction_escalation.domain.models import FindingIntegrity, Frozen, Label, SecretTier
-from redaction_escalation.domain.policies import Policy
-from redaction_escalation.domain.registry import spec_for
-from redaction_escalation.domain.scoring import SampleResult
+from redaction.core.models import FindingIntegrity, Frozen, Label, SecretTier
+from redaction.core.registry import spec_for
+from redaction.escalation.policies import Policy
+from redaction.escalation.scoring import SampleResult
 
 
 class PolicySummary(Frozen):

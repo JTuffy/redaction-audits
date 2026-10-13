@@ -17,7 +17,7 @@ from inspect_ai.model import (
     get_model,
 )
 
-from redaction_escalation.domain.models import (
+from redaction.core.models import (
     FindingIntegrity,
     RedactionRequest,
     Report,
@@ -26,13 +26,11 @@ from redaction_escalation.domain.models import (
     SecretGuess,
     SecretType,
 )
-from redaction_escalation.domain.policies import Policy
-from redaction_escalation.domain.roles import Role, Stance
-from redaction_escalation.infra.log_setup import get_logger
-from redaction_escalation.infra.settings import get_settings
-from redaction_escalation.pipeline.mock import is_mock
-from redaction_escalation.pipeline.parsing import ReplyFormatError, parse_reply
-from redaction_escalation.pipeline.prompting import (
+from redaction.core.parsing import ReplyFormatError, parse_reply
+from redaction.core.roles import Role, Stance
+from redaction.escalation.mock import is_mock
+from redaction.escalation.policies import Policy
+from redaction.escalation.prompting import (
     advocate_prompt,
     executor_prompt,
     integrity_prompt,
@@ -40,7 +38,7 @@ from redaction_escalation.pipeline.prompting import (
     secrets_prompt,
     violation_prompt,
 )
-from redaction_escalation.pipeline.schemas import (
+from redaction.escalation.schemas import (
     AdvocateReply,
     ExecutorReply,
     IntegrityReply,
@@ -48,6 +46,8 @@ from redaction_escalation.pipeline.schemas import (
     SecretsReply,
     ViolationReply,
 )
+from redaction.infra.log_setup import get_logger
+from redaction.infra.settings import get_settings
 
 log = get_logger(__name__)
 

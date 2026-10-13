@@ -9,11 +9,11 @@ from typing import Final
 from inspect_ai.log import EvalLog, list_eval_logs, read_eval_log
 from pydantic import TypeAdapter
 
-from redaction_escalation.domain.scoring import SampleResult
-from redaction_escalation.domain.summary import PolicySummary, summarize_all, summary_table
-from redaction_escalation.infra.log_setup import get_logger
-from redaction_escalation.infra.storage import write_json, write_jsonl, write_text
-from redaction_escalation.pipeline.task import SCORER_NAME, result_from_metadata
+from redaction.escalation.scoring import SampleResult
+from redaction.escalation.summary import PolicySummary, summarize_all, summary_table
+from redaction.escalation.task import SCORER_NAME, result_from_metadata
+from redaction.infra.log_setup import get_logger
+from redaction.infra.storage import write_json, write_jsonl, write_text
 
 log = get_logger(__name__)
 
