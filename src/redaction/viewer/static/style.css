@@ -133,3 +133,44 @@ table.left th, table.left td { text-align: left; vertical-align: top; }
 mark.secret { background: color-mix(in srgb, var(--secret) 28%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; }
 mark.correlate { background: none; color: inherit; text-decoration: underline 2px var(--correlate); text-underline-offset: 3px; }
 .toggle { display: inline-flex; gap: 6px; align-items: center; font-size: 0.85rem; color: var(--muted); }
+
+/* Runs: judge-score dumbbells (hollow = unedited, filled = edited; shape carries the condition, not hue). */
+#run-select { max-width: 100%; }
+.db-wrap { overflow-x: auto; padding-bottom: 4px; }
+.db-wrap svg { display: block; }
+.db-cap { font: 500 0.8rem var(--sans); fill: var(--fg); }
+.db-head { font: 600 0.68rem var(--sans); letter-spacing: 0.06em; text-transform: uppercase; fill: var(--muted); }
+.db-name { font: 0.72rem var(--mono); fill: var(--fg); }
+.db-tick { font: 0.66rem var(--mono); fill: var(--muted); text-anchor: middle; }
+.db-grid { stroke: var(--line); stroke-width: 1; }
+.db-hit { fill: transparent; }
+.db-row { cursor: pointer; outline: none; }
+.db-row:hover .db-hit, .db-row:focus-visible .db-hit { fill: var(--hover); }
+.db-row.sel .db-hit { fill: var(--raised); }
+.db-line { stroke: var(--muted); stroke-width: 2; stroke-linecap: round; }
+.db-before { fill: var(--surface); stroke: var(--fg); stroke-width: 2; }
+.db-after { fill: var(--fg); stroke: var(--surface); stroke-width: 2; }
+.db-delta { font: 0.7rem var(--mono); fill: var(--muted); }
+.db-row.bad .db-line { stroke: var(--warn); }
+.db-row.bad .db-after { fill: var(--warn); }
+.db-row.bad .db-delta { fill: var(--fg); font-weight: 500; }
+
+/* Runs: secrets grid, one sequential hue whose strength is leakage. */
+table.secrets td.leak { background: color-mix(in srgb, var(--secret) calc(var(--l) * 45%), transparent) !important; }
+table.secrets tbody tr { cursor: pointer; }
+table.secrets tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.mono-cell { font-family: var(--mono); font-size: 0.8rem; }
+
+/* Runs: sample detail. */
+.detail h4 { margin: 0 0 8px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.logs.diff div { grid-template-columns: 74px minmax(0, 1fr); padding: 4px 10px 4px 0; }
+del { background: color-mix(in srgb, var(--secret) 25%, transparent); text-decoration: line-through; border-radius: 2px; }
+ins { background: color-mix(in srgb, var(--correlate) 22%, transparent); text-decoration: underline; text-underline-offset: 3px; border-radius: 2px; }
+table.reqs td { white-space: normal; }
+table.reqs td.why { min-width: 90px; }
+table.reqs details p { margin: 6px 0; max-width: 60ch; font-size: 0.8rem; color: var(--muted); }
+details summary { cursor: pointer; color: var(--accent); font-size: 0.8rem; }
+details.finding p { color: var(--muted); font-size: 0.85rem; max-width: 72ch; }
+em.flag { font-style: normal; color: var(--warn); }
+.detail > * { min-width: 0; }
+.seg { flex-wrap: wrap; max-width: 100%; }

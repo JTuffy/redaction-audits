@@ -61,11 +61,12 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D", "S101", "ANN", "PLR2004", "TID251"]
 # Escalation modules that drive Inspect; the rest of escalation/ stays Inspect-free.
-"src/redaction/escalation/{calls,trial,task,runner,analysis,mock}.py" = ["TID251"]
+"src/redaction/escalation/{calls,trial,task,runner,analysis,mock,ablation_task}.py" = ["TID251"]
 "src/redaction/infra/**" = ["TID251"]
 "src/redaction/data/pipeline/model_render.py" = ["TID251"]  # the model renderer drives Inspect
 "scripts/**" = ["D", "ANN", "PLR2004", "INP001", "FBT"]  # one-off calculation scripts
 "src/redaction/cli.py" = ["TID251", "PLR0917"]  # typer options are parameters
+"src/redaction/viewer/build.py" = ["TID251"]  # reads Inspect logs for the Runs tab
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "inspect_ai".msg = "Keep core/, data/ and the pure escalation modules free of Inspect; see per-file-ignores."

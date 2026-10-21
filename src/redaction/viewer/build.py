@@ -11,10 +11,12 @@ import json
 import shutil
 import subprocess
 import sys
-import zipfile
 from pathlib import Path
 from typing import Any
 
+from inspect_ai.log import EvalSample, read_eval_log
+
+from redaction.core.metrics import leakage
 from redaction.infra.log_setup import get_logger
 
 log = get_logger(__name__)
@@ -62,21 +64,87 @@ def _builds(built_dir: Path) -> list[dict[str, Any]]:
     return builds
 
 
+def _eval_logs(log_dir: Path | None, run: str) -> list[Path]:
+    return sorted((log_dir / run).glob("*.eval")) if log_dir is not None else []
+
+
 def _models(log_dir: Path | None, run: str) -> list[str]:
-    """Models a run used, read from its eval logs' headers (an .eval file is a zip)."""
-    if log_dir is None:
-        return []
+    """Models a run used, read from its eval logs' headers."""
     models: set[str] = set()
-    for path in (log_dir / run).glob("*.eval"):
+    for path in _eval_logs(log_dir, run):
         try:
-            with zipfile.ZipFile(path) as archive:
-                header = json.loads(archive.read("header.json"))
-            roles = header["eval"].get("model_roles") or {}
-            models.update(r["model"] if isinstance(r, dict) else str(r) for r in roles.values())
-            models.add(str(header["eval"]["model"]))
-        except (KeyError, OSError, ValueError, zipfile.BadZipFile):
+            header = read_eval_log(str(path), header_only=True)
+        except (OSError, ValueError, KeyError):
             continue
+        for role in (header.eval.model_roles or {}).values():
+            models.add(str(getattr(role, "model", role)))
+        models.add(str(header.eval.model))
     return sorted(models)
+
+
+def _guess(guesses: list[dict[str, Any]], secret_type: str, value: str) -> float:
+    for guess in guesses:
+        if guess.get("secret_type") == secret_type:
+            return float(guess.get("probabilities", {}).get(value, 0.0))
+    return 0.0
+
+
+def _trial(sample: EvalSample) -> dict[str, Any] | None:
+    """One sample, shaped for the Runs tab: the claim, both reports, requests, rulings, scores."""
+    trial = (sample.store or {}).get("trial")
+    scenario = (sample.metadata or {}).get("scenario")
+    if not trial or not scenario:
+        return None
+    secrets = []
+    for secret in scenario.get("secrets", []):
+        kind, value = secret["secret_type"], secret["value"]
+        p_prior = _guess(trial["guesses_prior"], kind, value)
+        p_unedited = _guess(trial["guesses_unedited"], kind, value)
+        p_edited = _guess(trial["guesses_edited"], kind, value)
+        secrets.append(
+            {
+                "secret_type": kind,
+                "value": value,
+                "p_prior": p_prior,
+                "p_unedited": p_unedited,
+                "p_edited": p_edited,
+                "leakage": leakage(p_edited, p_unedited, p_prior),
+            }
+        )
+    return {
+        "scenario_id": scenario["scenario_id"],
+        "policy": trial["policy"],
+        "label": scenario["label"],
+        "difficulty": scenario.get("difficulty"),
+        "violation_type": scenario["violation_type"],
+        "claim": scenario["claim"],
+        "auditor_grade": trial["report"]["grade"],
+        "finding": trial["report"]["finding"],
+        "evidence": trial["report"]["evidence"],
+        "edited_evidence": trial["edited"]["evidence"],
+        "requests": trial["requests"],
+        "rulings": trial["rulings"],
+        "judge_unedited": trial["judge_unedited"],
+        "judge_edited": trial["judge_edited"],
+        "integrity": trial["integrity"],
+        "secrets": secrets,
+    }
+
+
+def _samples(log_dir: Path | None, run: str) -> list[dict[str, Any]]:
+    """Every scored sample of a run, read from its Inspect logs."""
+    samples = []
+    for path in _eval_logs(log_dir, run):
+        try:
+            eval_log = read_eval_log(str(path))
+        except (OSError, ValueError, KeyError):
+            log.warning("eval_log_unreadable", path=str(path))
+            continue
+        for sample in eval_log.samples or []:
+            shaped = _trial(sample)
+            if shaped is not None:
+                samples.append(shaped)
+    return samples
 
 
 def _runs(results_dir: Path, log_dir: Path | None) -> list[dict[str, Any]]:
@@ -99,6 +167,7 @@ def _runs(results_dir: Path, log_dir: Path | None) -> list[dict[str, Any]]:
                 "models": _models(log_dir, run.name),
                 "summary": json.loads(summary.read_text(encoding="utf-8")),
                 "checks": checks,
+                "samples": _samples(log_dir, run.name),
             }
         )
     return runs

@@ -12,7 +12,7 @@ Two checks keep the layers honest. `tests/unit/test_architecture.py` fails if a 
 | `escalation` (P1) | `core`, `data`, `infra` |
 | `detective` (P2) | `core`, `data`, `infra` |
 
-A ruff rule (`TID251`) also bans `inspect_ai` everywhere except `infra/`, `cli.py` and the escalation modules that drive Inspect (`calls`, `trial`, `task`, `runner`, `analysis`, `mock`). Everything else, including P1's policies and metrics, is pure and testable without Inspect.
+A ruff rule (`TID251`) also bans `inspect_ai` everywhere except `infra/`, `cli.py` and the escalation modules that drive Inspect (`calls`, `trial`, `task`, `runner`, `analysis`, `mock`, `ablation_task`) and `viewer/build.py`. Everything else, including P1's policies and metrics, is pure and testable without Inspect.
 
 ```
 src/redaction/
@@ -38,11 +38,15 @@ src/redaction/
     task.py        Inspect plumbing: dataset, solver, scorer
     runner.py      runs one task per policy
     analysis.py    reads Inspect logs back into results and writes a run's summary files
+    ablation.py    marker ablation conditions: unedited, marker, pseudonym, marker_only (pure)
+    ablation_task.py  the ablation's Inspect task, runner and summary table
     mock.py        a scripted model for offline runs and tests
     prompts/       prompt templates as text files, filled with string.Template
   detective/     Proposal 2, Redaction Detective (not built yet)
-  infra/         settings (pydantic-settings), structured logging (structlog), file output
-  cli.py         redaction data generate | redaction p1 run | redaction p1 analyze
+  infra/         settings (pydantic-settings), structured logging (structlog), file output,
+                 and the run ledger (runs.py)
+  cli.py         redaction data generate | redaction p1 run | analyze | ablate | redaction site
+runs/            the committed run ledger: one record per real run (see runs/README.md)
 scripts/
   botec.py            reproduces the compute budget
   fetch_sources.py    downloads real source data (MALT, Philly) into data/raw/
@@ -78,3 +82,5 @@ Swapping the templated report for a model auditor means changing `audit_report` 
 - **Spans that contain a log ID are never edited**, under any policy (rule 2).
 - **Scenarios are seeded per scenario** (`seed:index`), so adding scenarios never changes existing ones.
 - **Shared code moves to `core` only when a second proposal needs it.** For example, `calls.ask` stays in `escalation` until P2 is built.
+
+- **Every real run is recorded.** `p1 run` and `p1 ablate` append to `runs/ledger.jsonl` and write `runs/<run>/run.json` with the commit, a dirty flag, `--purpose`, models, reasoning and tokens per model, and copy the small summary files. Mock runs are not recorded. Commit before a run so its record points at real code.

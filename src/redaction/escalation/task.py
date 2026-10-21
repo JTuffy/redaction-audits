@@ -29,7 +29,7 @@ _RESULT_KEY: Final = "result"
 _SCENARIO_KEY: Final = "scenario"
 
 
-def _to_sample(scenario: Scenario) -> Sample:
+def to_sample(scenario: Scenario) -> Sample:
     """An Inspect sample carrying the whole scenario in its metadata."""
     return Sample(
         id=scenario.scenario_id,
@@ -39,7 +39,8 @@ def _to_sample(scenario: Scenario) -> Sample:
     )
 
 
-def _scenario_of(state: TaskState) -> Scenario:
+def scenario_of(state: TaskState) -> Scenario:
+    """The scenario a sample carries in its metadata."""
     return Scenario.model_validate(state.metadata[_SCENARIO_KEY])
 
 
@@ -48,7 +49,7 @@ def redaction_trial(policy: Policy, stance: Stance) -> Solver:
     """Run one trial of a policy on a scenario and store the raw outputs."""
 
     async def solve(state: TaskState, generate: Generate) -> TaskState:  # noqa: ARG001
-        record = await run_trial(_scenario_of(state), policy, stance)
+        record = await run_trial(scenario_of(state), policy, stance)
         state.store.set(_TRIAL_KEY, record.model_dump(mode="json"))
         state.output = ModelOutput.from_content(
             model="pipeline", content=report_view(record.edited)
@@ -64,7 +65,7 @@ def redaction_scorer() -> Scorer:
 
     async def score(state: TaskState, target: Target) -> Score:  # noqa: ARG001
         record = TrialRecord.model_validate(state.store.get(_TRIAL_KEY))
-        result = sample_result(_scenario_of(state), record)
+        result = sample_result(scenario_of(state), record)
         return Score(
             value={
                 "judge_unedited": result.judge_unedited,
@@ -93,7 +94,7 @@ def redaction(
     """Redaction Under Escalation for one policy on one split."""
     chosen_split, chosen_policy, chosen_stance = Split(split), Policy(policy), Stance(stance)
     dataset = MemoryDataset(
-        [_to_sample(s) for s in build_split(chosen_split, seed=seed)],
+        [to_sample(s) for s in build_split(chosen_split, seed=seed)],
         name=f"redaction-escalation-{chosen_split}",
     )
     return Task(

@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     # The setting is part of the frozen protocol; how each provider maps it is checked on dev.
     advocate_reasoning: ReasoningEffort = "low"
     executor_reasoning: ReasoningEffort = "low"
-    judge_reasoning: ReasoningEffort = "minimal"
+    judge_reasoning: ReasoningEffort = "low"  # gpt-5.6-terra rejects "minimal"
     integrity_check_reasoning: ReasoningEffort = "none"
 
     inspect_log_dir: Path = Path("logs/inspect")
@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     philly_raw: Path = Path("data/raw/philly/trace-data/cluster_job_log")
     background_sample: Path = Path("data/derived/philly_jobs.jsonl")
     site_dir: Path = Path("site/dist")
+    ledger_dir: Path = Path("runs")  # committed run records; see infra/runs.py
 
     log_level: str = "INFO"
     log_format: LogFormat = LogFormat.CONSOLE

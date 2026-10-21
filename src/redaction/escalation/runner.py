@@ -18,6 +18,23 @@ from redaction.infra.log_setup import get_logger
 log = get_logger(__name__)
 
 
+def token_usage(logs: Sequence[EvalLog]) -> dict[str, dict[str, int]]:
+    """Tokens used per model across a run's logs, for the run ledger."""
+    totals: dict[str, dict[str, int]] = {}
+    for eval_log in logs:
+        for model, usage in (eval_log.stats.model_usage or {}).items():
+            entry = totals.setdefault(model, {})
+            for field in (
+                "input_tokens",
+                "output_tokens",
+                "reasoning_tokens",
+                "input_tokens_cache_read",
+                "input_tokens_cache_write",
+            ):
+                entry[field] = entry.get(field, 0) + (getattr(usage, field, None) or 0)
+    return totals
+
+
 def run_experiment(
     *,
     split: Split,
@@ -26,6 +43,7 @@ def run_experiment(
     model_roles: Mapping[str, str | Model],
     log_dir: Path,
     limit: int | None = None,
+    sample_ids: Sequence[str] | None = None,
     max_connections: int = 10,
     seed: int | None = None,
 ) -> list[EvalLog]:
@@ -37,6 +55,7 @@ def run_experiment(
         policies=[str(p) for p in policies],
         stance=stance,
         limit=limit,
+        sample_ids=list(sample_ids) if sample_ids else None,
         log_dir=str(log_dir),
     )
     logs = inspect_eval(
@@ -45,6 +64,7 @@ def run_experiment(
         model_roles=model_roles,
         log_dir=str(log_dir),
         limit=limit,
+        sample_id=list(sample_ids) if sample_ids else None,
         max_connections=max_connections,
         max_tasks=len(tasks),
         display="plain",

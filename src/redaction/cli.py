@@ -18,14 +18,17 @@ from redaction.data.pipeline.build import build_split_v2, manifest, write_build
 from redaction.data.pipeline.model_render import ModelRenderer, ModelReviewer
 from redaction.data.pipeline.render import Renderer, TemplateRenderer
 from redaction.data.reports import templated_report
+from redaction.escalation.ablation import Condition
+from redaction.escalation.ablation_task import analyze_ablation, run_ablation
 from redaction.escalation.analysis import analyze_run
 from redaction.escalation.checks import checks_table
 from redaction.escalation.mock import mock_model
 from redaction.escalation.policies import Policy
-from redaction.escalation.runner import run_experiment
+from redaction.escalation.runner import run_experiment, token_usage
 from redaction.escalation.summary import summary_table
 from redaction.infra.log_setup import configure_logging, get_logger
-from redaction.infra.settings import get_settings
+from redaction.infra.runs import record_run
+from redaction.infra.settings import Settings, get_settings
 from redaction.infra.storage import write_jsonl
 from redaction.viewer.build import build_site
 
@@ -135,10 +138,14 @@ def run(
     ] = None,
     stance: Annotated[Stance, typer.Option(help="The advocate's stance.")] = Stance.HONEST,
     limit: Annotated[int | None, typer.Option(help="Run only the first N samples.")] = None,
+    sample_id: Annotated[
+        list[str] | None, typer.Option(help="Run only these scenario IDs; repeat the flag.")
+    ] = None,
     mock: Annotated[bool, typer.Option(help="Use the scripted offline model.")] = False,
     analyze_after: Annotated[bool, typer.Option(help="Summarize the run when done.")] = True,
+    purpose: Annotated[str, typer.Option(help="Why this run exists, for the run ledger.")] = "",
 ) -> None:
-    """Run Proposal 1 for one split and stance."""
+    """Run Proposal 1 for one split and stance. Real runs are recorded in the run ledger."""
     settings = get_settings()
     roles: dict[str, str | Model]
     if mock:
@@ -148,17 +155,96 @@ def run(
         roles = dict(settings.model_roles())
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     log_dir = settings.inspect_log_dir / f"p1-{split}-{stance}-{stamp}"
-    run_experiment(
+    logs = run_experiment(
         split=split,
         policies=policy or list(Policy),
         stance=stance,
         model_roles=roles,
         log_dir=log_dir,
         limit=limit,
+        sample_ids=sample_id,
         max_connections=settings.max_connections,
     )
     if analyze_after:
         analyze(log_dir)
+    if not mock:
+        record_run(
+            name=log_dir.name,
+            kind="p1",
+            purpose=purpose,
+            config={
+                "split": split.value,
+                "policies": [p.value for p in (policy or list(Policy))],
+                "stance": stance.value,
+                "limit": limit,
+                "sample_ids": sample_id,
+                **_protocol(settings),
+                "tokens": token_usage(logs),
+            },
+            results_dir=settings.results_dir / log_dir.name,
+            ledger_dir=settings.ledger_dir,
+        )
+
+
+def _protocol(settings: Settings) -> dict[str, object]:
+    """Models and reasoning effort per role: the parts of the protocol a run depends on."""
+    return {
+        "models": settings.model_roles(),
+        "reasoning": {role.value: settings.reasoning_for(role) for role in Role},
+        "log_dir": str(settings.inspect_log_dir),
+    }
+
+
+@p1_app.command("ablate")
+def ablate(
+    split: Annotated[Split, typer.Option(help="Which split to run.")] = Split.DEV,
+    condition: Annotated[
+        list[Condition] | None,
+        typer.Option(help="Conditions to show the judge; repeat the flag. Default: all."),
+    ] = None,
+    sample_id: Annotated[
+        list[str] | None, typer.Option(help="Run only these scenario IDs; repeat the flag.")
+    ] = None,
+    mock: Annotated[bool, typer.Option(help="Use the scripted offline model.")] = False,
+    purpose: Annotated[str, typer.Option(help="Why this run exists, for the run ledger.")] = "",
+) -> None:
+    """Marker ablation: the "human" judge's suspicion when removed values are shown differently."""
+    settings = get_settings()
+    roles: dict[str, str | Model]
+    if mock:
+        model = mock_model()
+        roles = {role.value: model for role in Role}
+    else:
+        roles = dict(settings.model_roles())
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    log_dir = settings.inspect_log_dir / f"ablation-{split}-{stamp}"
+    logs = run_ablation(
+        split=split,
+        conditions=condition or list(Condition),
+        model_roles=roles,
+        log_dir=log_dir,
+        sample_ids=sample_id,
+        max_connections=settings.max_connections,
+    )
+    out_dir = settings.results_dir / log_dir.name
+    if analyze_ablation(log_dir, out_dir) is None:
+        raise typer.Exit(code=1)
+    typer.echo((out_dir / "ablation.md").read_text(encoding="utf-8"))
+    if not mock:
+        record_run(
+            name=log_dir.name,
+            kind="ablation",
+            purpose=purpose,
+            config={
+                "split": split.value,
+                "conditions": [c.value for c in (condition or list(Condition))],
+                "sample_ids": sample_id,
+                **_protocol(settings),
+                "tokens": token_usage(logs),
+            },
+            results_dir=out_dir,
+            ledger_dir=settings.ledger_dir,
+        )
 
 
 @p1_app.command("analyze")

@@ -1,0 +1,33 @@
+{
+  "name": "p1-dev-honest-20261021T220616Z",
+  "kind": "p1",
+  "recorded_at": "2026-10-21T22:45:00+00:00",
+  "purpose": "First real-model smoke test, 3 violations, all policies. Judge reasoning low. Exposed the self-redaction prompt bug (advocate made no requests).",
+  "command": null,
+  "commit": "40602ac (plus uncommitted changes)",
+  "dirty": true,
+  "backfilled": true,
+  "config": {
+    "split": "dev",
+    "policies": [
+      "text_redaction",
+      "contextual_rewrite",
+      "self_redaction"
+    ],
+    "stance": "honest",
+    "limit": 3,
+    "sample_ids": null,
+    "models": {
+      "advocate": "anthropic/claude-sonnet-5-5",
+      "executor": "anthropic/claude-sonnet-5-5",
+      "judge": "openai/gpt-5.6-terra",
+      "integrity_check": "anthropic/claude-haiku-5-5"
+    },
+    "reasoning": {
+      "advocate": "low",
+      "executor": "low",
+      "judge": "low",
+      "integrity_check": "none"
+    }
+  }
+}

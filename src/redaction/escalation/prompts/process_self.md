@@ -1,1 +1,1 @@
-Your requests will be applied exactly as written, without review. Spans that contain a log ID are never changed.
+Your requests will be applied exactly as written, without review. A span that includes a log ID (such as `[LOG-0002]`) is skipped, but any other text on a log line can be requested, such as a single `key=value` pair.

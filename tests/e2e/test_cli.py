@@ -50,3 +50,19 @@ def test_analyze_empty_directory_fails(isolated_settings: Path) -> None:
     empty.mkdir()
     result = CliRunner().invoke(app, ["p1", "analyze", str(empty)])
     assert result.exit_code == 1
+
+
+def test_mock_ablation_writes_table_and_no_ledger(
+    isolated_settings: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REDACTION_LEDGER_DIR", str(isolated_settings / "runs"))
+    get_settings.cache_clear()
+    ids = ["dev-012-cot_in_training-red_herring", "dev-000-cot_in_training-violation"]
+    args = ["p1", "ablate", "--mock"] + [a for i in ids for a in ("--sample-id", i)]
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 0, result.output
+    assert "marker_only" in result.output
+    runs = list((isolated_settings / "out").glob("ablation-*"))
+    assert len(runs) == 1
+    assert (runs[0] / "ablation.md").exists()
+    assert not (isolated_settings / "runs").exists()  # mock runs are never recorded
