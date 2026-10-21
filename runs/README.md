@@ -4,6 +4,7 @@ Every real-model run is recorded here. `logs/` and `results/` stay git-ignored, 
 
 - `ledger.jsonl` has one line per run, appended when the run finishes.
 - `<run>/run.json` records what was run, the commit and whether the tree was dirty, the purpose (`--purpose`), models and reasoning per role, sample IDs, and tokens per model.
+- `NOTES.md` is the human log: what each batch of runs showed and what it changed.
 - `<run>/` also holds copies of the run's small summary files: `summary.md`, `checks.md`, `samples.jsonl`, `tradeoff.png`, `ablation.md`.
 
 Runs made before the ledger existed (21 Oct 2026, before `p1-dev-cover_up-*`) were added by hand from their results folders, with `"backfilled": true`.
