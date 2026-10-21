@@ -49,7 +49,8 @@ def git_state() -> dict[str, Any]:
     """The commit a run came from, and whether tracked files had uncommitted changes."""
     return {
         "commit": _git("rev-parse", "HEAD") or None,
-        "dirty": bool(_git("status", "--porcelain", "--untracked-files=no")),
+        # The ledger itself is tracked, so a run recorded earlier must not mark the tree dirty.
+        "dirty": bool(_git("status", "--porcelain", "--untracked-files=no", "--", ".", ":!runs")),
     }
 
 

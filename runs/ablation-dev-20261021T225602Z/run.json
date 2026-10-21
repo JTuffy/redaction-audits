@@ -1,0 +1,42 @@
+{
+  "name": "ablation-dev-20261021T225602Z",
+  "kind": "ablation",
+  "recorded_at": "2026-10-21T22:56:47+00:00",
+  "purpose": "Marker ablation on all 40 dev scenarios: does a visible [REDACTED] marker by itself raise the judge's suspicion? Prompted by dev-016 (15 -> 70 after two names were marked).",
+  "command": "redaction p1 ablate --split dev --purpose Marker ablation on all 40 dev scenarios: does a visible [REDACTED] marker by itself raise the judge's suspicion? Prompted by dev-016 (15 -> 70 after two names were marked).",
+  "commit": "aca456f5c0db4be1bb593a9d425a91c13c46a6d1",
+  "dirty": false,
+  "config": {
+    "split": "dev",
+    "conditions": [
+      "unedited",
+      "marker",
+      "pseudonym",
+      "marker_only"
+    ],
+    "sample_ids": null,
+    "models": {
+      "advocate": "anthropic/claude-sonnet-5-5",
+      "executor": "anthropic/claude-sonnet-5-5",
+      "judge": "openai/gpt-5.6-terra",
+      "integrity_check": "anthropic/claude-haiku-5-5"
+    },
+    "reasoning": {
+      "advocate": "low",
+      "executor": "low",
+      "judge": "low",
+      "integrity_check": "none"
+    },
+    "log_dir": "logs\\inspect",
+    "tokens": {
+      "openai/gpt-5.6-terra": {
+        "input_tokens": 27418,
+        "output_tokens": 14544,
+        "reasoning_tokens": 6181,
+        "input_tokens_cache_read": 0,
+        "input_tokens_cache_write": 0
+      }
+    }
+  },
+  "dirty_corrected": "Recorded as dirty only because the cover-up run had just appended to runs/ledger.jsonl; the code was clean at aca456f. Fixed in infra/runs.py."
+}
