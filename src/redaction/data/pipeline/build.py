@@ -1,0 +1,211 @@
+"""Running the pipeline for one split: plan, render, validate, review, freeze.
+
+Output goes to `<out>/<split>/<version>/`, where the version is a hash of the plans and the
+renderer, so a frozen dataset is never overwritten by a different one:
+
+- `scenarios.jsonl`  kept scenarios, the input to P1 and P2
+- `plans.jsonl`      every plan, kept or not (the ground truth before rendering)
+- `records.jsonl`    one record per planned scenario: attempts, issues, review, line counts
+- `manifest.json`    stage counts, issue counts and settings, for the viewer and for papers
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from collections import Counter
+from datetime import UTC, datetime
+from enum import StrEnum
+from pathlib import Path
+from typing import Protocol
+
+from redaction.core.models import Frozen, Label, Scenario, Split
+from redaction.data.background import PhillyJob
+from redaction.data.generator import DEFAULT_SEEDS, SPLIT_SIZES, slots
+from redaction.data.pipeline.plan import LineKind, ScenarioPlan, plan_scenario
+from redaction.data.pipeline.render import Renderer, Rendering, assemble
+from redaction.data.pipeline.validate import Issue, validate
+
+
+class Verdict(StrEnum):
+    """A blind reviewer's reading of a scenario."""
+
+    VIOLATION = "violation"
+    NO_VIOLATION = "no_violation"
+
+
+class Review(Frozen):
+    """What the reviewer concluded from the logs alone."""
+
+    verdict: Verdict
+    reason: str
+
+
+class Reviewer(Protocol):
+    """Reads a scenario blind (claim and logs only) and says whether it shows a violation."""
+
+    name: str
+
+    async def review(self, scenario: Scenario) -> Review:
+        """Classify one scenario."""
+        ...
+
+
+class Status(StrEnum):
+    """Where a planned scenario ended up."""
+
+    KEPT = "kept"
+    INVALID = "invalid"  # failed the code checks on every attempt
+    REVIEW_DISAGREES = "review_disagrees"  # valid, but the reviewer read the label differently
+
+
+class ScenarioRecord(Frozen):
+    """The pipeline's history for one planned scenario."""
+
+    scenario_id: str
+    label: Label
+    violation_type: str
+    difficulty: str | None
+    status: Status
+    attempts: int
+    issues: tuple[Issue, ...]
+    review: Review | None
+    lines_by_kind: dict[str, int]
+
+
+class BuildResult(Frozen):
+    """Everything one build produced."""
+
+    split: Split
+    version: str
+    renderer: str
+    reviewer: str | None
+    plans: tuple[ScenarioPlan, ...]
+    scenarios: tuple[Scenario, ...]
+    records: tuple[ScenarioRecord, ...]
+
+
+def _agrees(review: Review, label: Label) -> bool:
+    return (review.verdict is Verdict.VIOLATION) == (label is Label.VIOLATION)
+
+
+def _version(plans: tuple[ScenarioPlan, ...], renderer: str) -> str:
+    digest = hashlib.sha256(renderer.encode())
+    for plan in plans:
+        digest.update(plan.model_dump_json().encode())
+    return digest.hexdigest()[:10]
+
+
+async def _run_one(
+    plan: ScenarioPlan, renderer: Renderer, reviewer: Reviewer | None, max_attempts: int
+) -> tuple[Scenario | None, ScenarioRecord]:
+    issues: tuple[Issue, ...] = ()
+    review: Review | None = None
+    status = Status.INVALID
+    scenario: Scenario | None = None
+    attempt = 0
+    for attempt in range(1, max_attempts + 1):
+        rendering: Rendering = await renderer.render(plan, attempt)
+        issues = validate(plan, rendering)
+        if issues:
+            continue
+        candidate = assemble(plan, rendering)
+        review = await reviewer.review(candidate) if reviewer else None
+        if review is None or _agrees(review, plan.label):
+            scenario, status = candidate, Status.KEPT
+            break
+        status = Status.REVIEW_DISAGREES
+    record = ScenarioRecord(
+        scenario_id=plan.scenario_id,
+        label=plan.label,
+        violation_type=str(plan.violation_type),
+        difficulty=None if plan.difficulty is None else str(plan.difficulty),
+        status=status,
+        attempts=attempt,
+        issues=issues,
+        review=review,
+        lines_by_kind=dict(Counter(str(line.kind) for line in plan.lines)),
+    )
+    return scenario, record
+
+
+async def build_split_v2(
+    split: Split,
+    renderer: Renderer,
+    *,
+    jobs: tuple[PhillyJob, ...] = (),
+    reviewer: Reviewer | None = None,
+    seed: int | None = None,
+    limit: int | None = None,
+    max_attempts: int = 3,
+) -> BuildResult:
+    """Plan, render, validate and (optionally) review every scenario in a split."""
+    split_seed = DEFAULT_SEEDS[split] if seed is None else seed
+    planned = slots(SPLIT_SIZES[split])[:limit]
+    plans = tuple(
+        plan_scenario(slot, split=split, index=i, seed=split_seed, jobs=jobs)
+        for i, slot in enumerate(planned)
+    )
+    attempts = 1 if renderer.name == "template" else max_attempts  # templates are deterministic
+    outcomes = [await _run_one(plan, renderer, reviewer, attempts) for plan in plans]
+    return BuildResult(
+        split=split,
+        version=_version(plans, renderer.name),
+        renderer=renderer.name,
+        reviewer=reviewer.name if reviewer else None,
+        plans=plans,
+        scenarios=tuple(s for s, _ in outcomes if s is not None),
+        records=tuple(r for _, r in outcomes),
+    )
+
+
+def manifest(result: BuildResult, *, background_jobs: int) -> dict[str, object]:
+    """Stage counts, issue counts and settings for one build."""
+    records = result.records
+    issue_counts = Counter(str(i.check) for r in records for i in r.issues)
+    valid = sum(1 for r in records if r.status is not Status.INVALID)
+    lines = [sum(r.lines_by_kind.values()) for r in records]
+    return {
+        "split": str(result.split),
+        "version": result.version,
+        "renderer": result.renderer,
+        "reviewer": result.reviewer,
+        "built_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "background_jobs": background_jobs,
+        "stages": {
+            "planned": len(records),
+            "rendered": len(records),
+            "valid": valid,
+            "reviewed": valid if result.reviewer else 0,
+            "kept": len(result.scenarios),
+        },
+        "issues": dict(issue_counts),
+        "labels": dict(Counter(str(r.label) for r in records if r.status is Status.KEPT)),
+        "lines": {
+            "min": min(lines, default=0),
+            "max": max(lines, default=0),
+            "mean": round(sum(lines) / len(lines), 1) if lines else 0,
+        },
+        "line_kinds": {
+            str(k): sum(r.lines_by_kind.get(str(k), 0) for r in records) for k in LineKind
+        },
+    }
+
+
+def write_build(result: BuildResult, out_dir: Path, *, background_jobs: int) -> Path:
+    """Freeze a build to disk and point `<out>/<split>/LATEST` at it."""
+    directory = out_dir / str(result.split) / result.version
+    directory.mkdir(parents=True, exist_ok=True)
+    for name, items in (
+        ("scenarios", result.scenarios),
+        ("plans", result.plans),
+        ("records", result.records),
+    ):
+        with (directory / f"{name}.jsonl").open("w", encoding="utf-8") as handle:
+            handle.writelines(item.model_dump_json() + "\n" for item in items)
+    (directory / "manifest.json").write_text(
+        json.dumps(manifest(result, background_jobs=background_jobs), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (out_dir / str(result.split) / "LATEST").write_text(result.version + "\n", encoding="utf-8")
+    return directory

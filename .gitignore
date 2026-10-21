@@ -21,3 +21,6 @@ data/generated/
 logs/
 results/
 data/raw/
+data/built/
+data/derived/
+site/dist/

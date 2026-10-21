@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     inspect_log_dir: Path = Path("logs/inspect")
     results_dir: Path = Path("results")
     scenarios_dir: Path = Path("data/generated")
+    built_dir: Path = Path("data/built")  # frozen pipeline builds, one folder per version
+    philly_raw: Path = Path("data/raw/philly/trace-data/cluster_job_log")
+    background_sample: Path = Path("data/derived/philly_jobs.jsonl")
+    site_dir: Path = Path("site/dist")
 
     log_level: str = "INFO"
     log_format: LogFormat = LogFormat.CONSOLE

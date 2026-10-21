@@ -17,6 +17,7 @@ ALLOWED = {
     "infra": {"core", "infra"},
     "escalation": {"core", "data", "infra", "escalation"},
     "detective": {"core", "data", "infra", "detective"},
+    "viewer": {"core", "infra", "viewer"},
 }
 
 

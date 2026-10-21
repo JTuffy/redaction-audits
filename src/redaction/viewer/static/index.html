@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Redaction Audits</title>
+  <script>
+    // Served under a sub-path (e.g. /projects/redaction); relative URLs need the trailing slash.
+    if (!location.pathname.endsWith("/") && !location.pathname.split("/").pop().includes(".")) {
+      location.replace(location.pathname + "/" + location.search + location.hash);
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row">
+      <div class="brand">
+        <span class="eyebrow">SPAR · privacy-preserving auditing</span>
+        <h1>Redaction Audits</h1>
+      </div>
+      <nav class="tabs" role="tablist" aria-label="Sections">
+        <button role="tab" id="tab-pipeline" aria-controls="panel-pipeline" aria-selected="true">Data pipeline</button>
+        <button role="tab" id="tab-runs" aria-controls="panel-runs" aria-selected="false">Runs</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="panel-pipeline" role="tabpanel" aria-labelledby="tab-pipeline">
+      <div class="bar">
+        <div class="seg" id="split-seg" role="group" aria-label="Split"></div>
+        <span class="meta" id="build-meta"></span>
+      </div>
+
+      <div class="stages" id="stages" aria-label="Pipeline stages"></div>
+
+      <div class="grid2">
+        <section class="card">
+          <h2>Composition of kept scenarios</h2>
+          <div class="scroll"><table id="composition"></table></div>
+        </section>
+        <section class="card">
+          <h2>What a scenario is made of</h2>
+          <div id="kinds"></div>
+          <p class="note" id="lines-note"></p>
+        </section>
+      </div>
+
+      <section class="card">
+        <h2>Validation</h2>
+        <div id="issues"></div>
+      </section>
+
+      <section class="card">
+        <div class="bar">
+          <h2 class="inline">Scenarios</h2>
+          <select id="f-label" aria-label="Filter by label">
+            <option value="">All labels</option>
+            <option value="violation">Violations</option>
+            <option value="red_herring">Red herrings</option>
+            <option value="clean">Clean</option>
+          </select>
+          <select id="f-type" aria-label="Filter by violation type"></select>
+          <span class="meta" id="scenario-count"></span>
+        </div>
+        <div class="browser">
+          <ol class="list" id="scenario-list"></ol>
+          <article class="detail" id="detail"></article>
+        </div>
+      </section>
+    </section>
+
+    <section id="panel-runs" role="tabpanel" aria-labelledby="tab-runs" hidden>
+      <div class="bar">
+        <a class="btn" id="open-inspect" href="viewer/" target="_blank" rel="noopener" hidden>Open Inspect View</a>
+        <span class="meta" id="runs-meta"></span>
+      </div>
+      <div id="runs"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -107,6 +107,27 @@ class LogEntry(Frozen):
     text: str
 
 
+class CorrelateStrength(StrEnum):
+    """How much a correlate gives away on its own."""
+
+    IDENTIFYING = "identifying"  # an informed reader can recover the exact option
+    NARROWING = "narrowing"  # rules out some options, or needs another detail to finish
+
+
+class Correlate(Frozen):
+    """A detail in the logs that reveals a secret without stating its value.
+
+    `snippet` is the exact text in the log line that carries the signal, so validators and
+    viewers can find it. Correlates are what text redaction of the literal value misses.
+    """
+
+    secret_type: SecretType
+    log_id: str = Field(pattern=r"^LOG-\d{4}$")
+    snippet: str = Field(min_length=1)
+    strength: CorrelateStrength
+    rationale: str = Field(min_length=1)
+
+
 class Scenario(Frozen):
     """A fictional lab's log bundle for one audit claim, with its ground truth."""
 
@@ -122,6 +143,7 @@ class Scenario(Frozen):
     key_evidence_ids: tuple[str, ...]
     separating_cues: tuple[str, ...]
     secret_cues: tuple[SecretType, ...] = ()
+    correlates: tuple[Correlate, ...] = ()
 
     @model_validator(mode="after")
     def _check_consistency(self) -> Scenario:
@@ -137,6 +159,11 @@ class Scenario(Frozen):
         absent = [s.secret_type for s in self.secrets if s.value not in corpus]
         if absent:
             msg = f"planted secrets missing from logs: {absent}"
+            raise ValueError(msg)
+        texts = {entry.log_id: entry.text for entry in self.logs}
+        misplaced = [c.log_id for c in self.correlates if c.snippet not in texts.get(c.log_id, "")]
+        if misplaced:
+            msg = f"correlate snippets not found in their log lines: {misplaced}"
             raise ValueError(msg)
         return self
 

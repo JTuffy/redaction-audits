@@ -43,6 +43,24 @@ uv run python scripts/botec.py                    # reproduce the compute budget
 
 Each P1 run writes Inspect logs under `logs/inspect/<run>` (open them with `uv run inspect view`) and a summary under `results/<run>`: `summary.md`, `summary.json`, one `SampleResult` per line in `samples.jsonl`, `checks.md` (the MVP gate: unedited "human" judge AUROC ≥ 0.65, and red-herring suspicion rising easy < medium < hard) and `tradeoff.png` (persistence against leakage, one point per policy).
 
+### Synthetic data pipeline
+
+```powershell
+uv run redaction data background                  # sample 5,000 real jobs from the Philly trace (once)
+uv run redaction data build --split dev           # plan, render, validate, freeze into data/built/dev/<version>
+uv run redaction data build --split dev --renderer anthropic/claude-opus-5-5 --reviewer anthropic/claude-sonnet-5-5
+uv run redaction site                             # static viewer into site/dist (pipeline + runs + Inspect View)
+```
+
+The pipeline has four layers (`src/redaction/data/pipeline/`):
+
+1. **Plan** (`plan.py`): code fixes every fact: label, violation evidence, secret values, **correlates** (details that reveal a secret without stating it, from `data/correlates.py`), and background lines drawn from real Philly scheduler records (`data/background.py`).
+2. **Render** (`render.py`, `model_render.py`): the template renderer copies the planned text; a model renderer rephrases every line except the real records, keeping secret values, cue tokens and correlate details verbatim.
+3. **Validate** (`validate.py`): eight code checks (values and cues kept, correlates kept and not stating the value, no other option of a secret, no violation-only token in a non-violation, real records untouched, no duplicates), plus an optional blind model reviewer that must read the label correctly.
+4. **Freeze** (`build.py`): kept scenarios, plans, per-scenario records and a manifest, under a version hash.
+
+The template build passes the checks by construction; they earn their keep once a model renders. The viewer is served on the tailnet at `/projects/redaction` via agent-os `tailnet-serve` (app `redaction`); rerun `uv run redaction site` to refresh it.
+
 Models are set per role with `REDACTION_ADVOCATE_MODEL`, `REDACTION_EXECUTOR_MODEL`, `REDACTION_JUDGE_MODEL` and `REDACTION_INTEGRITY_CHECK_MODEL`. Model replies are cached, so conditions shared across policies (the prior and the unedited report) are paid for once.
 
 ## Development

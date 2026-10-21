@@ -79,7 +79,7 @@ class ScenarioSpec(NamedTuple):
     difficulty: Difficulty | None
 
 
-def _slots(size: SplitSize) -> list[ScenarioSpec]:
+def slots(size: SplitSize) -> list[ScenarioSpec]:
     """Spread each label evenly over violation types (and difficulties, for red herrings)."""
     types = list(ViolationType)
     herring_cells = list(product(types, Difficulty))
@@ -93,7 +93,7 @@ def _slots(size: SplitSize) -> list[ScenarioSpec]:
     ]
 
 
-def _neutral_values(rng: random.Random) -> dict[str, str]:
+def neutral_values(rng: random.Random) -> dict[str, str]:
     """Values for the placeholders that are not secrets."""
     day = _LOG_START - timedelta(days=rng.randint(1, _DATE_RANGE_DAYS))
     return {
@@ -104,7 +104,7 @@ def _neutral_values(rng: random.Random) -> dict[str, str]:
     }
 
 
-def _timestamps(rng: random.Random, count: int) -> list[str]:
+def timestamps(rng: random.Random, count: int) -> list[str]:
     """Strictly increasing ISO timestamps starting at the log window."""
     stamps: list[str] = []
     moment = _LOG_START
@@ -114,7 +114,7 @@ def _timestamps(rng: random.Random, count: int) -> list[str]:
     return stamps
 
 
-def _interleave(rng: random.Random, core: list[Line], noise: list[Line]) -> list[Line]:
+def interleave(rng: random.Random, core: list[Line], noise: list[Line]) -> list[Line]:
     """Place noise lines at random positions while keeping the core lines in order."""
     total = len(core) + len(noise)
     core_positions = set(rng.sample(range(total), len(core)))
@@ -140,11 +140,11 @@ def generate_scenario(
         PlantedSecret(secret_type=t, value=rng.choice(spec_for(t).options))
         for t in (*blueprint.core_secrets, noise_type)
     )
-    values = _neutral_values(rng) | {SECRET_PLACEHOLDERS[s.secret_type]: s.value for s in secrets}
+    values = neutral_values(rng) | {SECRET_PLACEHOLDERS[s.secret_type]: s.value for s in secrets}
 
     noise = [NOISE_SECRET_LINES[noise_type], *rng.sample(NEUTRAL_LINES, neutral_lines)]
     rng.shuffle(noise)
-    lines = _interleave(rng, list(variant.lines), noise)
+    lines = interleave(rng, list(variant.lines), noise)
 
     logs = tuple(
         LogEntry(
@@ -154,7 +154,7 @@ def generate_scenario(
             text=line.template.format_map(values),
         )
         for position, (line, stamp) in enumerate(
-            zip(lines, _timestamps(rng, len(lines)), strict=True), start=1
+            zip(lines, timestamps(rng, len(lines)), strict=True), start=1
         )
     )
     key_ids = tuple(
@@ -193,5 +193,5 @@ def build_split(
     split_seed = DEFAULT_SEEDS[split] if seed is None else seed
     return tuple(
         generate_scenario(spec, split=split, index=i, seed=split_seed, neutral_lines=neutral_lines)
-        for i, spec in enumerate(_slots(SPLIT_SIZES[split]))
+        for i, spec in enumerate(slots(SPLIT_SIZES[split]))
     )

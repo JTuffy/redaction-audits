@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
@@ -11,7 +12,11 @@ from inspect_ai.model import Model
 
 from redaction.core.models import Split
 from redaction.core.roles import Role, Stance
+from redaction.data.background import build_sample, load_sample
 from redaction.data.generator import build_split
+from redaction.data.pipeline.build import build_split_v2, manifest, write_build
+from redaction.data.pipeline.model_render import ModelRenderer, ModelReviewer
+from redaction.data.pipeline.render import Renderer, TemplateRenderer
 from redaction.data.reports import templated_report
 from redaction.escalation.analysis import analyze_run
 from redaction.escalation.checks import checks_table
@@ -22,6 +27,7 @@ from redaction.escalation.summary import summary_table
 from redaction.infra.log_setup import configure_logging, get_logger
 from redaction.infra.settings import get_settings
 from redaction.infra.storage import write_jsonl
+from redaction.viewer.build import build_site
 
 app = typer.Typer(no_args_is_help=True, help=__doc__)
 data_app = typer.Typer(no_args_is_help=True, help="Scenario data shared by both proposals.")
@@ -52,6 +58,73 @@ def generate(
     write_jsonl(directory / f"{split}_scenarios.jsonl", scenarios)
     write_jsonl(directory / f"{split}_reports.jsonl", (templated_report(s) for s in scenarios))
     log.info("split_written", split=split, scenarios=len(scenarios), directory=str(directory))
+
+
+@data_app.command("background")
+def background(
+    size: Annotated[int, typer.Option(help="Jobs to sample from the Philly trace.")] = 5000,
+) -> None:
+    """Extract the Philly job sample that background lines are drawn from (needs the raw trace)."""
+    settings = get_settings()
+    if not settings.philly_raw.exists():
+        log.error(
+            "philly_trace_missing",
+            path=str(settings.philly_raw),
+            hint="run scripts/fetch_sources.py first",
+        )
+        raise typer.Exit(code=1)
+    count = build_sample(settings.philly_raw, settings.background_sample, size=size)
+    log.info("background_sample_written", jobs=count, path=str(settings.background_sample))
+
+
+@data_app.command("build")
+def build(
+    split: Annotated[Split, typer.Option(help="Which split to build.")] = Split.DEV,
+    renderer: Annotated[
+        str, typer.Option(help="'template', or an Inspect model string to rephrase lines.")
+    ] = "template",
+    reviewer: Annotated[
+        str | None, typer.Option(help="Inspect model string for the blind label check.")
+    ] = None,
+    limit: Annotated[int | None, typer.Option(help="Build only the first N scenarios.")] = None,
+    attempts: Annotated[int, typer.Option(help="Render attempts per scenario (models only).")] = 3,
+) -> None:
+    """Run the synthetic data pipeline for one split and freeze the result."""
+    settings = get_settings()
+    jobs = load_sample(settings.background_sample)
+    if not jobs:
+        log.warning("no_background_sample", hint="run `redaction data background`; using none")
+    chosen: Renderer = TemplateRenderer() if renderer == "template" else ModelRenderer(renderer)
+    result = asyncio.run(
+        build_split_v2(
+            split,
+            chosen,
+            jobs=jobs,
+            reviewer=ModelReviewer(reviewer) if reviewer else None,
+            limit=limit,
+            max_attempts=attempts,
+        )
+    )
+    directory = write_build(result, settings.built_dir, background_jobs=len(jobs))
+    summary = manifest(result, background_jobs=len(jobs))
+    typer.echo(f"{directory}\n{summary['stages']}\nissues: {summary['issues']}")
+
+
+@app.command("site")
+def site(
+    bundle_logs: Annotated[
+        bool, typer.Option(help="Bundle Inspect logs into the site's Runs tab.")
+    ] = True,
+) -> None:
+    """Build the static viewer (data pipeline and runs) into REDACTION_SITE_DIR."""
+    settings = get_settings()
+    out = build_site(
+        built_dir=settings.built_dir,
+        results_dir=settings.results_dir,
+        log_dir=settings.inspect_log_dir if bundle_logs else None,
+        out_dir=settings.site_dir,
+    )
+    typer.echo(str(out))
 
 
 @p1_app.command("run")

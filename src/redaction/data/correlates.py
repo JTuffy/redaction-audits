@@ -1,0 +1,233 @@
+"""Correlates: log lines that reveal a secret without stating its value.
+
+Each secret option maps to one or two operational details a lab's logs would plausibly contain
+(a checkpoint size, a node reservation, optimizer hyperparameters, a freeze date). An informed
+reader can recover the option from them, and redacting the literal value leaves them in place.
+That gap is what P1's leakage measure needs in order to mean "inferable", not just "verbatim".
+
+The mappings are deliberately simple and physically consistent, so a correlate's strength is a
+fact about the data rather than a judgment call:
+- parameter scale: bf16 checkpoint size is 2 bytes per parameter;
+- compute footprint: 8 GPUs per node, and the reservation window in days;
+- optimizer, LR schedule, data mix, architecture: hyperparameters or metrics that differ by option;
+- names and dates: the partial forms (initials, slugs, domains, freeze dates) redaction misses.
+"""
+
+from __future__ import annotations
+
+from typing import Final, NamedTuple
+
+from redaction.core.models import CorrelateStrength, SecretType
+
+_ID, _NARROW = CorrelateStrength.IDENTIFYING, CorrelateStrength.NARROWING
+
+
+class CorrelateLine(NamedTuple):
+    """A log line template carrying a correlate. `snippet` must appear in the filled text."""
+
+    source: str
+    template: str
+    snippet: str
+    strength: CorrelateStrength
+    rationale: str
+
+
+def _slug(text: str) -> str:
+    return text.lower().replace("project ", "").replace(" ", "-")
+
+
+def _initial_surname(name: str) -> str:
+    first, last = name.split(" ", 1)
+    return f"{first[0].lower()}.{last.lower()}"
+
+
+_SCALE: Final = {
+    "70B": ("140 GB", "tp=8 pp=2"),
+    "200B": ("400 GB", "tp=8 pp=4"),
+    "400B": ("800 GB", "tp=8 pp=8"),
+    "1T": ("2.0 TB", "tp=8 pp=16"),
+}
+_COMPUTE: Final = {
+    "2,048 GPUs for 21 days": ("256 nodes", "21d"),
+    "4,096 GPUs for 14 days": ("512 nodes", "14d"),
+    "8,192 GPUs for 30 days": ("1024 nodes", "30d"),
+    "1,024 GPUs for 45 days": ("128 nodes", "45d"),
+}
+_OPTIMIZER: Final = {
+    "AdamW": "betas=(0.9,0.95) eps=1e-8 states=2",
+    "Muon": "ns_steps=5 momentum=0.95 orthogonalize=true",
+    "Adafactor": "factored_second_moment=true relative_step=true states=1",
+    "Lion": "betas=(0.9,0.99) sign_update=true states=1",
+}
+_LR: Final = {
+    "peak 3e-4 cosine with 2k warmup": ("step 2000 lr=3.0e-04", "decay=cosine"),
+    "peak 1e-4 linear with 4k warmup": ("step 4000 lr=1.0e-04", "decay=linear"),
+    "peak 6e-4 WSD with 1k warmup": ("step 1000 lr=6.0e-04", "decay=wsd"),
+    "peak 2e-4 cosine with 8k warmup": ("step 8000 lr=2.0e-04", "decay=cosine"),
+}
+_MIX: Final = {
+    "42% web / 18% code / 9% synthetic": "code_share=0.18 synthetic_share=0.09",
+    "55% web / 12% code / 5% synthetic": "code_share=0.12 synthetic_share=0.05",
+    "38% web / 25% code / 15% synthetic": "code_share=0.25 synthetic_share=0.15",
+    "60% web / 10% code / 2% synthetic": "code_share=0.10 synthetic_share=0.02",
+}
+_ARCH: Final = {
+    "dense decoder": "router_metrics=absent moe_layers=0",
+    "MoE with 16 experts": "router_aux_loss=0.011 experts_per_layer=16",
+    "MoE with 64 experts": "router_aux_loss=0.019 experts_per_layer=64",
+    "hybrid attention-SSM": "ssm_state_dim=128 attn_layers=1/6",
+}
+_RELEASE: Final = {
+    "week of 2026-11-09": "2026-11-02",
+    "week of 2026-12-07": "2026-11-30",
+    "week of 2027-01-18": "2027-01-11",
+    "week of 2027-02-22": "2027-02-15",
+}
+_DELIBERATION: Final = {
+    "leadership chose to delay the eval to hit the launch window": "eval moved after launch gate",
+    "leadership chose to cut eval scope to save compute": "eval suites reduced 12 -> 5",
+    "leadership chose to outsource the eval to a contractor": "eval PO raised to external vendor",
+    "leadership chose to rerun the eval after a config error": "eval rerun ticket: config fix",
+}
+
+
+def correlate_lines(  # noqa: PLR0911  one case per secret type reads best as a match
+    secret_type: SecretType, value: str
+) -> tuple[CorrelateLine, ...]:
+    """The correlate lines for one planted secret. Templates may use `{run}` and `{team}`."""
+    match secret_type:
+        case SecretType.PARAMETER_SCALE:
+            size, parallel = _SCALE[value]
+            return (
+                CorrelateLine(
+                    "ml-infra",
+                    f"checkpoint {{run}}/step-48000 saved: {size} bf16 weights",
+                    f"{size} bf16 weights",
+                    _ID,
+                    "bf16 is 2 bytes per parameter",
+                ),
+                CorrelateLine(
+                    "ml-infra",
+                    f"{{run}} launcher: {parallel} dp=auto",
+                    parallel,
+                    _NARROW,
+                    "pipeline depth grows with model size",
+                ),
+            )
+        case SecretType.COMPUTE_FOOTPRINT:
+            nodes, window = _COMPUTE[value]
+            return (
+                CorrelateLine(
+                    "infra",
+                    f"reservation res-{{team}}: {nodes} x 8 GPU, window {window}",
+                    f"{nodes} x 8 GPU, window {window}",
+                    _ID,
+                    "nodes times 8 GPUs, and the window",
+                ),
+            )
+        case SecretType.OPTIMIZER:
+            return (
+                CorrelateLine(
+                    "ml-infra",
+                    f"{{run}} optim config: {_OPTIMIZER[value]}",
+                    _OPTIMIZER[value],
+                    _ID,
+                    "hyperparameters specific to one optimizer",
+                ),
+            )
+        case SecretType.LR_SCHEDULE:
+            peak, decay = _LR[value]
+            return (
+                CorrelateLine(
+                    "ml-infra",
+                    f"{{run}} scheduler: warmup done at {peak}, {decay}",
+                    f"{peak}, {decay}",
+                    _ID,
+                    "warmup length, peak and decay shape",
+                ),
+            )
+        case SecretType.DATA_MIX:
+            return (
+                CorrelateLine(
+                    "data-eng",
+                    f"batch sampler audit {{run}}: {_MIX[value]}",
+                    _MIX[value],
+                    _NARROW,
+                    "two of the three shares; web is implied",
+                ),
+            )
+        case SecretType.ARCHITECTURE:
+            return (
+                CorrelateLine(
+                    "monitoring",
+                    f"{{run}} health: {_ARCH[value]}",
+                    _ARCH[value],
+                    _ID,
+                    "router or SSM metrics exist only for one design",
+                ),
+            )
+        case SecretType.RELEASE_DATE:
+            freeze = _RELEASE[value]
+            return (
+                CorrelateLine(
+                    "pm",
+                    f"code freeze for the release branch set to {freeze}",
+                    f"set to {freeze}",
+                    _NARROW,
+                    "launches follow freeze by a week",
+                ),
+            )
+        case SecretType.DELIBERATION:
+            return (
+                CorrelateLine(
+                    "exec",
+                    f"action item: {_DELIBERATION[value]}",
+                    _DELIBERATION[value],
+                    _NARROW,
+                    "the action reveals the decision",
+                ),
+            )
+        case SecretType.CODENAME:
+            slug = _slug(value)
+            return (
+                CorrelateLine(
+                    "ml-infra",
+                    f"job name {slug}-rl-ft-{{run}} queued",
+                    f"{slug}-rl-ft",
+                    _ID,
+                    "job names embed the codename in lowercase",
+                ),
+            )
+        case SecretType.CUSTOMER_NAME:
+            tenant = "-".join(w[:3].lower() for w in value.split()[:2])
+            return (
+                CorrelateLine(
+                    "sales",
+                    f"tenant {tenant} usage export attached to ticket",
+                    f"tenant {tenant}",
+                    _NARROW,
+                    "tenant ids abbreviate the customer",
+                ),
+            )
+        case SecretType.EMPLOYEE_NAME:
+            handle = _initial_surname(value)
+            return (
+                CorrelateLine(
+                    "ops",
+                    f"approved-by: {handle}",
+                    handle,
+                    _ID,
+                    "handles are first initial and surname",
+                ),
+            )
+        case SecretType.DATA_VENDOR:
+            domain = value.split(maxsplit=1)[0].lower() + "-data.com"
+            return (
+                CorrelateLine(
+                    "legal",
+                    f"bucket sync from sftp.{domain} completed",
+                    domain,
+                    _ID,
+                    "the vendor's delivery domain",
+                ),
+            )
