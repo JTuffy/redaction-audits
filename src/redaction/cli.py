@@ -185,6 +185,21 @@ def run(
             results_dir=settings.results_dir / log_dir.name,
             ledger_dir=settings.ledger_dir,
         )
+        _refresh_site(settings)
+
+
+def _refresh_site(settings: Settings) -> None:
+    """Rebuild the viewer so a recorded run shows up without a manual `redaction site`."""
+    try:
+        build_site(
+            built_dir=settings.built_dir,
+            results_dir=settings.results_dir,
+            log_dir=settings.inspect_log_dir,
+            out_dir=settings.site_dir,
+            ledger_dir=settings.ledger_dir,
+        )
+    except OSError as error:  # the run is recorded either way; the site can be rebuilt by hand
+        log.warning("site_refresh_failed", error=str(error))
 
 
 def _protocol(settings: Settings) -> dict[str, object]:
@@ -246,6 +261,7 @@ def ablate(
             results_dir=out_dir,
             ledger_dir=settings.ledger_dir,
         )
+        _refresh_site(settings)
 
 
 @p1_app.command("analyze")

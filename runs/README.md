@@ -10,3 +10,5 @@ Every real-model run is recorded here. `logs/` and `results/` stay git-ignored, 
 Runs made before the ledger existed (21 Oct 2026, before `p1-dev-cover_up-*`) were added by hand from their results folders, with `"backfilled": true`.
 
 Mock runs are never recorded. Full transcripts stay in `logs/inspect/<run>`, which you can open with `uv run inspect view`.
+
+Each real run also rebuilds the viewer (`site/dist`), which `tailnet-serve` publishes at `/projects/redaction`. If the page is down, run `tailnet-serve.ps1 ensure redaction` from agent-os.
