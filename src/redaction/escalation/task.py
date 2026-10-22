@@ -36,7 +36,10 @@ _SCENARIO_KEY: Final = "scenario"
 
 def scenarios_for(split: Split, seed: int | None = None) -> tuple[Scenario, ...]:
     """The split's latest frozen build; the v1 generator when there is none or a seed is given."""
-    built = None if seed is not None else load_built(split, get_settings().built_dir)
+    settings = get_settings()
+    built = (
+        None if seed is not None else load_built(split, settings.built_dir, settings.build_version)
+    )
     if built is not None:
         return built
     log.warning("using_v1_generator", split=split, reason="seed given" if seed else "no build")
@@ -45,7 +48,11 @@ def scenarios_for(split: Split, seed: int | None = None) -> tuple[Scenario, ...]
 
 def data_source(split: Split, seed: int | None = None) -> str:
     """What a run's scenarios came from, for the run ledger: `built:<version>` or `generator:v1`."""
-    version = None if seed is not None else latest_version(split, get_settings().built_dir)
+    settings = get_settings()
+    pinned = settings.build_version
+    if seed is None and pinned and (settings.built_dir / split.value / pinned).is_dir():
+        return f"built:{pinned}"
+    version = None if seed is not None else latest_version(split, settings.built_dir)
     return f"built:{version}" if version else "generator:v1"
 
 

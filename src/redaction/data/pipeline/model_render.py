@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from redaction.core.models import Scenario
 from redaction.core.parsing import ReplyFormatError, parse_reply
 from redaction.data.pipeline.build import Review, Verdict
-from redaction.data.pipeline.plan import ScenarioPlan
+from redaction.data.pipeline.plan import LineKind, PlannedLine, ScenarioPlan, required_for
 from redaction.data.pipeline.render import RenderedLine, Rendering
 
 RENDER_PROMPT = """\
@@ -27,6 +27,12 @@ mention any other model sizes, optimizers, names or dates, and do not explain an
 
 Reply with only a JSON object, with one entry for every numbered line:
 {{"lines": [{{"i": <number>, "source": "<source>", "text": "<line>"}}, ...]}}\
+"""
+
+PARAPHRASE_NOTE = """\
+Lines marked "paraphrase" may state their key=value fields in plain words instead, as long as \
+every fact stays exactly the same: the same values, the same yes/no, the same approvals or \
+their absence. Never make a line more or less incriminating than it is.\
 """
 
 REVIEW_PROMPT = """\
@@ -52,19 +58,27 @@ class _RenderReply(BaseModel):
 class ModelRenderer:
     """Rephrases a plan's rephrasable lines with a model; validators check the result."""
 
-    def __init__(self, model: str, *, temperature: float = 0.9) -> None:
+    def __init__(self, model: str, *, temperature: float = 0.9, paraphrase: bool = False) -> None:
         self.name = model
         self._model = model
         self._temperature = temperature
+        self._paraphrase = paraphrase
 
     async def render(self, plan: ScenarioPlan, attempt: int) -> Rendering:
         """One model call per attempt; unreadable replies leave lines empty (and invalid)."""
         todo = [(i, line) for i, line in enumerate(plan.lines) if line.rephrasable]
-        listing = "\n".join(
-            f"{i}. source={line.source} | {line.text} | keep: {' ; '.join(line.required)}"
-            for i, line in todo
-        )
+
+        def describe(i: int, line: PlannedLine) -> str:
+            keep = required_for(line, paraphrase=self._paraphrase)
+            mode = " | paraphrase" if self._paraphrase and line.kind is LineKind.EVIDENCE else ""
+            return (
+                f"{i}. source={line.source} | {line.text} | keep: {' ; '.join(keep) or '-'}{mode}"
+            )
+
+        listing = "\n".join(describe(i, line) for i, line in todo)
         prompt = RENDER_PROMPT.format(lab=plan.lab_name, lines=listing)
+        if self._paraphrase:
+            prompt = f"{PARAPHRASE_NOTE}\n{prompt}"
         config = GenerateConfig(temperature=self._temperature, seed=attempt)
         output = await get_model(self._model).generate(
             [ChatMessageUser(content=prompt)], config=config

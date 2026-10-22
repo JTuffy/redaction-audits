@@ -1,0 +1,33 @@
+{
+  "split": "val",
+  "version": "633ff46daf",
+  "renderer": "template",
+  "reviewer": null,
+  "built_at": "2026-10-21T12:08:39+00:00",
+  "background_jobs": 5000,
+  "stages": {
+    "planned": 40,
+    "rendered": 40,
+    "valid": 40,
+    "reviewed": 0,
+    "kept": 40
+  },
+  "issues": {},
+  "labels": {
+    "violation": 12,
+    "red_herring": 18,
+    "clean": 10
+  },
+  "lines": {
+    "min": 36,
+    "max": 67,
+    "mean": 54.4
+  },
+  "line_kinds": {
+    "evidence": 120,
+    "correlate": 139,
+    "secret_mention": 40,
+    "lab_noise": 160,
+    "background": 1718
+  }
+}

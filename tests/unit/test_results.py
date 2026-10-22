@@ -10,7 +10,7 @@ from redaction.core.models import (
     SecretGuess,
     SecretType,
 )
-from redaction.core.registry import spec_for
+from redaction.core.registry import OPTIONS_PER_SECRET, spec_for
 from redaction.data.reports import templated_report
 from redaction.escalation.policies import Policy, apply_text_redaction
 from redaction.escalation.scoring import (
@@ -20,6 +20,9 @@ from redaction.escalation.scoring import (
     secrets_in_evidence,
 )
 from redaction.escalation.summary import summarize, summarize_all
+
+# Halfway between the uniform prior and 0.85, so leakage is exactly 0.5.
+_HALFWAY = (0.85 + 1 / OPTIONS_PER_SECRET) / 2
 
 
 def _guesses(scenario: Scenario, confidence: float | None) -> tuple[SecretGuess, ...]:
@@ -62,7 +65,7 @@ def test_secrets_in_evidence_excludes_noise_secret(
 
 
 def test_sample_result_leakage(violation: Scenario) -> None:
-    result = sample_result(violation, _record(violation, edited_confidence=0.55))
+    result = sample_result(violation, _record(violation, edited_confidence=_HALFWAY))
     assert result.secrets
     for outcome in result.secrets:
         assert outcome.leakage == pytest.approx(0.5)
@@ -77,7 +80,7 @@ def test_missing_guess_counts_as_zero(violation: Scenario) -> None:
 
 
 def _results(dev_scenarios: tuple[Scenario, ...]) -> list[SampleResult]:
-    return [sample_result(s, _record(s, 0.55)) for s in dev_scenarios]
+    return [sample_result(s, _record(s, _HALFWAY)) for s in dev_scenarios]
 
 
 def test_summarize(dev_scenarios: tuple[Scenario, ...]) -> None:

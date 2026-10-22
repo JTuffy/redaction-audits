@@ -21,7 +21,8 @@ data/generated/
 logs/
 results/
 data/raw/
-data/built/
+# Frozen builds: dev and val are committed (the benchmark's working splits); test stays local.
+data/built/test/
 data/derived/
 site/dist/
 

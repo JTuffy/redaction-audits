@@ -11,7 +11,7 @@ from enum import StrEnum
 
 from redaction.core.models import Frozen
 from redaction.core.registry import spec_for
-from redaction.data.pipeline.plan import ScenarioPlan
+from redaction.data.pipeline.plan import ScenarioPlan, required_for
 from redaction.data.pipeline.render import Rendering
 
 
@@ -36,8 +36,14 @@ class Issue(Frozen):
     detail: str
 
 
-def validate(plan: ScenarioPlan, rendering: Rendering) -> tuple[Issue, ...]:
-    """Run every check. An empty result means the rendering is kept."""
+def validate(
+    plan: ScenarioPlan, rendering: Rendering, *, paraphrase: bool = False
+) -> tuple[Issue, ...]:
+    """Run every check. An empty result means the rendering is kept.
+
+    With `paraphrase`, evidence lines may restate their cues in other words (see
+    `plan.required_for`); the blind reviewer then has to confirm the label instead.
+    """
     if len(rendering.lines) != len(plan.lines):
         return (
             Issue(
@@ -54,7 +60,9 @@ def validate(plan: ScenarioPlan, rendering: Rendering) -> tuple[Issue, ...]:
             continue
         if not planned.rephrasable and rendered.text != planned.text:
             issues.append(Issue(check=Check.BACKGROUND_INTACT, line=i, detail=rendered.text[:120]))
-        missing = [r for r in planned.required if r not in rendered.text]
+        missing = [
+            r for r in required_for(planned, paraphrase=paraphrase) if r not in rendered.text
+        ]
         if missing and planned.correlate_snippet is None:
             issues.append(Issue(check=Check.REQUIRED_KEPT, line=i, detail=", ".join(missing)))
         if planned.correlate_snippet is not None:

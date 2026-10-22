@@ -92,25 +92,41 @@ def build(
         str, typer.Option(help="'template', or an Inspect model string to rephrase lines.")
     ] = "template",
     reviewer: Annotated[
-        str | None, typer.Option(help="Inspect model string for the blind label check.")
+        str | None,
+        typer.Option(help="Model for the blind label check. Default: REDACTION_REVIEWER_MODEL."),
     ] = None,
+    review: Annotated[bool, typer.Option(help="Run the blind label check.")] = True,
+    cues: Annotated[
+        str, typer.Option(help="'verbatim' (cue tokens kept word for word) or 'paraphrase'.")
+    ] = "verbatim",
     limit: Annotated[int | None, typer.Option(help="Build only the first N scenarios.")] = None,
     attempts: Annotated[int, typer.Option(help="Render attempts per scenario (models only).")] = 3,
 ) -> None:
     """Run the synthetic data pipeline for one split and freeze the result."""
     settings = get_settings()
+    if cues not in {"verbatim", "paraphrase"}:
+        raise typer.BadParameter("cues must be 'verbatim' or 'paraphrase'")
+    paraphrase = cues == "paraphrase"
+    if paraphrase and (renderer == "template" or not review):
+        raise typer.BadParameter("paraphrased cues need a model renderer and the label check")
+    reviewer_model = (reviewer or settings.reviewer_model) if review else None
     jobs = load_sample(settings.background_sample)
     if not jobs:
         log.warning("no_background_sample", hint="run `redaction data background`; using none")
-    chosen: Renderer = TemplateRenderer() if renderer == "template" else ModelRenderer(renderer)
+    chosen: Renderer = (
+        TemplateRenderer()
+        if renderer == "template"
+        else ModelRenderer(renderer, paraphrase=paraphrase)
+    )
     result = asyncio.run(
         build_split_v2(
             split,
             chosen,
             jobs=jobs,
-            reviewer=ModelReviewer(reviewer) if reviewer else None,
+            reviewer=ModelReviewer(reviewer_model) if reviewer_model else None,
             limit=limit,
             max_attempts=attempts,
+            paraphrase=paraphrase,
         )
     )
     directory = write_build(result, settings.built_dir, background_jobs=len(jobs))

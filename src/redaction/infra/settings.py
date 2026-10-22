@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     # Protocol knobs added after the first pilot (see docs/notes/decisions.md).
     report_context: bool = True  # reports also quote correlates and two innocent lines
     judge_samples: int = Field(default=3, ge=1)  # judge replies averaged per question
+    reviewer_model: str = "anthropic/claude-sonnet-5-5"  # blind label check on every build
+    build_version: str | None = None  # pin runs to one frozen build; default is the split's LATEST
     parse_attempts: int = Field(default=2, ge=1)
     cache_replies: bool = True
 

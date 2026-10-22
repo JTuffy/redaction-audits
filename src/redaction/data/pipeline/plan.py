@@ -106,6 +106,18 @@ class ScenarioPlan(Frozen):
         )
 
 
+def required_for(line: PlannedLine, *, paraphrase: bool) -> tuple[str, ...]:
+    """What a renderer must keep word for word in one line.
+
+    Verbatim mode keeps secret values and every `key=value` cue (or the whole line when it has
+    neither). Paraphrase mode lets evidence lines state their cues in other words and keeps only
+    the secret values; correlates, real records and the rest keep their usual requirements.
+    """
+    if not paraphrase or line.kind is not LineKind.EVIDENCE:
+        return line.required
+    return tuple(r for r in line.required if r != line.text and not TOKEN_PATTERN.fullmatch(r))
+
+
 def tokens(text: str) -> tuple[str, ...]:
     """The key=value tokens in a line, in order."""
     return tuple(TOKEN_PATTERN.findall(text))

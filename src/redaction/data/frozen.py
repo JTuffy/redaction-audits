@@ -22,9 +22,13 @@ def latest_version(split: Split, built_dir: Path) -> str | None:
     return version if (built_dir / split.value / version / "scenarios.jsonl").exists() else None
 
 
-def load_built(split: Split, built_dir: Path) -> tuple[Scenario, ...] | None:
-    """The scenarios of a split's latest build, in build order; None when there is no build."""
-    version = latest_version(split, built_dir)
+def load_built(
+    split: Split, built_dir: Path, version: str | None = None
+) -> tuple[Scenario, ...] | None:
+    """A split's build (`version`, else LATEST), in build order; None when it doesn't exist."""
+    if version is not None and not (built_dir / split.value / version).is_dir():
+        version = None
+    version = version or latest_version(split, built_dir)
     if version is None:
         return None
     path = built_dir / split.value / version / "scenarios.jsonl"

@@ -11,6 +11,7 @@ renderer, so a frozen dataset is never overwritten by a different one:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections import Counter
@@ -80,6 +81,7 @@ class BuildResult(Frozen):
     version: str
     renderer: str
     reviewer: str | None
+    cues: str = "verbatim"  # whether evidence cues had to survive rendering word for word
     plans: tuple[ScenarioPlan, ...]
     scenarios: tuple[Scenario, ...]
     records: tuple[ScenarioRecord, ...]
@@ -89,15 +91,21 @@ def _agrees(review: Review, label: Label) -> bool:
     return (review.verdict is Verdict.VIOLATION) == (label is Label.VIOLATION)
 
 
-def _version(plans: tuple[ScenarioPlan, ...], renderer: str) -> str:
-    digest = hashlib.sha256(renderer.encode())
+def _version(plans: tuple[ScenarioPlan, ...], settings: str) -> str:
+    """A hash of the plans and every setting that changes the output (renderer, reviewer, cues)."""
+    digest = hashlib.sha256(settings.encode())
     for plan in plans:
         digest.update(plan.model_dump_json().encode())
     return digest.hexdigest()[:10]
 
 
 async def _run_one(
-    plan: ScenarioPlan, renderer: Renderer, reviewer: Reviewer | None, max_attempts: int
+    plan: ScenarioPlan,
+    renderer: Renderer,
+    reviewer: Reviewer | None,
+    max_attempts: int,
+    *,
+    paraphrase: bool = False,
 ) -> tuple[Scenario | None, ScenarioRecord]:
     issues: tuple[Issue, ...] = ()
     review: Review | None = None
@@ -106,7 +114,7 @@ async def _run_one(
     attempt = 0
     for attempt in range(1, max_attempts + 1):
         rendering: Rendering = await renderer.render(plan, attempt)
-        issues = validate(plan, rendering)
+        issues = validate(plan, rendering, paraphrase=paraphrase)
         if issues:
             continue
         candidate = assemble(plan, rendering)
@@ -138,8 +146,13 @@ async def build_split_v2(
     seed: int | None = None,
     limit: int | None = None,
     max_attempts: int = 3,
+    paraphrase: bool = False,
+    concurrency: int = 8,
 ) -> BuildResult:
-    """Plan, render, validate and (optionally) review every scenario in a split."""
+    """Plan, render, validate and (optionally) review every scenario in a split.
+
+    Scenarios run concurrently (at most `concurrency` at once); output order is plan order.
+    """
     split_seed = DEFAULT_SEEDS[split] if seed is None else seed
     planned = slots(SPLIT_SIZES[split])[:limit]
     plans = tuple(
@@ -147,10 +160,19 @@ async def build_split_v2(
         for i, slot in enumerate(planned)
     )
     attempts = 1 if renderer.name == "template" else max_attempts  # templates are deterministic
-    outcomes = [await _run_one(plan, renderer, reviewer, attempts) for plan in plans]
+    gate = asyncio.Semaphore(concurrency)
+
+    async def one(plan: ScenarioPlan) -> tuple[Scenario | None, ScenarioRecord]:
+        async with gate:
+            return await _run_one(plan, renderer, reviewer, attempts, paraphrase=paraphrase)
+
+    outcomes = await asyncio.gather(*(one(plan) for plan in plans))
+    reviewer_name = reviewer.name if reviewer else "none"
+    cues = "paraphrase" if paraphrase else "verbatim"
     return BuildResult(
         split=split,
-        version=_version(plans, renderer.name),
+        version=_version(plans, f"{renderer.name}|{reviewer_name}|{cues}"),
+        cues=cues,
         renderer=renderer.name,
         reviewer=reviewer.name if reviewer else None,
         plans=plans,
@@ -170,6 +192,7 @@ def manifest(result: BuildResult, *, background_jobs: int) -> dict[str, object]:
         "version": result.version,
         "renderer": result.renderer,
         "reviewer": result.reviewer,
+        "cues": result.cues,
         "built_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "background_jobs": background_jobs,
         "stages": {
