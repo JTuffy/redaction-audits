@@ -231,7 +231,7 @@ function secretsTable(r) {
       return `<td class="leak" style="--l:${l.toFixed(2)}" title="Leakage ${v.leakage == null ? "—" : f2(v.leakage)}">${f2(v.p_edited)}</td>`;
     }).join("");
     return `${head}<tr class="link ${state.runSample === g.id ? "sel" : ""}" data-id="${esc(g.id)}" tabindex="0">
-      <td class="mono-cell">${esc(sceneName(g.id))}</td><td>${esc(human(x.secret_type))}</td><td class="mono-cell">${esc(x.value)}</td>
+      <td class="mono-cell">${esc(sceneName(g.id))}</td><td style="text-align:left">${esc(human(x.secret_type))}</td><td class="mono-cell" style="text-align:left">${esc(x.value)}</td>
       <td>${f2(x.p_prior)}</td><td>${f2(x.p_unedited)}</td>${cells}</tr>`;
   })).join("");
   return `<div class="panel"><div class="scroll"><table>
@@ -452,9 +452,9 @@ function scenarioDetail(s) {
   return `
     <div><h3>${esc(s.scenario_id)}</h3><p class="claim">${esc(s.claim)}</p></div>
     <dl class="kv">
-      <div><dt>Label</dt><dd class="label-${s.label}">${labelText(s)}</dd></div>
-      <div><dt>Setup</dt><dd>${esc(s.variant || "—")}</dd></div>
-      <div><dt>Lab</dt><dd>${esc(s.lab_name)}</dd></div>
+      <div><dt>Label</dt><dd class="text label-${s.label}">${labelText(s)}</dd></div>
+      <div><dt>Setup</dt><dd class="text">${esc(s.variant || "—")}</dd></div>
+      <div><dt>Lab</dt><dd class="text">${esc(s.lab_name)}</dd></div>
       <div><dt>Lines</dt><dd>${s.logs.length} <span class="faint">${keys.size} key</span></dd></div>
     </dl>
     <div><h4>Secrets</h4><div class="panel"><div class="scroll"><table class="left">
