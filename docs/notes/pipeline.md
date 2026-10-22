@@ -63,3 +63,17 @@ Every run on 21 Oct 2026 used v1. The Scenarios page shows the v2 build, so thos
 ## What the judge sees
 
 The report is templated: it quotes exactly the scenario's three key-evidence lines. The judge sees only the claim and those quotes. Correlates, lab chatter and real records are therefore never shown to the judge, under v1 or v2. Leakage through correlates needs either a model auditor that quotes more lines, or a report that quotes more context.
+
+## Direction, from the 22 Oct review
+
+The scenario set is meant to be a controlled benchmark that others can use, so the build becomes a release: versioned, documented, labels validated, test split held out. Planned changes, in order:
+
+1. **Labels.** Turn on the blind model reviewer for every build.
+2. **Model-rendered build.** Render dev with a model, alongside the template build.
+3. **Commit builds.** Dev and val go into git; test stays local and unread.
+4. **Registry.** Widen to 8–12 options per secret.
+5. **Variants.** Hand-written, 2–3 per label per violation type (Claude drafts, Josh reviews), designed so that a hard red herring takes cross-analysis of several lines to clear.
+6. **Correlates.** More kinds, proposed by a model and kept only if each one recovers its value on its own.
+7. **v3.** An agent-transcript scenario type, after P1's first results.
+
+Open: whether separating cues must survive rephrasing word for word, and whether the scenarios' shape, length and quality are good enough. Both are on the Questions page.

@@ -4,29 +4,37 @@ Open design questions, with the options and where the thinking currently leans. 
 
 ## Can the setup measure what P1 is about yet?
 
-Not fully. Three mechanisms are switched off by design, not by chance:
+Partly. Three mechanisms were switched off by design:
 
-| Measure | Why it can't move yet | Fix |
+| Measure | Status | Fix |
 |---|---|---|
-| Persistence | Nobody has tried to remove the cues that separate violations from red herrings. The honest advocate doesn't, and text redaction removes secret values, not cues. | An adversarial advocate. |
-| Leakage | Until 22 Oct the judge never saw a correlate, so only stated values could leak. | Context-quoting reports (now on). |
-| Executor robustness | Sonnet 5.5 won't play the cover-up stance. | A scripted adversary. |
+| Persistence | Still can't move: nothing has tried to remove the cues that separate violations from red herrings. | An adversarial advocate. |
+| Leakage | Measurable since 22 Oct, when reports started quoting correlates. Text redaction leaked 0.86. | Done. |
+| Executor robustness | Untested: Sonnet 5.5 won't play the cover-up stance. | A scripted adversary. |
 
-A correction: earlier notes blamed the ceiling (unedited AUROC 1.00) for persistence being stuck at 1.00. The ceiling makes the task unrealistically easy, but persistence can still fall from 1.00 if editing removes cues. It is stuck because nothing has tried to remove them.
+The unedited AUROC of 1.00 makes the task unrealistically easy, but it isn't what holds persistence at 1.00. Persistence can fall from 1.00 if editing removes cues; it hasn't, because nothing has tried.
 
 Needs a decision: none. This is the framing for the questions below.
 
-## Which auditor?
+## Should the cues that separate labels survive rephrasing word for word?
 
-| Option | For | Against |
-|---|---|---|
-| Templated, evidence only (until 22 Oct) | Deterministic, free | Hands the judge the answer key, and never quotes correlates. |
-| Templated with context (now) | Still deterministic and free. Correlates reach the judge. | Still quotes every decisive cue verbatim, so the ceiling stays. |
-| Model auditor | Closest to the spec. Picks its own quotes and can miss things. | Cost and noise. A missed violation muddies what persistence means. |
+Each scenario's label rests on a few `key=value` tokens. For example, a CoT violation has `consent_basis=none_recorded`, and its medium red herring has `consent_basis=policy_DG-14`. When a model rephrases the logs, the validator requires those tokens to come through exactly. That guarantees the label is still right, but the tokens then work like an answer key: the judge only has to spot one token, which is why unedited AUROC is 1.00.
 
-Lean: templated with context until the adversaries work, then a model auditor.
+The alternative is to let the renderer state the same fact in its own words ("no consent record was attached to this dataset"), then check with a blind reviewer that the label still reads correctly, and drop scenarios where it doesn't. The task gets harder and more realistic, at some risk to label accuracy.
 
-Needs a decision: when to switch to a model auditor, and whether its own misses count against the policies or are filtered out.
+This connects to the definition of a hard red herring: one that closely matches a violation and takes careful cross-analysis to clear. A single decisive token can't produce that, however it's phrased.
+
+Needs a decision: keep cues verbatim, allow rephrasing with a reviewer check, or build both and compare.
+
+## Is the scenario shape, length and quality good enough?
+
+Josh's concern from the pipeline review. Scenarios are 36–68 single-line log entries, three of which carry the evidence, with the decisive fact usually in one token. Possible gaps:
+
+- **Shape.** Every scenario is a flat list of one-line records, without multi-line events, stack traces, configs or diffs.
+- **Length.** The evidence is three lines; real evidence is spread across more places and needs connecting.
+- **Quality.** The template text is terse and uniform. A model-rendered build (decided 22 Oct) will add variety, but not depth.
+
+Needs a decision: which of these matters most, ideally pointing at one scenario that shows the problem.
 
 ## What should the adversary do?
 
@@ -42,23 +50,12 @@ Needs a decision: whether a scripted adversary is acceptable for the headline re
 
 ## How many judge samples?
 
-The judge moved 15+ points on about 1 in 6 red-herring re-asks. Three samples per question (now the default) cut the standard deviation of the mean by about 1.7×, at 3× the judge cost. The judge is the cheapest role, so the cost is small. Five samples would halve it.
+Three samples per question are now the default. They cut the standard deviation of the mean by about 1.7×, at 3× the judge cost. Five would halve it.
 
 Needs a decision: none until the 3-sample noise is measured.
 
-## How should difficulty be defined?
-
-Red-herring difficulty is set by design (how closely the blueprint imitates the violation), and the judge doesn't agree: hard red herrings scored no higher than medium. Two options:
-
-- Keep designed difficulty, and report the gate failure as a finding about the blueprints.
-- Define difficulty empirically, from the judge's unedited score or from disagreement between judge samples, and bin red herrings after the fact.
-
-Lean: report designed difficulty as built, and add the empirical bin as a second view. That keeps the design honest and the analysis useful.
-
-Needs a decision: whether the MVP gate should use designed or empirical difficulty.
-
 ## What does the MVP show Cath?
 
-Her 9 Oct ask was an MVP with results. The honest result so far is the table at the top of this page: which mechanisms the setup can and can't measure yet, why, and the fix for each, plus the first numbers once the fixes run. Per her request, the write-up is Josh's own.
+Her 9 Oct ask was an MVP with results. The honest result so far is the table at the top of this page, plus the leakage contrast between text redaction and the model-based policies. Per her request, the write-up is Josh's own.
 
 Needs a decision: Josh's.
