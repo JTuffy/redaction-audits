@@ -187,7 +187,8 @@ def outline(paper_dir: Path) -> list[dict[str, Any]]:
         sections.append(
             {
                 "file": path.relative_to(paper_dir).as_posix(),
-                "title": titles[0] if titles else path.stem.replace("_", " ").title(),
+                # A file with several sections (the appendix) is named after the file.
+                "title": titles[0] if len(titles) == 1 else path.stem.replace("_", " ").title(),
                 "words": _words(_SECTION.sub("", tex)),
             }
         )
