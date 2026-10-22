@@ -24,3 +24,6 @@ data/raw/
 data/built/
 data/derived/
 site/dist/
+
+# Files the Claude desktop app saves into this folder
+Claude outputs/
