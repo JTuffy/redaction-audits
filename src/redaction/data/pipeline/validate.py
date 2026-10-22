@@ -18,6 +18,7 @@ from redaction.data.pipeline.render import Rendering
 class Check(StrEnum):
     """The validators, in the order they run."""
 
+    REFUSED = "refused"  # the renderer declined the request; nothing to check
     SHAPE = "shape"  # one rendered line per planned line, none empty
     BACKGROUND_INTACT = "background_intact"  # real records were not rewritten
     REQUIRED_KEPT = "required_kept"  # secret values and cue tokens survived rephrasing
@@ -44,6 +45,8 @@ def validate(
     With `paraphrase`, evidence lines may restate their cues in other words (see
     `plan.required_for`); the blind reviewer then has to confirm the label instead.
     """
+    if rendering.refused:
+        return (Issue(check=Check.REFUSED, line=None, detail=rendering.renderer),)
     if len(rendering.lines) != len(plan.lines):
         return (
             Issue(

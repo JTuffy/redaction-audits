@@ -27,6 +27,7 @@ class Rendering(Frozen):
 
     renderer: str
     lines: tuple[RenderedLine, ...]
+    refused: bool = False  # the model declined (a content filter); lines are empty
 
 
 class Renderer(Protocol):

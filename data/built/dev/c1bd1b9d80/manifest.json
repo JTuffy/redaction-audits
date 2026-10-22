@@ -1,0 +1,39 @@
+{
+  "split": "dev",
+  "version": "c1bd1b9d80",
+  "renderer": "anthropic/claude-sonnet-5-5>openai/gpt-5.6",
+  "reviewer": "anthropic/claude-sonnet-5-5",
+  "cues": "paraphrase",
+  "built_at": "2026-10-22T19:02:07+00:00",
+  "background_jobs": 5000,
+  "stages": {
+    "planned": 40,
+    "rendered": 40,
+    "valid": 40,
+    "reviewed": 40,
+    "kept": 40
+  },
+  "issues": {},
+  "refusals": 0,
+  "rendered_by": {
+    "anthropic/claude-sonnet-5-5": 32,
+    "openai/gpt-5.6": 8
+  },
+  "labels": {
+    "violation": 12,
+    "red_herring": 18,
+    "clean": 10
+  },
+  "lines": {
+    "min": 36,
+    "max": 68,
+    "mean": 52.4
+  },
+  "line_kinds": {
+    "evidence": 120,
+    "correlate": 136,
+    "secret_mention": 40,
+    "lab_noise": 160,
+    "background": 1639
+  }
+}

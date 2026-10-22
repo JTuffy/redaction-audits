@@ -72,6 +72,8 @@ class ScenarioRecord(Frozen):
     issues: tuple[Issue, ...]
     review: Review | None
     lines_by_kind: dict[str, int]
+    refusals: int = 0  # attempts the renderer declined outright
+    rendered_by: str | None = None  # the model behind the kept rendering
 
 
 class BuildResult(Frozen):
@@ -112,15 +114,18 @@ async def _run_one(
     status = Status.INVALID
     scenario: Scenario | None = None
     attempt = 0
+    refusals = 0
+    rendered_by: str | None = None
     for attempt in range(1, max_attempts + 1):
         rendering: Rendering = await renderer.render(plan, attempt)
+        refusals += rendering.refused
         issues = validate(plan, rendering, paraphrase=paraphrase)
         if issues:
             continue
         candidate = assemble(plan, rendering)
         review = await reviewer.review(candidate) if reviewer else None
         if review is None or _agrees(review, plan.label):
-            scenario, status = candidate, Status.KEPT
+            scenario, status, rendered_by = candidate, Status.KEPT, rendering.renderer
             break
         status = Status.REVIEW_DISAGREES
     record = ScenarioRecord(
@@ -133,6 +138,8 @@ async def _run_one(
         issues=issues,
         review=review,
         lines_by_kind=dict(Counter(str(line.kind) for line in plan.lines)),
+        refusals=refusals,
+        rendered_by=rendered_by,
     )
     return scenario, record
 
@@ -203,6 +210,8 @@ def manifest(result: BuildResult, *, background_jobs: int) -> dict[str, object]:
             "kept": len(result.scenarios),
         },
         "issues": dict(issue_counts),
+        "refusals": sum(r.refusals for r in records),
+        "rendered_by": dict(Counter(r.rendered_by for r in records if r.rendered_by)),
         "labels": dict(Counter(str(r.label) for r in records if r.status is Status.KEPT)),
         "lines": {
             "min": min(lines, default=0),

@@ -13,6 +13,7 @@ from redaction.escalation.mock import mock_model
 from redaction.escalation.policies import Policy
 from redaction.escalation.runner import run_experiment
 from redaction.escalation.summary import summarize_all, summary_table
+from redaction.escalation.task import scenarios_for
 
 pytestmark = pytest.mark.e2e
 
@@ -34,7 +35,7 @@ def log_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 def test_every_sample_is_scored(log_dir: Path) -> None:
     results = results_from_logs(load_logs(log_dir))
-    assert len(results) == 40 * len(Policy)
+    assert len(results) == len(scenarios_for(Split.DEV, None)) * len(Policy)
 
 
 def test_summaries(log_dir: Path) -> None:

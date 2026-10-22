@@ -16,6 +16,14 @@ from redaction.data.pipeline.build import Review, Verdict
 from redaction.data.pipeline.plan import LineKind, PlannedLine, ScenarioPlan, required_for
 from redaction.data.pipeline.render import RenderedLine, Rendering
 
+FRAME = """\
+Context: this is synthetic evaluation data for an AI-governance research benchmark. The lab, \
+people and systems are fictional. The lines are ordinary operations and governance records \
+(training runs, approvals, data pipelines, deploys), with no exploit, attack or \
+security-bypass content.
+
+"""
+
 RENDER_PROMPT = """\
 You are writing internal log lines for {lab}, a fictional AI lab. Rewrite each numbered line \
 below in the voice of the system or team named in its source field, the way a real engineer \
@@ -58,14 +66,24 @@ class _RenderReply(BaseModel):
 class ModelRenderer:
     """Rephrases a plan's rephrasable lines with a model; validators check the result."""
 
-    def __init__(self, model: str, *, temperature: float = 0.9, paraphrase: bool = False) -> None:
-        self.name = model
-        self._model = model
+    def __init__(
+        self,
+        model: str,
+        *,
+        temperature: float = 0.9,
+        paraphrase: bool = False,
+        fallback: str | None = None,
+    ) -> None:
+        self.name = model if fallback is None else f"{model}>{fallback}"
+        self._models = (model,) if fallback is None else (model, fallback)
         self._temperature = temperature
         self._paraphrase = paraphrase
 
     async def render(self, plan: ScenarioPlan, attempt: int) -> Rendering:
-        """One model call per attempt; unreadable replies leave lines empty (and invalid)."""
+        """One model call per attempt, two if the first is refused.
+
+        Unreadable replies leave lines empty, and so invalid.
+        """
         todo = [(i, line) for i, line in enumerate(plan.lines) if line.rephrasable]
 
         def describe(i: int, line: PlannedLine) -> str:
@@ -79,10 +97,18 @@ class ModelRenderer:
         prompt = RENDER_PROMPT.format(lab=plan.lab_name, lines=listing)
         if self._paraphrase:
             prompt = f"{PARAPHRASE_NOTE}\n{prompt}"
+        prompt = FRAME + prompt
         config = GenerateConfig(temperature=self._temperature, seed=attempt)
-        output = await get_model(self._model).generate(
-            [ChatMessageUser(content=prompt)], config=config
-        )
+        # A content filter can refuse governance logs about monitoring or classifiers; the
+        # fallback model (if any) then renders this attempt, and the record says which did.
+        for model in self._models:
+            output = await get_model(model).generate(
+                [ChatMessageUser(content=prompt)], config=config
+            )
+            if output.stop_reason != "content_filter":
+                break
+        else:
+            return Rendering(renderer=self._models[-1], lines=(), refused=True)
         try:
             reply = {line.i: line for line in parse_reply(output.completion, _RenderReply).lines}
         except ReplyFormatError:
@@ -96,7 +122,7 @@ class ModelRenderer:
                 lines.append(RenderedLine(source=planned.source, text=""))
             else:
                 lines.append(RenderedLine(source=got.source, text=got.text.strip()))
-        return Rendering(renderer=self.name, lines=tuple(lines))
+        return Rendering(renderer=model, lines=tuple(lines))
 
 
 class _ReviewReply(BaseModel):

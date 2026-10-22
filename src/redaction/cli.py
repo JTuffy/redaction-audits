@@ -99,6 +99,10 @@ def build(
     cues: Annotated[
         str, typer.Option(help="'verbatim' (cue tokens kept word for word) or 'paraphrase'.")
     ] = "verbatim",
+    fallback: Annotated[
+        str | None,
+        typer.Option(help="Model that renders an attempt the main renderer refuses."),
+    ] = None,
     limit: Annotated[int | None, typer.Option(help="Build only the first N scenarios.")] = None,
     attempts: Annotated[int, typer.Option(help="Render attempts per scenario (models only).")] = 3,
 ) -> None:
@@ -116,7 +120,7 @@ def build(
     chosen: Renderer = (
         TemplateRenderer()
         if renderer == "template"
-        else ModelRenderer(renderer, paraphrase=paraphrase)
+        else ModelRenderer(renderer, paraphrase=paraphrase, fallback=fallback)
     )
     result = asyncio.run(
         build_split_v2(
