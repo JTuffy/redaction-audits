@@ -26,6 +26,8 @@ src/redaction/
     blueprints.py  the log lines behind each violation type and its red herrings
     generator.py   splits built from blueprints, seeded per scenario
     reports.py     templated audit reports for the P1 MVP
+    frozen.py      reads the latest frozen build of a split; runs use it, v1 generator as fallback
+    pipeline/      v2: plan, render, validate, freeze (see docs/notes/pipeline.md)
   escalation/    Proposal 1, Redaction Under Escalation
     policies.py    the three policies and the rules every policy enforces
     views.py       what each role is allowed to see
@@ -47,6 +49,7 @@ src/redaction/
                  and the run ledger (runs.py)
   cli.py         redaction data generate | redaction p1 run | analyze | ablate | redaction site
 runs/            the committed run ledger: one record per real run (see runs/README.md)
+docs/notes/      Pipeline, Protocol, Findings, Decisions: edited in place, shown on the site's Notes page
 scripts/
   botec.py            reproduces the compute budget
   fetch_sources.py    downloads real source data (MALT, Philly) into data/raw/

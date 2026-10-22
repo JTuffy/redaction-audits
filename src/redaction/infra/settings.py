@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     background_sample: Path = Path("data/derived/philly_jobs.jsonl")
     site_dir: Path = Path("site/dist")
     ledger_dir: Path = Path("runs")  # committed run records; see infra/runs.py
+    notes_dir: Path = Path("docs/notes")  # Pipeline, Protocol, Findings, Decisions
 
     log_level: str = "INFO"
     log_format: LogFormat = LogFormat.CONSOLE

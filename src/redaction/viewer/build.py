@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 from inspect_ai.log import EvalSample, read_eval_log
 
@@ -181,9 +181,23 @@ def _ledger(ledger_dir: Path | None) -> list[dict[str, Any]]:
     return sorted(entries.values(), key=lambda e: e["name"].split("-")[-1], reverse=True)
 
 
-def _notes(ledger_dir: Path | None) -> str:
-    notes = ledger_dir / "NOTES.md" if ledger_dir is not None else None
-    return notes.read_text(encoding="utf-8") if notes is not None and notes.exists() else ""
+# Notes pages, in sidebar order. Each is a markdown file edited in place, not a log.
+NOTES_PAGES: Final = ("pipeline", "protocol", "findings", "decisions")
+
+
+def _notes(notes_dir: Path | None) -> list[dict[str, str]]:
+    """The notes pages that exist, as slug, title (the file's H1) and markdown."""
+    if notes_dir is None:
+        return []
+    pages = []
+    for slug in NOTES_PAGES:
+        path = notes_dir / f"{slug}.md"
+        if path.exists():
+            text = path.read_text(encoding="utf-8")
+            first = text.lstrip().splitlines()[0] if text.strip() else ""
+            title = first[2:].strip() if first.startswith("# ") else slug.title()
+            pages.append({"slug": slug, "title": title, "markdown": text})
+    return pages
 
 
 def _ablations(results_dir: Path) -> list[dict[str, Any]]:
@@ -231,6 +245,7 @@ def build_site(
     log_dir: Path | None,
     out_dir: Path,
     ledger_dir: Path | None = None,
+    notes_dir: Path | None = None,
 ) -> Path:
     """Write the viewer into `out_dir`, replacing what was there."""
     if out_dir.exists():
@@ -243,7 +258,7 @@ def build_site(
         "runs": runs,
         "ablations": _ablations(results_dir),
         "ledger": _ledger(ledger_dir),
-        "notes": _notes(ledger_dir),
+        "notes": _notes(notes_dir),
         "inspect_viewer": has_viewer,
     }
     (out_dir / "data").mkdir(exist_ok=True)

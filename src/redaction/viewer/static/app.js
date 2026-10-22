@@ -700,33 +700,68 @@ function pageData() {
 
 /* ---------- Page: notes ---------- */
 
+const STATUS_CLASS = { open: "warn", settled: "pass", superseded: "" };
+
 function markdown(src) {
+  const runNames = new Set((SITE.ledger || []).map((e) => e.name));
   const inline = (t) => esc(t)
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/`([^`]+)`/g, (_, c) => runNames.has(c)
+      ? `<a class="code-link" href="${c.startsWith("ablation") ? "#/ablation/" : "#/run/"}${c}"><code>${c}</code></a>`
+      : `<code>${c}</code>`)
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|[\s(])\*([^*]+)\*/g, "$1<em>$2</em>");
+  const cells = (row) => row.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
   const out = [];
-  let para = [], list = [];
+  let para = [], list = null, table = null;
   const flush = () => {
     if (para.length) { out.push(`<p>${inline(para.join(" "))}</p>`); para = []; }
-    if (list.length) { out.push(`<ul>${list.map((li) => `<li>${inline(li)}</li>`).join("")}</ul>`); list = []; }
+    if (list) { out.push(`<${list.tag}>${list.items.map((li) => `<li>${inline(li)}</li>`).join("")}</${list.tag}>`); list = null; }
+    if (table) {
+      const [head, ...rows] = table;
+      out.push(`<div class="panel"><div class="scroll"><table class="left prose-table"><thead><tr>${head.map((h) => `<th>${inline(h)}</th>`).join("")}</tr></thead>
+        <tbody>${rows.map((r) => `<tr>${r.map((c) => `<td class="wrap">${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`);
+      table = null;
+    }
   };
   for (const line of src.split(/\r?\n/)) {
-    if (/^#\s/.test(line)) { flush(); continue; } // the page title replaces the file's H1
-    const h = line.match(/^#{2,3}\s+(.*)/);
-    if (h) { flush(); out.push(`<h2>${inline(h[1])}</h2>`); continue; }
-    const li = line.match(/^\s*[-*]\s+(.*)/);
-    if (li) { if (para.length) flush(); list.push(li[1]); continue; }
+    if (/^#\s/.test(line)) { flush(); continue; } // the page title comes from the sidebar entry
+    if (/^\s*\|/.test(line)) {
+      if (!table) { flush(); table = []; }
+      if (!/^\s*\|[\s:|-]+\|\s*$/.test(line)) table.push(cells(line));
+      continue;
+    }
+    if (table) flush();
+    const h = line.match(/^(#{2,3})\s+(.*)/);
+    if (h) { flush(); out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`); continue; }
+    const st = line.match(/^Status:\s*(\w+)\s*(?:—\s*(.*))?$/);
+    if (st) {
+      flush();
+      const k = st[1].toLowerCase();
+      out.push(`<p class="status"><span class="badge ${STATUS_CLASS[k] ?? ""}">${esc(k)}</span>${st[2] ? `<span class="muted">${inline(st[2])}</span>` : ""}</p>`);
+      continue;
+    }
+    const ul = line.match(/^\s*[-*]\s+(.*)/), ol = line.match(/^\s*\d+\.\s+(.*)/);
+    if (ul || ol) {
+      const tag = ul ? "ul" : "ol";
+      if (para.length || (list && list.tag !== tag)) flush();
+      list = list || { tag, items: [] };
+      list.items.push((ul || ol)[1]);
+      continue;
+    }
     if (!line.trim()) { flush(); continue; }
-    if (list.length) list[list.length - 1] += " " + line.trim(); else para.push(line.trim());
+    if (list) list.items[list.items.length - 1] += " " + line.trim(); else para.push(line.trim());
   }
   flush();
   return out.join("");
 }
 
-function pageNotes() {
-  $("view").innerHTML = pageHead({ title: "Notes" })
-    + (SITE.notes ? `<article class="prose">${markdown(SITE.notes)}</article>` : `<p class="empty">No notes. Add <code>runs/NOTES.md</code>.</p>`);
+function pageNotes(slug) {
+  const pages = Array.isArray(SITE.notes) ? SITE.notes : [];
+  if (!pages.length) { $("view").innerHTML = pageHead({ title: "Notes" }) + `<p class="empty">No notes. Add pages under <code>docs/notes/</code>.</p>`; return; }
+  const page = pages.find((p) => p.slug === slug) || pages[0];
+  const side = `<nav class="side" aria-label="Notes">${pages.map((p) =>
+    `<a href="#/notes/${p.slug}" ${p === page ? 'aria-current="page"' : ""}>${esc(p.title)}</a>`).join("")}</nav>`;
+  $("view").innerHTML = `<div class="notes">${side}<article class="prose"><h1>${esc(page.title)}</h1>${markdown(page.markdown)}</article></div>`;
 }
 
 /* ---------- Router ---------- */
@@ -746,7 +781,7 @@ function route() {
   else if (page === "ablation") pageAblation(name);
   else if (page === "scenarios") pageScenarios(name);
   else if (page === "data") pageData();
-  else if (page === "notes") pageNotes();
+  else if (page === "notes") pageNotes(name);
   else pageRuns();
 }
 
@@ -755,7 +790,7 @@ window.addEventListener("hashchange", () => { route(); window.scrollTo(0, 0); })
 fetch("data/site.json")
   .then((r) => { if (!r.ok) throw new Error(`site.json: HTTP ${r.status}`); return r.json(); })
   .then((site) => {
-    SITE = { builds: [], runs: [], ablations: [], ledger: [], notes: "", ...site };
+    SITE = { builds: [], runs: [], ablations: [], ledger: [], notes: [], ...site };
     route();
   })
   .catch((err) => {

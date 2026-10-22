@@ -26,6 +26,7 @@ from redaction.escalation.mock import mock_model
 from redaction.escalation.policies import Policy
 from redaction.escalation.runner import run_experiment, token_usage
 from redaction.escalation.summary import summary_table
+from redaction.escalation.task import data_source
 from redaction.infra.log_setup import configure_logging, get_logger
 from redaction.infra.runs import record_run
 from redaction.infra.settings import Settings, get_settings
@@ -127,6 +128,7 @@ def site(
         log_dir=settings.inspect_log_dir if bundle_logs else None,
         out_dir=settings.site_dir,
         ledger_dir=settings.ledger_dir,
+        notes_dir=settings.notes_dir,
     )
     typer.echo(str(out))
 
@@ -177,6 +179,7 @@ def run(
                 "split": split.value,
                 "policies": [p.value for p in (policy or list(Policy))],
                 "stance": stance.value,
+                "data": data_source(split),
                 "limit": limit,
                 "sample_ids": sample_id,
                 **_protocol(settings),
@@ -197,6 +200,7 @@ def _refresh_site(settings: Settings) -> None:
             log_dir=settings.inspect_log_dir,
             out_dir=settings.site_dir,
             ledger_dir=settings.ledger_dir,
+            notes_dir=settings.notes_dir,
         )
     except OSError as error:  # the run is recorded either way; the site can be rebuilt by hand
         log.warning("site_refresh_failed", error=str(error))
@@ -254,6 +258,7 @@ def ablate(
             config={
                 "split": split.value,
                 "conditions": [c.value for c in (condition or list(Condition))],
+                "data": data_source(split),
                 "sample_ids": sample_id,
                 **_protocol(settings),
                 "tokens": token_usage(logs),

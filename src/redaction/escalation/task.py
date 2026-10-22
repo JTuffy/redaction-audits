@@ -17,16 +17,36 @@ from inspect_ai.solver import Generate, Solver, TaskState, solver
 
 from redaction.core.models import Scenario, Split
 from redaction.core.roles import Stance
+from redaction.data.frozen import latest_version, load_built
 from redaction.data.generator import build_split
 from redaction.escalation.policies import Policy
 from redaction.escalation.scoring import SampleResult, TrialRecord, sample_result
 from redaction.escalation.trial import run_trial
 from redaction.escalation.views import logs_view, report_view
+from redaction.infra.log_setup import get_logger
+from redaction.infra.settings import get_settings
+
+log = get_logger(__name__)
 
 SCORER_NAME: Final = "redaction_scorer"
 _TRIAL_KEY: Final = "trial"
 _RESULT_KEY: Final = "result"
 _SCENARIO_KEY: Final = "scenario"
+
+
+def scenarios_for(split: Split, seed: int | None = None) -> tuple[Scenario, ...]:
+    """The split's latest frozen build; the v1 generator when there is none or a seed is given."""
+    built = None if seed is not None else load_built(split, get_settings().built_dir)
+    if built is not None:
+        return built
+    log.warning("using_v1_generator", split=split, reason="seed given" if seed else "no build")
+    return tuple(build_split(split, seed=seed))
+
+
+def data_source(split: Split, seed: int | None = None) -> str:
+    """What a run's scenarios came from, for the run ledger: `built:<version>` or `generator:v1`."""
+    version = None if seed is not None else latest_version(split, get_settings().built_dir)
+    return f"built:{version}" if version else "generator:v1"
 
 
 def to_sample(scenario: Scenario) -> Sample:
@@ -94,7 +114,7 @@ def redaction(
     """Redaction Under Escalation for one policy on one split."""
     chosen_split, chosen_policy, chosen_stance = Split(split), Policy(policy), Stance(stance)
     dataset = MemoryDataset(
-        [to_sample(s) for s in build_split(chosen_split, seed=seed)],
+        [to_sample(s) for s in scenarios_for(chosen_split, seed)],
         name=f"redaction-escalation-{chosen_split}",
     )
     return Task(

@@ -24,10 +24,9 @@ from inspect_ai.scorer import mean as mean_metric
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 
 from redaction.core.models import Label, Split
-from redaction.data.generator import build_split
 from redaction.escalation import calls
 from redaction.escalation.ablation import Condition, variant
-from redaction.escalation.task import scenario_of, to_sample
+from redaction.escalation.task import scenario_of, scenarios_for, to_sample
 from redaction.escalation.trial import audit_report
 from redaction.infra.log_setup import get_logger
 from redaction.infra.storage import write_text
@@ -86,7 +85,7 @@ def marker_ablation(
     """The judge's suspicion on one condition of a split's scenarios."""
     chosen = Condition(condition)
     dataset = MemoryDataset(
-        [to_sample(s) for s in build_split(Split(split))], name=f"marker-ablation-{split}"
+        [to_sample(s) for s in scenarios_for(Split(split))], name=f"marker-ablation-{split}"
     )
     return Task(
         dataset=dataset,
