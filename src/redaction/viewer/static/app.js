@@ -2,12 +2,14 @@
 
 /* ---------- Constants ---------- */
 
-const POLICIES = ["text_redaction", "contextual_rewrite", "self_redaction"];
-const POLICY = { text_redaction: "Text redaction", contextual_rewrite: "Contextual rewrite", self_redaction: "Self-redaction" };
+const POLICIES = ["text_redaction", "text_pseudonym", "contextual_rewrite", "self_redaction"];
+const POLICY = { text_redaction: "Text redaction", text_pseudonym: "Text pseudonyms", contextual_rewrite: "Contextual rewrite", self_redaction: "Self-redaction" };
 const CONDITIONS = ["unedited", "marker", "pseudonym", "marker_only"];
 const CONDITION = { unedited: "Unedited", marker: "Marker", pseudonym: "Pseudonym", marker_only: "Marker only" };
 const LABELS = { violation: "Violation", red_herring: "Red herring", clean: "Clean" };
 const LABEL_ORDER = ["violation", "red_herring", "clean"];
+const SETS = { shallow: "Disjoint", entangled: "Entangled", deep: "Deep (archived)" };
+const setOf = (s) => s.depth || "shallow";
 const DIFFICULTY = ["easy", "medium", "hard"];
 const STANCE = { honest: "Honest", cover_up: "Cover-up" };
 const ROLES = ["advocate", "executor", "judge", "integrity_check"];
@@ -86,6 +88,7 @@ const TIPS = {
   p_edited: ["The judge's probability on the true value given the edited evidence."],
   // Policies
   text_redaction: ["A script removes every planted secret value. No model is involved."],
+  text_pseudonym: ["A script replaces every confidential value with a consistent pseudonym (Customer A, Customer B), so redacted entities stay distinguishable. No model is involved."],
   contextual_rewrite: ["The advocate requests edits and the honest executor grants, modifies or denies each one. Always-redact values are removed regardless."],
   self_redaction: ["The advocate's requests are applied as written, with no review. The control."],
   // Stances
@@ -195,7 +198,7 @@ const tipper = (() => {
 })();
 
 let SITE = null;
-const state = { allSecrets: false, runPolicy: "contextual_rewrite", runSample: null, split: "dev", scenario: null, showBackground: false, runFilter: "all", runGroup: "experiment", feed: "all", scLabel: "", scType: "" };
+const state = { allSecrets: false, runPolicy: "contextual_rewrite", runSample: null, split: "dev", scenario: null, showBackground: false, runFilter: "all", runGroup: "experiment", feed: "all", scLabel: "", scType: "", scSet: "" };
 
 /* ---------- Data access ---------- */
 
@@ -265,7 +268,7 @@ function pageRuns() {
     const c = e.config || {};
     if (e.kind === "ablation") return (c.conditions || []).map((x) => CONDITION[x] || x).join(", ");
     const pols = c.policies || [];
-    return `${STANCE[c.stance] || "—"}${pols.length && pols.length < 3 ? " · " + pols.map((p) => POLICY[p]).join(", ") : ""}`;
+    return `${STANCE[c.stance] || "—"}${pols.length && pols.length < POLICIES.length - 1 ? " · " + pols.map((p) => POLICY[p]).join(", ") : ""}`;
   };
   const n = (e) => { const c = e.config || {}; return c.sample_ids?.length ?? c.limit ?? "all"; };
   let lastDay = null;
@@ -463,7 +466,7 @@ function sampleBrowser(r) {
       return `<tr><td class="mono-cell wrap">${esc(q.span)}</td><td>${esc(q.action)}</td><td>${esc(q.category)}</td>
         <td><span class="badge ${cls}">${esc(decision)}</span></td><td class="mono-cell wrap">${esc(final ?? "")}</td>
         <td class="wrap"><details><summary>Reasons</summary><p><b>Advocate.</b> ${esc(q.reason)}</p>${ru && s.policy !== "self_redaction" ? `<p><b>Executor.</b> ${esc(ru.reason)}</p>` : ""}</details></td></tr>`;
-    }).join("") : `<tr><td colspan="6" class="muted">${s.policy === "text_redaction" ? "Registry values removed by script." : "No requests."}</td></tr>`;
+    }).join("") : `<tr><td colspan="6" class="muted">${s.policy.startsWith("text_") ? "Registry values replaced by script." : "No requests."}</td></tr>`;
     const edited = Object.fromEntries(s.edited_evidence.map((e) => [e.log_id, e.quote]));
     const ev = s.evidence.map((e) => `<div><span class="id">${esc(e.log_id)}</span><span class="txt">${wordDiff(e.quote, edited[e.log_id] ?? "")}</span></div>`).join("");
     const secrets = s.secrets.filter((x) => x.p_unedited - x.p_prior > 0.01);
@@ -665,14 +668,16 @@ function pageScenarios(id) {
   const build = currentBuild();
   if (!build) { $("view").innerHTML = pageHead({ title: "Scenarios" }) + `<p class="empty">No builds. Run <code>uv run redaction data build</code>.</p>`; return; }
   const types = [...new Set(build.scenarios.map((s) => s.violation_type))];
-  const list = build.scenarios.filter((s) => (!state.scLabel || s.label === state.scLabel) && (!state.scType || s.violation_type === state.scType));
+  const sets = [...new Set(build.scenarios.map(setOf))];
+  const list = build.scenarios.filter((s) => (!state.scLabel || s.label === state.scLabel) && (!state.scType || s.violation_type === state.scType) && (!state.scSet || setOf(s) === state.scSet));
   const selected = build.scenarios.find((s) => s.scenario_id === id) || list[0] || null;
   const splits = `<div class="seg" role="group" aria-label="Split">${SITE.builds.map((b) =>
     `<button type="button" data-split="${esc(b.key ?? b.manifest.split)}" aria-pressed="${b === build}">${esc(b.key ?? b.manifest.split)}</button>`).join("")}</div>`;
   const filters = `${splits}
     <select id="f-label" aria-label="Label"><option value="">All labels</option>${LABEL_ORDER.map((l) => `<option value="${l}" ${state.scLabel === l ? "selected" : ""}>${LABELS[l]}</option>`).join("")}</select>
+    ${sets.length > 1 ? `<select id="f-set" aria-label="Set"><option value="">All sets</option>${sets.map((k) => `<option value="${k}" ${state.scSet === k ? "selected" : ""}>${esc(SETS[k] || k)}</option>`).join("")}</select>` : ""}
     <select id="f-type" aria-label="Violation type"><option value="">All types</option>${types.map((t) => `<option value="${t}" ${state.scType === t ? "selected" : ""}>${esc(human(t))}</option>`).join("")}</select>`;
-  const items = list.map((s) => `<li tabindex="0" data-id="${esc(s.scenario_id)}" aria-selected="${s === selected}"><b>${esc(s.scenario_id)}</b><span class="label-${s.label}">${labelText(s)}</span></li>`).join("")
+  const items = list.map((s) => `<li tabindex="0" data-id="${esc(s.scenario_id)}" aria-selected="${s === selected}"><b>${esc(s.scenario_id)}</b><span class="label-${s.label}">${labelText(s)}${sets.length > 1 ? ` · ${esc((SETS[setOf(s)] || setOf(s)).toLowerCase())}` : ""}</span></li>`).join("")
     || `<li><span>No scenarios match.</span></li>`;
   $("view").innerHTML = pageHead({ title: "Scenarios", sub: `<span>${list.length} of ${build.scenarios.length}</span><span class="mono">build ${esc(build.manifest.version)}</span>` })
     + section("Browse", `<div class="browser"><ol class="list panel">${items}</ol><article class="detail">${scenarioDetail(selected)}</article></div>`, filters);
@@ -680,6 +685,7 @@ function pageScenarios(id) {
   $("view").querySelectorAll("[data-split]").forEach((b) => { b.onclick = () => { state.split = b.dataset.split; location.hash = "#/scenarios"; route(); }; });
   $("f-label").onchange = (e) => { state.scLabel = e.target.value; pageScenarios(); };
   $("f-type").onchange = (e) => { state.scType = e.target.value; pageScenarios(); };
+  if ($("f-set")) $("f-set").onchange = (e) => { state.scSet = e.target.value; pageScenarios(); };
   const bg = $("show-bg");
   if (bg) bg.onchange = (e) => { state.showBackground = e.target.checked; pageScenarios(selected?.scenario_id); };
 }
@@ -699,9 +705,14 @@ function pageData() {
   const kept = build.scenarios;
   const types = [...new Set(build.records.map((r) => r.violation_type))];
   const cols = [["violation", null, "Violation"], ["red_herring", "easy", term("red_herring", "RH easy")], ["red_herring", "medium", term("red_herring", "RH medium")], ["red_herring", "hard", term("red_herring", "RH hard")], ["clean", null, "Clean"]];
-  const count = (t, l, d) => kept.filter((s) => s.violation_type === t && s.label === l && (s.difficulty ?? null) === d).length;
+  const setsHere = [...new Set(kept.map(setOf))];
+  const count = (t, l, d, k) => kept.filter((s) => s.violation_type === t && s.label === l && (s.difficulty ?? null) === d && setOf(s) === k).length;
+  const compRows = setsHere.map((k) => `${setsHere.length > 1 ? `<tr class="group-row"><td colspan="${cols.length + 1}">${esc(SETS[k] || k)}</td></tr>` : ""}${types.map((t) => {
+    const cells = cols.map(([l, d]) => count(t, l, d, k));
+    return cells.some(Boolean) ? `<tr><td>${esc(human(t))}</td>${cells.map((n) => `<td class="${n ? "" : "muted"}">${n}</td>`).join("")}</tr>` : "";
+  }).join("")}`).join("");
   const composition = `<div class="panel"><div class="scroll"><table><thead><tr><th>Violation type</th>${cols.map((c) => `<th>${c[2]}</th>`).join("")}</tr></thead>
-    <tbody>${types.map((t) => `<tr><td>${esc(human(t))}</td>${cols.map(([l, d]) => { const n = count(t, l, d); return `<td class="${n ? "" : "muted"}">${n}</td>`; }).join("")}</tr>`).join("")}</tbody></table></div></div>`;
+    <tbody>${compRows}</tbody></table></div></div>`;
   const total = Object.values(m.line_kinds).reduce((a, b) => a + b, 0) || 1;
   const kinds = `<div class="panel pad"><div class="kind-bar" role="img" aria-label="Share of lines by kind">${KINDS.map(([k]) =>
       `<i class="k-${k}" style="width:${(100 * (m.line_kinds[k] || 0) / total).toFixed(2)}%"></i>`).join("")}</div>
@@ -712,7 +723,7 @@ function pageData() {
     const n = counts[k] || 0;
     return `<tr><td>${name}</td><td><span class="badge ${n ? "fail" : "pass"}">${n ? n + " failed" : "pass"}</span></td></tr>`;
   }).join("")}<tr><td>Blind label review</td><td>${m.reviewer ? `<span class="badge ${build.records.some((r) => r.status === "review_disagrees") ? "fail" : "pass"}">${esc(m.reviewer)}</span>` : '<span class="badge">not run</span>'}</td></tr></tbody></table></div></div>`;
-  $("view").innerHTML = pageHead({ title: "Data", sub: `<span class="mono">build ${esc(m.version)}</span><span>renderer ${esc(m.renderer)}</span>${m.depth === "deep" ? "<span>deep variants (draft)</span>" : ""}<span>${esc(m.built_at.replace("T", " ").slice(0, 16))} UTC</span>` })
+  $("view").innerHTML = pageHead({ title: "Data", sub: `<span class="mono">build ${esc(m.version)}</span><span>renderer ${esc(m.renderer)}</span>${m.depth === "benchmark" ? "<span>disjoint + entangled</span>" : m.depth && m.depth !== "shallow" ? `<span>${esc(m.depth)} set</span>` : ""}<span>${esc(m.built_at.replace("T", " ").slice(0, 16))} UTC</span>` })
     + section("Pipeline", stages, splits)
     + `<div class="grid2">${section("Composition", composition)}${section("Line kinds", kinds)}</div>`
     + section("Validation", checks);

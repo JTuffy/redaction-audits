@@ -9,8 +9,9 @@ from redaction.core.models import Label, Scenario, Split
 from redaction.core.registry import REGISTRY, redaction_marker
 from redaction.data.generator import build_split
 from redaction.data.reports import templated_report
-from redaction.escalation.ablation import PSEUDONYMS, Condition, variant
+from redaction.escalation.ablation import Condition, variant
 from redaction.escalation.ablation_task import ablation_table, summarize
+from redaction.escalation.pseudonyms import PSEUDONYMS
 from redaction.infra.runs import record_run
 
 

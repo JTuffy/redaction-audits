@@ -106,8 +106,9 @@ def build(
         str, typer.Option(help="'verbatim' (cue tokens kept word for word) or 'paraphrase'.")
     ] = "verbatim",
     depth: Annotated[
-        str, typer.Option(help="Blueprints: 'shallow' (all six types) or 'deep' (draft, 3 types).")
-    ] = "shallow",
+        str,
+        typer.Option(help="'benchmark' (disjoint + entangled), 'shallow', 'entangled' or 'deep'."),
+    ] = "benchmark",
     latest: Annotated[
         bool, typer.Option(help="Point LATEST at this build (runs read LATEST).")
     ] = True,
@@ -120,8 +121,8 @@ def build(
 ) -> None:
     """Run the synthetic data pipeline for one split and freeze the result."""
     settings = get_settings()
-    if depth not in DEPTHS:
-        raise typer.BadParameter(f"depth must be one of {DEPTHS}")
+    if depth not in (*DEPTHS, "benchmark"):
+        raise typer.BadParameter(f"depth must be one of {(*DEPTHS, 'benchmark')}")
     if cues not in {"verbatim", "paraphrase"}:
         raise typer.BadParameter("cues must be 'verbatim' or 'paraphrase'")
     paraphrase = cues == "paraphrase"

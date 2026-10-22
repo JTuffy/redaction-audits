@@ -22,6 +22,7 @@ from redaction.core.models import (
     SecretTier,
 )
 from redaction.core.registry import redaction_marker, spec_for
+from redaction.escalation.pseudonyms import stand_ins
 
 LOG_ID_PATTERN = re.compile(r"LOG-\d{4}")
 ALWAYS_REDACT_ONLY = frozenset({SecretTier.ALWAYS_REDACT})
@@ -31,13 +32,14 @@ class Policy(StrEnum):
     """The redaction regimes compared in the experiment."""
 
     TEXT_REDACTION = "text_redaction"
+    TEXT_PSEUDONYM = "text_pseudonym"  # like text redaction, but consistent pseudonyms
     CONTEXTUAL_REWRITE = "contextual_rewrite"
     SELF_REDACTION = "self_redaction"
 
     @property
     def uses_advocate(self) -> bool:
         """Whether this policy acts on advocate requests."""
-        return self is not Policy.TEXT_REDACTION
+        return self not in {Policy.TEXT_REDACTION, Policy.TEXT_PSEUDONYM}
 
     @property
     def uses_executor(self) -> bool:
@@ -67,6 +69,19 @@ def apply_text_redaction(
             text = _replace_case_insensitive(
                 text, secret.value, redaction_marker(secret.secret_type)
             )
+        return text
+
+    return report.with_text(transform)
+
+
+def apply_pseudonyms(report: Report, scenario: Scenario) -> Report:
+    """Replace every confidential value with a consistent pseudonym (Customer A, Customer B)."""
+    replacements = stand_ins(scenario, consistent=True)
+    values = sorted(replacements, key=len, reverse=True)
+
+    def transform(text: str) -> str:
+        for value in values:
+            text = _replace_case_insensitive(text, value, replacements[value])
         return text
 
     return report.with_text(transform)
@@ -140,6 +155,8 @@ def redact(
     """
     if policy is Policy.TEXT_REDACTION:
         return apply_text_redaction(report, scenario)
+    if policy is Policy.TEXT_PSEUDONYM:
+        return apply_pseudonyms(report, scenario)
     edited = apply_rulings(report, requests, effective_rulings(policy, requests, rulings))
     if policy is Policy.SELF_REDACTION:
         return edited
@@ -150,7 +167,7 @@ def effective_rulings(
     policy: Policy, requests: Sequence[RedactionRequest], rulings: Iterable[Ruling]
 ) -> tuple[Ruling, ...]:
     """The rulings a policy actually applies: none, all granted, or the honest executor's."""
-    if policy is Policy.TEXT_REDACTION:
+    if not policy.uses_advocate:
         return ()
     if policy is Policy.SELF_REDACTION:
         return grant_all(requests)

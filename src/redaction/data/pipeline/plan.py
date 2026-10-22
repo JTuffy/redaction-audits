@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import random
 import re
+from datetime import date, timedelta
 from enum import StrEnum
 from typing import Final
 
@@ -29,6 +30,7 @@ from redaction.data.blueprints import (
     NEUTRAL_LINES,
     NOISE_SECRET_LINES,
     SECRET_PLACEHOLDERS,
+    SET_PREFIX,
     Variant,
     blueprints_for,
     variant_for,
@@ -158,6 +160,25 @@ def compute_thresholds(footprint: str | None) -> dict[str, str]:
     return {"threshold_below": f"{below:,}", "threshold_above": f"{above:,}"}
 
 
+_RELEASE_WEEK: Final = re.compile(r"week of (\d{4}-\d{2}-\d{2})")
+
+
+def eval_dates(release: str | None) -> dict[str, str]:
+    """Eval completion dates three weeks before and two weeks after a release week.
+
+    The entangled skipped-eval variants decide the label by comparing the two; a hidden release
+    date erases the comparison.
+    """
+    match = _RELEASE_WEEK.fullmatch(release or "")
+    if match is None:
+        return {}
+    week = date.fromisoformat(match.group(1))
+    return {
+        "eval_before": (week - timedelta(days=21)).isoformat(),
+        "eval_after": (week + timedelta(days=14)).isoformat(),
+    }
+
+
 def _interleave[T](rng: random.Random, planted: list[T], noise: list[T]) -> list[T]:
     """Scatter noise among planted lines, keeping planted order."""
     total = len(planted) + len(noise)
@@ -194,6 +215,7 @@ def plan_scenario(
     )
     values |= {f"{SECRET_PLACEHOLDERS[c.secret_type]}2": c.value for c in confidential}
     values |= compute_thresholds(values.get(SECRET_PLACEHOLDERS[SecretType.COMPUTE_FOOTPRINT]))
+    values |= eval_dates(values.get(SECRET_PLACEHOLDERS[SecretType.RELEASE_DATE]))
 
     planted = [
         PlannedLine(
@@ -239,8 +261,9 @@ def plan_scenario(
         for source, text in background_lines(jobs, rng, rng.randint(*BACKGROUND_RANGE))
     ]
     rng.shuffle(extras)
+    prefix = SET_PREFIX[depth]
     return ScenarioPlan(
-        scenario_id=f"{split}-{index:03d}-{slot.violation_type}-{slot.label}",
+        scenario_id=f"{split}-{prefix}{index:03d}-{slot.violation_type}-{slot.label}",
         split=split,
         index=index,
         violation_type=slot.violation_type,

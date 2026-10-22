@@ -22,7 +22,7 @@ from typing import Protocol
 
 from redaction.core.models import Frozen, Label, Scenario, Split
 from redaction.data.background import PhillyJob
-from redaction.data.blueprints import blueprints_for
+from redaction.data.blueprints import BENCHMARK_SETS, blueprints_for
 from redaction.data.generator import DEFAULT_SEEDS, SPLIT_SIZES, slots
 from redaction.data.pipeline.plan import LineKind, ScenarioPlan, plan_scenario
 from redaction.data.pipeline.render import Renderer, Rendering, assemble
@@ -168,12 +168,16 @@ async def build_split_v2(
     Scenarios run concurrently (at most `concurrency` at once); output order is plan order.
     """
     split_seed = DEFAULT_SEEDS[split] if seed is None else seed
-    types = set(blueprints_for(depth))
-    every = enumerate(slots(SPLIT_SIZES[split]))
-    planned = [(i, slot) for i, slot in every if slot.violation_type in types][:limit]
+    sets = BENCHMARK_SETS if depth == "benchmark" else (depth,)
+    planned = [
+        (i, slot, one_set)
+        for one_set in sets
+        for i, slot in enumerate(slots(SPLIT_SIZES[split]))
+        if slot.violation_type in blueprints_for(one_set)
+    ][:limit]
     plans = tuple(
-        plan_scenario(slot, split=split, index=i, seed=split_seed, jobs=jobs, depth=depth)
-        for i, slot in planned
+        plan_scenario(slot, split=split, index=i, seed=split_seed, jobs=jobs, depth=one_set)
+        for i, slot, one_set in planned
     )
     attempts = 1 if renderer.name == "template" else max_attempts  # templates are deterministic
     gate = asyncio.Semaphore(concurrency)

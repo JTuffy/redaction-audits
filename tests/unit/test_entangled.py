@@ -10,12 +10,12 @@ import pytest
 from redaction.core.models import Difficulty, Label, Scenario, SecretType, Split, ViolationType
 from redaction.data.blueprints import ENTANGLED_BLUEPRINTS, variant_for
 from redaction.data.generator import ScenarioSpec
-from redaction.data.pipeline.plan import compute_thresholds, plan_scenario
+from redaction.data.pipeline.plan import compute_thresholds, eval_dates, plan_scenario
 from redaction.data.pipeline.render import TemplateRenderer, assemble
 from redaction.data.pipeline.validate import validate
 from redaction.data.reports import templated_report
 from redaction.escalation.ablation import Condition, variant
-from redaction.escalation.policies import apply_text_redaction
+from redaction.escalation.policies import Policy, apply_text_redaction, redact
 
 CELLS = [
     (Label.VIOLATION, None),
@@ -51,7 +51,7 @@ def test_every_entangled_cell_plans_and_validates(
 
 # Placeholders that a marker (or a hidden footprint) makes indistinguishable.
 _MERGED = {"{customer2}": "{customer}", "{codename2}": "{codename}"}
-_MERGED |= {"{threshold_above}": "{threshold_below}"}
+_MERGED |= {"{threshold_above}": "{threshold_below}", "{eval_before}": "{eval_after}"}
 
 
 def _merged(template: str) -> str:
@@ -78,10 +78,20 @@ def test_pseudonyms_keep_two_customers_apart_and_markers_merge_them() -> None:
     redacted = " ".join(q.quote for q in apply_text_redaction(report, scenario).evidence)
     assert "Customer A" in pseudo
     assert "Customer B" in pseudo
+    policy = " ".join(q.quote for q in redact(Policy.TEXT_PSEUDONYM, report, scenario).evidence)
+    assert policy == pseudo
     for value in (s.value for s in scenario.redactable()):
         assert value not in pseudo
         assert value not in marked
         assert value not in redacted
+
+
+def test_eval_dates_bracket_the_release() -> None:
+    assert eval_dates("week of 2026-11-09") == {
+        "eval_before": "2026-10-19",
+        "eval_after": "2026-11-23",
+    }
+    assert eval_dates(None) == {}
 
 
 def test_compute_thresholds_bracket_the_footprint() -> None:
