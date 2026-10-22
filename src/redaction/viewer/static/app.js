@@ -1,265 +1,202 @@
 "use strict";
 
+/* ---------- Constants ---------- */
+
+const POLICIES = ["text_redaction", "contextual_rewrite", "self_redaction"];
+const POLICY = { text_redaction: "Text redaction", contextual_rewrite: "Contextual rewrite", self_redaction: "Self-redaction" };
+const CONDITIONS = ["unedited", "marker", "pseudonym", "marker_only"];
+const CONDITION = { unedited: "Unedited", marker: "Marker", pseudonym: "Pseudonym", marker_only: "Marker only" };
+const LABELS = { violation: "Violation", red_herring: "Red herring", clean: "Clean" };
+const LABEL_ORDER = ["violation", "red_herring", "clean"];
+const DIFFICULTY = ["easy", "medium", "hard"];
+const STANCE = { honest: "Honest", cover_up: "Cover-up" };
+const ROLES = ["advocate", "executor", "judge", "integrity_check"];
+const ROLE = { advocate: "Advocate", executor: "Executor", judge: "Judge", integrity_check: "Integrity check" };
+const SHIFT = 15; // judge-score change worth flagging, in points
 const KINDS = [
-  ["evidence", "Evidence (violation or look-alike)"],
-  ["correlate", "Correlates (reveal a secret without its value)"],
-  ["secret_mention", "Secret mentioned in passing"],
+  ["evidence", "Evidence"],
+  ["correlate", "Correlates"],
+  ["secret_mention", "Secret mentions"],
   ["lab_noise", "Lab chatter"],
-  ["background", "Real cluster records (Philly trace)"],
+  ["background", "Real cluster records"],
 ];
-const STAGES = [
-  ["planned", "Planned", "facts fixed in code"],
-  ["rendered", "Rendered", "phrased by the renderer"],
-  ["valid", "Valid", "passed the code checks"],
-  ["reviewed", "Reviewed", "blind label check"],
-  ["kept", "Kept", "frozen for runs"],
-];
+const STAGES = [["planned", "Planned"], ["rendered", "Rendered"], ["valid", "Valid"], ["reviewed", "Reviewed"], ["kept", "Kept"]];
 const CHECKS = {
   shape: "One rendered line per planned line",
-  background_intact: "Real records left unchanged",
+  background_intact: "Real records unchanged",
   required_kept: "Secret values and cue tokens kept",
   correlate_kept: "Correlate details kept",
   no_verbatim_in_correlate: "Correlates do not state the value",
-  no_foreign_option: "No other option of a secret appears",
-  label_clean: "Non-violations carry no violation-only token",
+  no_foreign_option: "No other option of a secret",
+  label_clean: "No violation-only token in non-violations",
   no_duplicates: "No repeated lines",
 };
-const LABELS = { violation: "Violation", red_herring: "Red herring", clean: "Clean" };
-const POLICY = { text_redaction: "Text redaction", contextual_rewrite: "Contextual rewrite", self_redaction: "Self-redaction" };
+
+/* ---------- Helpers ---------- */
 
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const human = (s) => String(s).replaceAll("_", " ");
-const f2 = (v) => (v == null ? "n/a" : Number(v).toFixed(2));
-
-let SITE = null, build = null, selected = null, showBackground = false;
-
-function setTab(name) {
-  for (const t of ["pipeline", "runs"]) {
-    $("tab-" + t).setAttribute("aria-selected", String(t === name));
-    $("panel-" + t).hidden = t !== name;
-  }
-  history.replaceState(null, "", name === "runs" ? "#runs" : "#");
-}
-
-/* ---------- Data pipeline ---------- */
-
-function renderSplits() {
-  $("split-seg").innerHTML = SITE.builds.map((b) =>
-    `<button type="button" aria-pressed="${b === build}" data-v="${b.manifest.version}">${esc(b.manifest.split)}</button>`).join("");
-  $("split-seg").querySelectorAll("button").forEach((btn) => {
-    btn.onclick = () => { build = SITE.builds.find((b) => b.manifest.version === btn.dataset.v); selected = null; renderPipeline(); };
-  });
-}
-
-function renderStages(m) {
-  const s = m.stages;
-  let prev = s.planned;
-  $("stages").innerHTML = STAGES.map(([key, name, sub]) => {
-    const skipped = key === "reviewed" && !m.reviewer;
-    const lost = !skipped && s[key] < prev;
-    if (!skipped) prev = s[key];
-    return `<div class="stage ${skipped ? "skipped" : ""} ${lost ? "loss" : ""}">
-      <b>${skipped ? "—" : s[key]}</b><span>${name}</span>
-      <small>${skipped ? "skipped: no reviewer model" : sub}</small></div>`;
-  }).join("");
-}
-
-function renderComposition() {
-  const kept = build.scenarios;
-  const types = [...new Set(build.records.map((r) => r.violation_type))];
-  const cols = [["violation", null], ["red_herring", "easy"], ["red_herring", "medium"], ["red_herring", "hard"], ["clean", null]];
-  const count = (t, [l, d]) => kept.filter((s) => s.violation_type === t && s.label === l && (s.difficulty ?? null) === d).length;
-  const head = `<thead><tr><th>Violation type</th><th>Violation</th><th title="Red herring, easy">RH easy</th><th title="Red herring, medium">RH med</th><th title="Red herring, hard">RH hard</th><th>Clean</th></tr></thead>`;
-  const rows = types.map((t) => `<tr><td>${esc(human(t))}</td>${cols.map((c) => {
-    const n = count(t, c); return `<td class="${n ? "" : "zero"}">${n}</td>`; }).join("")}</tr>`).join("");
-  $("composition").innerHTML = head + `<tbody>${rows}</tbody>`;
-}
-
-function renderKinds(m) {
-  const total = Object.values(m.line_kinds).reduce((a, b) => a + b, 0) || 1;
-  $("kinds").innerHTML = `<div class="kind-bar" role="img" aria-label="Share of lines by kind">${KINDS.map(([k]) =>
-      `<i class="k-${k}" style="width:${(100 * (m.line_kinds[k] || 0) / total).toFixed(2)}%"></i>`).join("")}</div>
-    <div class="legend">${KINDS.map(([k, name]) =>
-      `<div><i class="k-${k}"></i><span>${name}</span><span>${(100 * (m.line_kinds[k] || 0) / total).toFixed(0)}%</span></div>`).join("")}</div>`;
-  $("lines-note").textContent = `${m.lines.min}–${m.lines.max} lines per scenario (mean ${m.lines.mean}). ` +
-    (m.background_jobs ? `Background drawn from ${m.background_jobs.toLocaleString()} real jobs.` : "No background sample: run `redaction data background`.");
-}
-
-function renderIssues(m) {
-  const failed = build.records.filter((r) => r.status !== "kept");
-  const counts = m.issues || {};
-  const rows = Object.entries(CHECKS).map(([k, name]) => {
-    const n = counts[k] || 0;
-    return `<div class="issue-row"><span>${name}</span><span><span class="pill ${n ? "fail" : "pass"}">${n ? n + " failed" : "pass"}</span></span></div>`;
-  }).join("");
-  const review = m.reviewer
-    ? `<p class="note">Reviewer ${esc(m.reviewer)}: ${build.records.filter((r) => r.status === "review_disagrees").length} scenarios read as the wrong label.</p>`
-    : `<p class="note">No blind review in this build. With the template renderer, the checks above pass by construction; they matter once a model rephrases lines.</p>`;
-  $("issues").innerHTML = rows + review + (failed.length ? `<p class="note">${failed.length} scenarios dropped: ${failed.map((r) => esc(r.scenario_id)).join(", ")}</p>` : "");
-}
-
-function filtered() {
-  const lab = $("f-label").value, typ = $("f-type").value;
-  return build.scenarios.filter((s) => (!lab || s.label === lab) && (!typ || s.violation_type === typ));
-}
-
-function renderList() {
-  const types = [...new Set(build.scenarios.map((s) => s.violation_type))];
-  const cur = $("f-type").value;
-  $("f-type").innerHTML = `<option value="">All violation types</option>` +
-    types.map((t) => `<option value="${t}">${esc(human(t))}</option>`).join("");
-  if (types.includes(cur)) $("f-type").value = cur;
-  const list = filtered();
-  if (!list.includes(selected)) selected = list[0] || null;
-  $("scenario-count").textContent = `${list.length} of ${build.scenarios.length}`;
-  $("scenario-list").innerHTML = list.map((s, i) => `<li tabindex="0" data-i="${i}" aria-selected="${s === selected}">
-      <b>${esc(s.scenario_id)}</b>
-      <span class="label-${s.label}">${LABELS[s.label]}${s.difficulty ? " · " + s.difficulty : ""}</span></li>`).join("")
-    || `<li><span>No scenarios match.</span></li>`;
-  $("scenario-list").querySelectorAll("li[data-i]").forEach((li) => {
-    const pick = () => { selected = list[+li.dataset.i]; renderList(); };
-    li.onclick = pick;
-    li.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } };
-  });
-  renderDetail();
-}
-
-function highlight(text, secrets, snippet) {
-  let html = esc(text);
-  if (snippet) html = html.replace(esc(snippet), `<mark class="correlate">${esc(snippet)}</mark>`);
-  for (const v of secrets) html = html.split(esc(v)).join(`<mark class="secret">${esc(v)}</mark>`);
-  return html;
-}
-
-function renderDetail() {
-  const s = selected;
-  if (!s) { $("detail").innerHTML = `<p class="empty">Pick a scenario.</p>`; return; }
-  const values = s.secrets.map((x) => x.value);
-  const corrByLog = Object.fromEntries(s.correlates.map((c) => [c.log_id, c]));
-  const keys = new Set(s.key_evidence_ids);
-  const secretRows = s.secrets.map((x) => {
-    const cs = s.correlates.filter((c) => c.secret_type === x.secret_type);
-    return `<tr><td>${esc(human(x.secret_type))}</td><td>${esc(x.value)}</td>
-      <td>${cs.map((c) => `${esc(c.log_id)} · ${c.strength}`).join("<br>") || "none"}</td>
-      <td style="white-space:normal">${cs.map((c) => esc(c.rationale)).join("<br>")}</td></tr>`;
-  }).join("");
-  const hidden = s.logs.filter((e) => e.kind === "background").length;
-  const logs = s.logs.filter((e) => showBackground || e.kind !== "background").map((e) => {
-    const c = corrByLog[e.log_id];
-    return `<div class="${e.kind === "background" ? "background" : ""} ${keys.has(e.log_id) ? "key" : ""}">
-      <i class="k-${e.kind || "background"}" title="${esc(human(e.kind || ""))}"></i>
-      <span class="id">${esc(e.log_id)}</span><span class="src">${esc(e.source)}</span>
-      <span class="txt">${highlight(e.text, values, c && c.snippet)}</span></div>`;
-  }).join("");
-  $("detail").innerHTML = `
-    <h3>${esc(s.scenario_id)}</h3>
-    <p class="claim">Claim: ${esc(s.claim)}</p>
-    <div class="facts">
-      <div><span>Label</span><b class="label-${s.label}">${LABELS[s.label]}${s.difficulty ? " · " + s.difficulty : ""}</b></div>
-      <div><span>Setup</span><b>${esc(s.variant)}</b></div>
-      <div><span>Lab</span><b>${esc(s.lab_name)}</b></div>
-      <div><span>Lines</span><b>${s.logs.length} (${keys.size} key evidence)</b></div>
-    </div>
-    <div class="scroll"><table class="left"><thead><tr><th>Secret</th><th>True value</th><th>Correlates</th><th>Why it leaks</th></tr></thead>
-      <tbody>${secretRows}</tbody></table></div>
-    <div class="bar">
-      <label class="toggle"><input type="checkbox" id="show-bg" ${showBackground ? "checked" : ""}> Show ${hidden} background lines</label>
-      <span class="meta"><mark class="secret">value</mark> secret · <mark class="correlate">detail</mark> correlate · amber ID = key evidence</span>
-    </div>
-    <div class="logs">${logs}</div>`;
-  $("show-bg").onchange = (e) => { showBackground = e.target.checked; renderDetail(); };
-}
-
-function renderPipeline() {
-  if (!build) {
-    $("panel-pipeline").innerHTML = `<section class="card"><p class="empty">No builds yet. Run <code>uv run redaction data build</code>, then <code>uv run redaction site</code>.</p></section>`;
-    return;
-  }
-  const m = build.manifest;
-  renderSplits();
-  $("build-meta").textContent = `build ${m.version} · renderer ${m.renderer} · ${m.built_at.replace("T", " ").slice(0, 16)} UTC`;
-  renderStages(m);
-  renderComposition();
-  renderKinds(m);
-  renderIssues(m);
-  renderList();
-}
-
-/* ---------- Runs ---------- */
-
-const POLICIES = ["text_redaction", "contextual_rewrite", "self_redaction"];
-const LABEL_ORDER = ["violation", "red_herring", "clean"];
-const SHIFT = 15; // judge-score change worth flagging, in points
-let run = null, runSample = null, runPolicy = "contextual_rewrite";
-
-const isMock = (r) => (r.models || []).some((m) => m.startsWith("mockllm"));
+const f2 = (v) => (v == null ? "—" : Number(v).toFixed(2));
+const f0 = (v) => (v == null ? "—" : Number(v).toFixed(0));
+const signed = (v, d = 0) => (v == null ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(d)}`);
+const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+const sd = (xs) => { const m = mean(xs); return xs.length > 1 ? Math.sqrt(mean(xs.map((x) => (x - m) ** 2))) : null; };
 const short = (id) => String(id).replace(/^[a-z]+-/, "");
-const sampleKey = (s) => s.scenario_id;
-const byScenario = (r) => {
-  const map = new Map();
-  for (const s of r.samples || []) {
-    if (!map.has(s.scenario_id)) map.set(s.scenario_id, {});
-    map.get(s.scenario_id)[s.policy] = s;
-  }
-  const rank = (x) => LABEL_ORDER.indexOf(x.label) * 10 + ["easy", "medium", "hard"].indexOf(x.difficulty ?? "");
-  return [...map.entries()]
-    .map(([id, pol]) => ({ id, pol, any: Object.values(pol)[0] }))
-    .sort((a, b) => rank(a.any) - rank(b.any) || a.id.localeCompare(b.id));
-};
-// A move is "wrong way" when editing makes innocent evidence look guilty or guilty evidence look innocent.
+const sceneName = (id) => short(id).split("-").slice(0, 2).join(" ").replaceAll("_", " ");
+const stampOf = (name) => (String(name).match(/(\d{8}T\d{6}Z)$/) || [])[1];
+function when(name) {
+  const s = stampOf(name);
+  if (!s) return "—";
+  const d = new Date(`${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T${s.slice(9, 11)}:${s.slice(11, 13)}:${s.slice(13, 15)}Z`);
+  return d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+const kTokens = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
+const tokensOf = (e) => Object.values(e?.config?.tokens || {}).reduce((a, t) => a + (t.input_tokens || 0) + (t.output_tokens || 0), 0);
+const labelText = (x) => `${LABELS[x.label]}${x.difficulty ? " · " + x.difficulty : ""}`;
+const rankScenario = (x) => LABEL_ORDER.indexOf(x.label) * 10 + DIFFICULTY.indexOf(x.difficulty ?? "");
+const onKey = (el, fn) => { el.onclick = fn; el.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(); } }; };
+
+let SITE = null;
+const state = { runPolicy: "contextual_rewrite", runSample: null, split: "dev", scenario: null, showBackground: false, runFilter: "all", scLabel: "", scType: "" };
+
+/* ---------- Data access ---------- */
+
+const ledgerEntry = (name) => SITE.ledger.find((e) => e.name === name);
+const p1Run = (name) => SITE.runs.find((r) => r.name === name);
+const ablationRun = (name) => SITE.ablations.find((r) => r.name === name);
+const isMock = (r) => (r.models || []).some((m) => m.startsWith("mockllm"));
+function kindOf(e) {
+  if (e.kind !== "ablation") return "P1";
+  const conds = e.config?.conditions || [];
+  return conds.length === 1 && conds[0] === "unedited" ? "Re-ask" : "Ablation";
+}
+function allRuns() {
+  // Recorded runs come from the ledger; unrecorded real runs (none expected) fall back to results.
+  const listed = new Set(SITE.ledger.map((e) => e.name));
+  const extra = [
+    ...SITE.runs.filter((r) => !isMock(r) && !listed.has(r.name)).map((r) => ({ name: r.name, kind: "p1", config: {}, unrecorded: true })),
+  ];
+  return [...SITE.ledger, ...extra].sort((a, b) => (stampOf(b.name) || "").localeCompare(stampOf(a.name) || ""));
+}
+const hrefOf = (e) => (e.kind === "ablation" ? `#/ablation/${e.name}` : `#/run/${e.name}`);
+
+/* ---------- Shared fragments ---------- */
+
+function pageHead({ crumbs, title, sub, purpose }) {
+  return `<div>
+    ${crumbs ? `<div class="crumbs">${crumbs}</div>` : ""}
+    <h1>${title}</h1>
+    ${sub ? `<div class="sub">${sub}</div>` : ""}
+    ${purpose ? `<p class="purpose">${esc(purpose)}</p>` : ""}
+  </div>`;
+}
+
+function section(title, body, aside = "") {
+  return `<section><header><h2>${title}</h2>${aside ? `<div class="aside">${aside}</div>` : ""}</header>${body}</section>`;
+}
+
+function protocolGrid(e) {
+  const c = e?.config || {};
+  const models = c.models || {};
+  const reasoning = c.reasoning || {};
+  const roles = ROLES.filter((r) => models[r]).map((r) =>
+    `<div><dt>${ROLE[r]}</dt><dd>${esc(models[r].split("/").pop())} <span class="faint">${esc(reasoning[r] || "")}</span></dd></div>`);
+  const tokens = Object.entries(c.tokens || {}).map(([m, t]) =>
+    `<div><dt>Tokens · ${esc(m.split("/").pop())}</dt><dd>${kTokens((t.input_tokens || 0) + (t.output_tokens || 0))} <span class="faint">${kTokens(t.input_tokens || 0)} in · ${kTokens(t.output_tokens || 0)} out</span></dd></div>`);
+  const cells = [...roles, ...tokens];
+  return cells.length ? `<dl class="kv">${cells.join("")}</dl>` : "";
+}
+
+function subLine(e, extra = []) {
+  const bits = [...extra, `<span>${when(e.name)}</span>`];
+  if (e.commit) bits.push(`<span class="mono">${esc(String(e.commit).slice(0, 7))}${e.dirty ? '<span class="dot" title="Uncommitted changes when run"></span>' : ""}</span>`);
+  if (e.backfilled) bits.push(`<span>backfilled</span>`);
+  return bits.join("");
+}
+
+/* ---------- Page: runs index ---------- */
+
+function pageRuns() {
+  const rows = allRuns().filter((e) => state.runFilter === "all" || kindOf(e) === state.runFilter);
+  const kinds = ["all", "P1", "Ablation", "Re-ask"];
+  const filter = `<div class="seg" role="group" aria-label="Type">${kinds.map((k) =>
+    `<button type="button" data-k="${k}" aria-pressed="${state.runFilter === k}">${k === "all" ? "All" : k}</button>`).join("")}</div>`;
+  const setup = (e) => {
+    const c = e.config || {};
+    if (e.kind === "ablation") return (c.conditions || []).map((x) => CONDITION[x] || x).join(", ");
+    const pols = c.policies || [];
+    return `${STANCE[c.stance] || "—"}${pols.length && pols.length < 3 ? " · " + pols.map((p) => POLICY[p]).join(", ") : ""}`;
+  };
+  const n = (e) => { const c = e.config || {}; return c.sample_ids?.length ?? c.limit ?? "all"; };
+  const body = rows.length ? `<div class="panel"><div class="scroll"><table class="left">
+    <thead><tr><th>When</th><th>Type</th><th>Setup</th><th class="num">Scenarios</th><th class="num">Tokens</th><th>Commit</th><th>Purpose</th></tr></thead>
+    <tbody>${rows.map((e) => `<tr class="link" tabindex="0" data-href="${hrefOf(e)}">
+      <td>${when(e.name)}</td><td>${kindOf(e)}</td><td>${esc(setup(e))}</td>
+      <td class="num">${n(e)}</td><td class="num">${tokensOf(e) ? kTokens(tokensOf(e)) : "—"}</td>
+      <td class="mono-cell">${e.commit ? esc(String(e.commit).slice(0, 7)) : "—"}${e.dirty ? '<span class="dot" title="Uncommitted changes when run"></span>' : ""}</td>
+      <td class="ellipsis" title="${esc(e.purpose || "")}">${esc(e.purpose || "")}</td></tr>`).join("")}</tbody></table></div></div>`
+    : `<p class="empty">No recorded runs.</p>`;
+  $("view").innerHTML = pageHead({ title: "Runs", sub: `<span>${allRuns().length} recorded</span>` }) + section("All runs", body, filter);
+  $("view").querySelectorAll("tr[data-href]").forEach((tr) => onKey(tr, () => { location.hash = tr.dataset.href; }));
+  $("view").querySelectorAll(".seg button").forEach((b) => { b.onclick = () => { state.runFilter = b.dataset.k; pageRuns(); }; });
+}
+
+/* ---------- Page: P1 run ---------- */
+
 const wrongWay = (s) => {
   const d = s.judge_edited - s.judge_unedited;
   return s.label === "violation" ? d <= -SHIFT : d >= SHIFT;
 };
 const leaked = (s) => s.secrets.some((x) => (x.leakage ?? 0) >= 0.5);
 const runPolicies = (r) => POLICIES.filter((p) => (r.samples || []).some((s) => s.policy === p));
-
-function renderRunPicker() {
-  const real = SITE.runs.filter((r) => !isMock(r));
-  if (!run) run = real[0] || SITE.runs[0];
-  $("run-select").innerHTML = SITE.runs.map((r) =>
-    `<option value="${esc(r.name)}" ${r === run ? "selected" : ""}>${esc(r.name)}${isMock(r) ? " (mock)" : ""} · ${(r.samples || []).length} samples</option>`).join("");
-  $("run-select").onchange = (e) => { run = SITE.runs.find((r) => r.name === e.target.value); runSample = null; renderRun(); };
+function byScenario(samples) {
+  const map = new Map();
+  for (const s of samples) {
+    if (!map.has(s.scenario_id)) map.set(s.scenario_id, {});
+    map.get(s.scenario_id)[s.policy] = s;
+  }
+  return [...map.entries()].map(([id, pol]) => ({ id, pol, any: Object.values(pol)[0] }))
+    .sort((a, b) => rankScenario(a.any) - rankScenario(b.any) || a.id.localeCompare(b.id));
 }
 
-function renderHeadline(r) {
-  const checks = r.checks.map((c) =>
-    `<div class="issue-row"><span>${esc(c.name)} <span class="meta">${esc(c.detail)}</span></span>
-     <span><span class="pill ${c.result === "pass" ? "pass" : c.result === "FAIL" ? "fail" : "undecided"}">${c.result === "FAIL" ? "fail" : esc(c.result)}</span></span></div>`).join("");
+function resultsTable(r) {
   const rows = r.summary.map((s) => {
     const own = (r.samples || []).filter((x) => x.policy === s.policy);
-    const flips = own.filter(wrongWay).length;
+    const e = s.errors_edited || {};
     return `<tr><td>${POLICY[s.policy] || esc(s.policy)}</td><td>${s.samples}</td>
-      <td>${s.persistence ? f2(s.persistence.estimate) : "n/a"}</td><td>${s.leakage_mean ? f2(s.leakage_mean.estimate) : "n/a"}</td>
-      <td>${f2(s.auroc_unedited)}</td><td>${f2(s.auroc_edited)}</td><td>${own.length ? flips : "n/a"}</td><td>${f2(s.evidence_loss)}</td></tr>`;
+      <td>${s.persistence ? f2(s.persistence.estimate) : "—"}</td>
+      <td>${s.leakage_mean ? f2(s.leakage_mean.estimate) : "—"}</td>
+      <td>${f2(s.auroc_unedited)}</td><td>${f2(s.auroc_edited)}</td>
+      <td>${f2(e.false_positive_rate)}</td><td>${f2(e.false_negative_rate)}</td>
+      <td>${own.length ? own.filter(wrongWay).length : "—"}</td><td>${f2(s.evidence_loss)}</td></tr>`;
   }).join("");
-  return `<section class="card">
-    <h2>Headline${isMock(r) ? " · mock model" : ""}</h2>
-    <p class="meta">${esc((r.models || []).filter((m) => m !== "none/none").join(" · "))}</p>
-    ${checks}
-    <div class="scroll" style="margin-top:12px"><table><thead><tr><th>Policy</th><th>n</th><th>Persistence</th><th>Leakage</th>
-      <th>AUROC unedited</th><th>AUROC edited</th><th title="Judge score moved ${SHIFT}+ points the wrong way after editing">Wrong-way moves</th><th>Evidence loss</th></tr></thead>
-    <tbody>${rows}</tbody></table></div></section>`;
+  const checks = (r.checks || []).map((c) => {
+    const cls = c.result === "pass" ? "pass" : c.result === "FAIL" ? "fail" : "warn";
+    return `<span><span class="badge ${cls}">${c.result === "FAIL" ? "fail" : esc(c.result)}</span> ${esc(c.name)}<span class="muted">${esc(c.detail)}</span></span>`;
+  }).join("");
+  return `<div class="panel"><div class="scroll"><table>
+    <thead><tr><th>Policy</th><th>n</th><th title="(AUROC edited − 0.5) / (AUROC unedited − 0.5)">Persistence</th><th title="Mean share of the prior→unedited gain kept after editing">Leakage</th>
+    <th>AUROC unedited</th><th>AUROC edited</th><th>FPR</th><th>FNR</th><th title="Judge score moved ${SHIFT}+ points the wrong way">Wrong-way</th><th>Evidence loss</th></tr></thead>
+    <tbody>${rows}</tbody></table></div></div>
+    ${checks ? `<div class="checks">${checks}</div>` : ""}`;
 }
 
-/* Dumbbell small multiples in one SVG so names and rows share a y-scale: hollow = unedited, filled = edited. */
 function dumbbells(r) {
-  const groups = byScenario(r);
+  const groups = byScenario(r.samples);
   const pols = runPolicies(r);
-  const rowH = 22, top = 40, nameW = 190, plotW = 200, gap = 56, panelW = plotW + gap;
+  const rowH = 24, top = 44, nameW = 200, plotW = 220, gap = 64, panelW = plotW + gap;
   const rows = [];
   let y = top, last = null;
   for (const g of groups) {
-    if (g.any.label !== last) { rows.push({ head: LABELS[g.any.label], y: y + 14 }); y += 22; last = g.any.label; }
+    if (g.any.label !== last) { rows.push({ head: LABELS[g.any.label], y: y + 16 }); y += 26; last = g.any.label; }
     rows.push({ g, y: y + rowH / 2 }); y += rowH;
   }
-  const h = y + 6, w = nameW + pols.length * panelW;
+  const h = y + 8, w = nameW + pols.length * panelW;
   const x0 = (k) => nameW + k * panelW;
   const x = (k, v) => x0(k) + (plotW * v) / 100;
-  const nameOf = (g) => `${short(g.id).split("-").slice(0, 2).join(" ").replaceAll("_", " ")}${g.any.difficulty ? " · " + g.any.difficulty : ""}`;
   const frame = pols.map((p, k) => `<text x="${x0(k)}" y="14" class="db-cap">${POLICY[p]}</text>` +
-    [0, 50, 100].map((v) => `<line x1="${x(k, v)}" x2="${x(k, v)}" y1="${top - 8}" y2="${h - 4}" class="db-grid"/><text x="${x(k, v)}" y="${top - 12}" class="db-tick">${v}</text>`).join("")).join("");
+    [0, 50, 100].map((v) => `<line x1="${x(k, v)}" x2="${x(k, v)}" y1="${top - 10}" y2="${h - 4}" class="db-grid"/><text x="${x(k, v)}" y="${top - 16}" class="db-tick">${v}</text>`).join("")).join("");
   const body = rows.map((row) => {
     if (row.head) return `<text x="0" y="${row.y}" class="db-head">${esc(row.head)}</text>`;
     const g = row.g;
@@ -267,50 +204,44 @@ function dumbbells(r) {
       const s = g.pol[p];
       if (!s) return "";
       const a = x(k, s.judge_unedited), b = x(k, s.judge_edited), d = s.judge_edited - s.judge_unedited;
-      const tip = `${s.scenario_id} · ${POLICY[p]}\nunedited ${s.judge_unedited} → edited ${s.judge_edited} (${d >= 0 ? "+" : ""}${d})`;
-      return `<g class="db-row ${wrongWay(s) ? "bad" : ""} ${runSample === s.scenario_id && runPolicy === p ? "sel" : ""}" data-id="${esc(s.scenario_id)}" data-p="${p}" tabindex="0" role="button" aria-label="${esc(tip)}">
-        <rect x="${x0(k) - 6}" y="${row.y - rowH / 2}" width="${panelW - 8}" height="${rowH}" rx="4" class="db-hit"><title>${esc(tip)}</title></rect>
+      const tip = `${s.scenario_id} · ${POLICY[p]}: ${s.judge_unedited} → ${s.judge_edited}`;
+      return `<g class="db-row ${wrongWay(s) ? "bad" : ""} ${state.runSample === s.scenario_id && state.runPolicy === p ? "sel" : ""}" data-id="${esc(s.scenario_id)}" data-p="${p}" tabindex="0" role="button" aria-label="${esc(tip)}">
+        <rect x="${x0(k) - 8}" y="${row.y - rowH / 2 + 1}" width="${panelW - 12}" height="${rowH - 2}" rx="4" class="db-hit"><title>${esc(tip)}</title></rect>
         <line x1="${a}" x2="${b}" y1="${row.y}" y2="${row.y}" class="db-line"/>
-        <circle cx="${a}" cy="${row.y}" r="4.5" class="db-before"/>
-        <circle cx="${b}" cy="${row.y}" r="4.5" class="db-after"/>
-        ${Math.abs(d) >= SHIFT ? `<text x="${x0(k) + plotW + 8}" y="${row.y + 4}" class="db-delta">${d > 0 ? "+" : ""}${d}</text>` : ""}</g>`;
+        <circle cx="${a}" cy="${row.y}" r="4.5" class="db-before"/><circle cx="${b}" cy="${row.y}" r="4.5" class="db-after"/>
+        ${Math.abs(d) >= SHIFT ? `<text x="${x0(k) + plotW + 10}" y="${row.y + 4}" class="db-delta">${signed(d)}</text>` : ""}</g>`;
     }).join("");
-    return `<text x="0" y="${row.y + 4}" class="db-name"><title>${esc(g.id)}</title>${esc(nameOf(g))}</text>${marks}`;
+    return `<text x="0" y="${row.y + 4}" class="db-name"><title>${esc(g.id)}</title>${esc(sceneName(g.id))}${g.any.difficulty ? " · " + g.any.difficulty : ""}</text>${marks}`;
   }).join("");
-  return `<section class="card">
-    <h2>Judge suspicion before and after editing</h2>
-    <p class="note">How likely the "human" judge thinks a violation is (0–100), on the unedited evidence (hollow) and the edited evidence (filled). Amber rows moved ${SHIFT}+ points the wrong way: innocent evidence looking guiltier, or a violation looking cleaner. Click a row to open it below.</p>
-    <div class="db-wrap"><svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="group" aria-label="Judge scores by scenario and policy">${frame}${body}</svg></div>
-  </section>`;
+  return `<div class="panel chart"><svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="group" aria-label="Judge scores by scenario and policy">${frame}${body}</svg></div>`;
 }
 
-/* Secrets grid: one row per planted secret, the judge's probability on the true value per condition. */
-function secretsGrid(r) {
-  const groups = byScenario(r);
+function secretsTable(r) {
   const pols = runPolicies(r);
-  const cell = (s, i) => {
-    if (!s) return `<td class="zero">—</td>`;
-    const x = s.secrets[i];
-    const l = x.leakage ?? 0;
-    return `<td class="leak" style="--l:${l.toFixed(2)}" title="p(true value) ${f2(x.p_edited)} · leakage ${x.leakage == null ? "n/a" : f2(x.leakage)}">${f2(x.p_edited)}</td>`;
-  };
+  const groups = byScenario(r.samples);
   const scorable = (x) => x.p_unedited - x.p_prior > 0.01;
-  const rows = groups.flatMap((g) => g.any.secrets.map((x, i) => [x, i]).filter(([x]) => scorable(x)).map(([x, i]) =>
-    `<tr data-id="${esc(g.id)}" class="${runSample === g.id ? "sel" : ""}"><td class="mono-cell">${esc(short(g.id).split("-")[0])} ${esc(LABELS[g.any.label].toLowerCase())}</td><td>${esc(human(x.secret_type))}</td><td class="mono-cell">${esc(x.value)}</td>
-      <td>${f2(x.p_prior)}</td><td>${f2(x.p_unedited)}</td>${pols.map((p) => cell(g.pol[p], i)).join("")}</tr>`)).join("");
-  return `<section class="card">
-    <h2>Secrets after editing</h2>
-    <p class="note">The judge's probability on each secret's true value. Prior is with no evidence and Unedited is with the full evidence; the policy columns are with the edited evidence. Shading is leakage: how much of the way from prior to unedited the edited evidence still takes the judge. Only secrets quoted in the evidence are listed, since the judge cannot learn the others.</p>
-    <div class="scroll"><table class="secrets left"><thead><tr><th>Scenario</th><th>Secret</th><th>True value</th><th>Prior</th><th>Unedited</th>
-      ${pols.map((p) => `<th>${POLICY[p]}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>
-  </section>`;
+  let last = null;
+  const rows = groups.flatMap((g) => g.any.secrets.map((x, i) => [x, i]).filter(([x]) => scorable(x)).map(([x, i]) => {
+    const head = g.any.label !== last ? `<tr class="group-row"><td colspan="${5 + pols.length}">${LABELS[g.any.label]}</td></tr>` : "";
+    last = g.any.label;
+    const cells = pols.map((p) => {
+      const s = g.pol[p];
+      if (!s) return `<td class="muted">—</td>`;
+      const v = s.secrets[i], l = v.leakage ?? 0;
+      return `<td class="leak" style="--l:${l.toFixed(2)}" title="Leakage ${v.leakage == null ? "—" : f2(v.leakage)}">${f2(v.p_edited)}</td>`;
+    }).join("");
+    return `${head}<tr class="link ${state.runSample === g.id ? "sel" : ""}" data-id="${esc(g.id)}" tabindex="0">
+      <td class="mono-cell">${esc(sceneName(g.id))}</td><td>${esc(human(x.secret_type))}</td><td class="mono-cell">${esc(x.value)}</td>
+      <td>${f2(x.p_prior)}</td><td>${f2(x.p_unedited)}</td>${cells}</tr>`;
+  })).join("");
+  return `<div class="panel"><div class="scroll"><table>
+    <thead><tr><th>Scenario</th><th style="text-align:left">Secret</th><th style="text-align:left">True value</th><th>Prior</th><th>Unedited</th>${pols.map((p) => `<th>${POLICY[p]}</th>`).join("")}</tr></thead>
+    <tbody>${rows}</tbody></table></div></div>`;
 }
 
-/* Word-level diff of an evidence quote; each changed run shows its removed words, then the inserted ones. */
 function wordDiff(a, b) {
   const split = (t) => t.match(/\s+|[^\s=]+|=/g) || [];
-  const x = split(a), y = split(b);
-  const n = x.length, m = y.length;
+  const x = split(a), y = split(b), n = x.length, m = y.length;
   const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
   for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
     dp[i][j] = x[i] === y[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
@@ -325,121 +256,333 @@ function wordDiff(a, b) {
   return out;
 }
 
-function sampleDetail(r) {
-  const groups = byScenario(r);
-  if (!runSample || !groups.some((g) => g.id === runSample)) runSample = groups[0]?.id ?? null;
-  const g = groups.find((x) => x.id === runSample);
+function sampleBrowser(r) {
+  const groups = byScenario(r.samples);
+  if (!groups.some((g) => g.id === state.runSample)) state.runSample = groups[0]?.id ?? null;
   const pols = runPolicies(r);
-  if (!pols.includes(runPolicy)) runPolicy = pols[0];
+  if (!pols.includes(state.runPolicy)) state.runPolicy = pols[0];
+  const g = groups.find((x) => x.id === state.runSample);
   const list = groups.map((x) => {
-    const flags = pols.map((p) => x.pol[p]).filter(Boolean);
-    const bad = flags.some(wrongWay), leak = flags.some(leaked);
-    return `<li tabindex="0" data-id="${esc(x.id)}" aria-selected="${x.id === runSample}">
-      <b>${esc(x.id)}</b>
-      <span class="label-${x.any.label}">${LABELS[x.any.label]}${x.any.difficulty ? " · " + x.any.difficulty : ""}${bad ? ' · <em class="flag">wrong-way move</em>' : ""}${leak ? ' · <em class="flag">leak</em>' : ""}</span></li>`;
+    const own = pols.map((p) => x.pol[p]).filter(Boolean);
+    const flags = [own.some(wrongWay) && "wrong-way", own.some(leaked) && "leak"].filter(Boolean);
+    return `<li tabindex="0" data-id="${esc(x.id)}" aria-selected="${x.id === state.runSample}"><b>${esc(x.id)}</b>
+      <span>${labelText(x.any)}${flags.length ? ` · <em>${flags.join(", ")}</em>` : ""}</span></li>`;
   }).join("");
   if (!g) return "";
-  const s = g.pol[runPolicy];
-  const seg = pols.map((p) => `<button type="button" aria-pressed="${p === runPolicy}" data-p="${p}">${POLICY[p]}</button>`).join("");
+  const s = g.pol[state.runPolicy];
+  const seg = `<div class="seg" role="group" aria-label="Policy">${pols.map((p) => `<button type="button" data-p="${p}" aria-pressed="${p === state.runPolicy}">${POLICY[p]}</button>`).join("")}</div>`;
   let body = `<p class="empty">No sample for this policy.</p>`;
   if (s) {
     const rulings = Object.fromEntries(s.rulings.map((x) => [x.request_index, x]));
     const reqs = s.requests.length ? s.requests.map((q, k) => {
       const ru = rulings[k];
-      const decision = s.policy === "self_redaction" ? "applied" : ru ? ru.decision : "not reviewed";
-      const final = ru && ru.decision === "modify" ? ru.replacement : ru && ru.decision === "deny" ? q.span : q.action === "redact" ? "[REDACTED]" : q.proposed_replacement;
-      return `<tr><td class="mono-cell">${esc(q.span)}</td><td>${esc(q.action)}</td><td>${esc(q.category)}</td>
-        <td><span class="pill ${decision === "deny" ? "fail" : decision === "modify" ? "undecided" : "pass"}">${esc(decision)}</span></td>
-        <td class="mono-cell">${esc(final ?? "")}</td>
-        <td class="why"><details><summary>reasons</summary><p><b>Advocate:</b> ${esc(q.reason)}</p>${ru ? `<p><b>Executor:</b> ${esc(ru.reason)}</p>` : ""}</details></td></tr>`;
-    }).join("") : `<tr><td colspan="6" class="zero">No requests: ${s.policy === "text_redaction" ? "the script removes registry values directly." : "the advocate asked for nothing."}</td></tr>`;
+      const decision = s.policy === "self_redaction" ? "applied" : ru ? ru.decision : "denied";
+      const final = ru && ru.decision === "modify" ? ru.replacement : ru && ru.decision === "deny" ? q.span : q.action === "generalize" && q.proposed_replacement ? q.proposed_replacement : `[REDACTED: ${q.category}]`;
+      const cls = decision === "deny" || decision === "denied" ? "fail" : decision === "modify" ? "warn" : "pass";
+      return `<tr><td class="mono-cell wrap">${esc(q.span)}</td><td>${esc(q.action)}</td><td>${esc(q.category)}</td>
+        <td><span class="badge ${cls}">${esc(decision)}</span></td><td class="mono-cell wrap">${esc(final ?? "")}</td>
+        <td class="wrap"><details><summary>Reasons</summary><p><b>Advocate.</b> ${esc(q.reason)}</p>${ru && s.policy !== "self_redaction" ? `<p><b>Executor.</b> ${esc(ru.reason)}</p>` : ""}</details></td></tr>`;
+    }).join("") : `<tr><td colspan="6" class="muted">${s.policy === "text_redaction" ? "Registry values removed by script." : "No requests."}</td></tr>`;
     const edited = Object.fromEntries(s.edited_evidence.map((e) => [e.log_id, e.quote]));
     const ev = s.evidence.map((e) => `<div><span class="id">${esc(e.log_id)}</span><span class="txt">${wordDiff(e.quote, edited[e.log_id] ?? "")}</span></div>`).join("");
-    const d = s.judge_edited - s.judge_unedited;
+    const secrets = s.secrets.filter((x) => x.p_unedited - x.p_prior > 0.01);
     body = `
-      <div class="facts">
-        <div><span>Auditor grade</span><b>${s.auditor_grade}</b></div>
-        <div><span>Judge, unedited</span><b>${s.judge_unedited}</b></div>
-        <div><span>Judge, edited</span><b class="${wrongWay(s) ? "label-violation" : ""}">${s.judge_edited} (${d >= 0 ? "+" : ""}${d})</b></div>
-        <div><span>Finding integrity</span><b>${esc(s.integrity)}</b></div>
-      </div>
-      <div><h4>Quoted evidence, as the judge saw it</h4>
-        <div class="logs diff">${ev}</div>
-        <p class="meta"><del>struck</del> removed by editing · <ins>underlined</ins> inserted</p></div>
-      <div><h4>Redaction requests</h4>
-        <div class="scroll"><table class="left reqs"><thead><tr><th>Span</th><th>Action</th><th>Category</th><th>Ruling</th><th>Final text</th><th></th></tr></thead><tbody>${reqs}</tbody></table></div></div>
-      <div><h4>Secrets</h4>
-        <div class="scroll"><table><thead><tr><th>Secret</th><th>True value</th><th>Prior</th><th>Unedited</th><th>Edited</th><th>Leakage</th></tr></thead><tbody>
-        ${s.secrets.filter((x) => x.p_unedited - x.p_prior > 0.01).map((x) => `<tr><td>${esc(human(x.secret_type))}</td><td class="mono-cell">${esc(x.value)}</td><td>${f2(x.p_prior)}</td><td>${f2(x.p_unedited)}</td><td>${f2(x.p_edited)}</td><td>${x.leakage == null ? "n/a" : f2(x.leakage)}</td></tr>`).join("")}
-        </tbody></table></div></div>
-      <details class="finding"><summary>Auditor's finding</summary><p>${esc(s.finding)}</p></details>`;
+      <dl class="kv">
+        <div><dt>Auditor grade</dt><dd>${s.auditor_grade}</dd></div>
+        <div><dt>Judge, unedited</dt><dd>${s.judge_unedited}</dd></div>
+        <div><dt>Judge, edited</dt><dd>${s.judge_edited} <span class="faint">${signed(s.judge_edited - s.judge_unedited)}</span></dd></div>
+        <div><dt>Finding</dt><dd>${esc(s.integrity)}</dd></div>
+      </dl>
+      <div><h4>Evidence shown to the judge</h4><div class="logs diff">${ev}</div></div>
+      <div><h4>Requests</h4><div class="panel"><div class="scroll"><table class="left">
+        <thead><tr><th>Span</th><th>Action</th><th>Category</th><th>Ruling</th><th>Result</th><th></th></tr></thead><tbody>${reqs}</tbody></table></div></div></div>
+      ${secrets.length ? `<div><h4>Secrets</h4><div class="panel"><div class="scroll"><table>
+        <thead><tr><th>Secret</th><th style="text-align:left">True value</th><th>Prior</th><th>Unedited</th><th>Edited</th><th>Leakage</th></tr></thead><tbody>
+        ${secrets.map((x) => `<tr><td>${esc(human(x.secret_type))}</td><td class="mono-cell" style="text-align:left">${esc(x.value)}</td><td>${f2(x.p_prior)}</td><td>${f2(x.p_unedited)}</td><td>${f2(x.p_edited)}</td><td>${f2(x.leakage)}</td></tr>`).join("")}
+        </tbody></table></div></div></div>` : ""}
+      <details><summary>Auditor's finding</summary><p>${esc(s.finding)}</p></details>`;
   }
-  return `<section class="card" id="sample-card">
-    <h2>Samples</h2>
-    <div class="browser">
-      <ol class="list" id="run-list">${list}</ol>
-      <article class="detail">
-        <h3>${esc(g.id)}</h3>
-        <p class="claim">Claim: ${esc(g.any.claim)}</p>
-        <div class="seg" id="policy-seg" role="group" aria-label="Policy">${seg}</div>
-        ${body}
-      </article>
-    </div>
-  </section>`;
+  return `<div class="browser" id="samples">
+    <ol class="list panel" id="run-list">${list}</ol>
+    <article class="detail">
+      <div><h3>${esc(g.id)}</h3><p class="claim">${esc(g.any.claim)}</p></div>
+      ${seg}${body}
+    </article></div>`;
 }
 
-function renderRun() {
-  const r = run;
-  if (!(r.samples || []).length) {
-    $("runs").innerHTML = renderHeadline(r) + `<section class="card"><p class="empty">No per-sample data for this run. Rebuild with <code>uv run redaction site</code> while its Inspect logs are present.</p></section>`;
-    return;
-  }
-  $("runs").innerHTML = renderHeadline(r) + dumbbells(r) + secretsGrid(r) + sampleDetail(r);
-  const open = (id, p) => {
-    runSample = id; if (p) runPolicy = p; renderRun();
-    $("sample-card").scrollIntoView({ behavior: "smooth", block: "start" });
+function pageRun(name) {
+  const r = p1Run(name);
+  const e = ledgerEntry(name) || { name, config: {} };
+  const c = e.config || {};
+  const crumbs = `<a href="#/">Runs</a> / <span class="mono">${esc(name)}</span>`;
+  const title = `P1 · ${STANCE[c.stance] || STANCE[name.split("-")[2]] || "run"}`;
+  const n = r?.samples ? new Set(r.samples.map((s) => s.scenario_id)).size : null;
+  const sub = subLine(e, [`<span>${esc(c.split || "dev")}</span>`, n ? `<span>${n} scenarios</span>` : ""]);
+  const head = pageHead({ crumbs, title, sub, purpose: e.purpose });
+  if (!r) { $("view").innerHTML = head + `<p class="empty">No results for this run in this build.</p>`; return; }
+  const transcripts = SITE.inspect_viewer ? `<a href="viewer/" target="_blank" rel="noopener">Transcripts ↗</a>` : "";
+  const legend = `<span class="legend-mark"><i class="before"></i>Unedited</span><span class="legend-mark"><i class="after"></i>Edited</span><span class="legend-mark"><i class="bad"></i>Moved ${SHIFT}+ the wrong way</span>`;
+  $("view").innerHTML = head
+    + section("Protocol", protocolGrid(e), transcripts)
+    + section("Results", resultsTable(r))
+    + (r.samples?.length ? section("Judge score", dumbbells(r), legend)
+      + section("Secrets", secretsTable(r), `<span>p(true value) after editing · shaded by leakage</span>`)
+      + section("Samples", sampleBrowser(r)) : "");
+  const open = (id, p, scroll) => {
+    state.runSample = id; if (p) state.runPolicy = p;
+    pageRun(name);
+    if (scroll) $("samples").scrollIntoView({ behavior: "smooth", block: "start" });
   };
-  $("runs").querySelectorAll(".db-row").forEach((el) => {
-    el.onclick = () => open(el.dataset.id, el.dataset.p);
-    el.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(el.dataset.id, el.dataset.p); } };
-  });
-  $("runs").querySelectorAll("table.secrets tbody tr").forEach((el) => { el.onclick = () => open(el.dataset.id); });
-  $("run-list").querySelectorAll("li[data-id]").forEach((li) => {
-    const pick = () => { runSample = li.dataset.id; renderRun(); $("sample-card").scrollIntoView({ block: "start" }); };
-    li.onclick = pick;
-    li.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } };
-  });
-  $("policy-seg").querySelectorAll("button").forEach((b) => { b.onclick = () => { runPolicy = b.dataset.p; renderRun(); }; });
+  $("view").querySelectorAll(".db-row").forEach((el) => onKey(el, () => open(el.dataset.id, el.dataset.p, true)));
+  $("view").querySelectorAll("tr.link[data-id]").forEach((el) => onKey(el, () => open(el.dataset.id, null, true)));
+  $("view").querySelectorAll("#run-list li").forEach((li) => onKey(li, () => open(li.dataset.id, null, false)));
+  $("view").querySelectorAll("#samples .seg button").forEach((b) => { b.onclick = () => open(state.runSample, b.dataset.p, false); });
 }
 
-function renderRuns() {
-  $("open-inspect").hidden = !SITE.inspect_viewer;
-  $("runs-meta").textContent = SITE.inspect_viewer ? "Full transcripts are in Inspect View." : "No Inspect logs bundled.";
-  if (!SITE.runs.length) {
-    $("run-select").hidden = true;
-    $("runs").innerHTML = `<section class="card"><p class="empty">No P1 runs yet. <code>uv run redaction p1 run --mock</code> runs offline; real runs need API keys.</p></section>`;
-    return;
+/* ---------- Page: ablation ---------- */
+
+function groupOf(row) {
+  return row.label === "red_herring" ? `red_herring:${row.difficulty}` : row.label;
+}
+const GROUPS = [["violation", "Violation"], ["red_herring:easy", "Red herring · easy"], ["red_herring:medium", "Red herring · medium"], ["red_herring:hard", "Red herring · hard"], ["clean", "Clean"]];
+
+function pageAblation(name) {
+  const r = ablationRun(name);
+  const e = ledgerEntry(name) || { name, config: {} };
+  const crumbs = `<a href="#/">Runs</a> / <span class="mono">${esc(name)}</span>`;
+  const conds = CONDITIONS.filter((c) => r?.samples.some((s) => s.condition === c));
+  const reask = conds.length === 1 && conds[0] === "unedited";
+  const title = reask ? "Judge re-ask" : "Marker ablation";
+  const n = r ? new Set(r.samples.map((s) => s.scenario_id)).size : null;
+  const head = pageHead({ crumbs, title, sub: subLine(e, [`<span>${esc(e.config?.split || "dev")}</span>`, n ? `<span>${n} scenarios</span>` : ""]), purpose: e.purpose });
+  if (!r) { $("view").innerHTML = head + `<p class="empty">No results for this run in this build.</p>`; return; }
+
+  // The base is this run's unedited score, or for a re-ask, the latest full ablation's unedited score.
+  const full = SITE.ablations.find((a) => a.name !== name && a.samples.some((s) => s.condition === "marker"));
+  const baseRun = reask ? full : r;
+  const base = Object.fromEntries((baseRun?.samples || []).filter((s) => s.condition === "unedited").map((s) => [s.scenario_id, s.score]));
+  const reasks = SITE.ablations.filter((a) => a.name !== baseRun?.name && a.samples.every((s) => s.condition === "unedited"));
+  const shiftsFor = (rows) => rows.filter((s) => s.scenario_id in base).map((s) => s.score - base[s.scenario_id]);
+
+  const cols = reask ? ["unedited"] : conds;
+  const noiseCol = !reask && reasks.length;
+  const tableRows = GROUPS.map(([key, label]) => {
+    const rows = r.samples.filter((s) => groupOf(s) === key);
+    if (!rows.length) return "";
+    const ids = new Set(rows.map((s) => s.scenario_id));
+    const cells = cols.map((c) => {
+      const these = rows.filter((s) => s.condition === c);
+      const m = mean(these.map((s) => s.score));
+      if (c === "unedited" && !reask) return `<td>${f0(m)}</td>`;
+      const sh = mean(shiftsFor(these));
+      return `<td>${f0(m)}<span class="delta">${signed(sh, 1)}</span></td>`;
+    }).join("");
+    let noise = "";
+    if (noiseCol) {
+      const ns = reasks.flatMap((a) => shiftsFor(a.samples.filter((s) => ids.has(s.scenario_id))));
+      noise = `<td>${signed(mean(ns), 1)}<span class="delta">± ${f0(sd(ns))}</span></td>`;
+    }
+    return `<tr><td>${label}</td><td>${ids.size}</td>${cells}${noise}</tr>`;
+  }).join("");
+  const table = `<div class="panel"><div class="scroll"><table>
+    <thead><tr><th>Group</th><th>n</th>${cols.map((c) => `<th>${reask ? "Re-ask" : CONDITION[c]}</th>`).join("")}${noiseCol ? `<th title="Re-asking the unedited evidence with the cache off: mean shift ± sd over ${reasks.length} repeat(s)">Re-ask noise</th>` : ""}</tr></thead>
+    <tbody>${tableRows}</tbody></table></div></div>`;
+
+  // Per-scenario matrix: score per condition, shaded by shift from unedited.
+  const ids = [...new Set(r.samples.map((s) => s.scenario_id))]
+    .map((id) => r.samples.find((s) => s.scenario_id === id))
+    .sort((a, b) => rankScenario(a) - rankScenario(b) || a.scenario_id.localeCompare(b.scenario_id));
+  let last = null;
+  const matrix = ids.map((any) => {
+    const head = any.label !== last ? `<tr class="group-row"><td colspan="${2 + cols.length}">${LABELS[any.label]}</td></tr>` : "";
+    last = any.label;
+    const b = base[any.scenario_id];
+    const cells = cols.map((c) => {
+      const s = r.samples.find((x) => x.scenario_id === any.scenario_id && x.condition === c);
+      if (!s) return `<td class="muted">—</td>`;
+      if (c === "unedited" && !reask) return `<td>${s.score}</td>`;
+      const d = b == null ? 0 : s.score - b;
+      const k = Math.min(1, Math.abs(d) / 50).toFixed(2);
+      return `<td class="${d > 0 ? "shift-up" : d < 0 ? "shift-down" : ""}" style="--s:${k}" title="${signed(d)} vs unedited">${s.score}</td>`;
+    }).join("");
+    return `${head}<tr><td class="mono-cell">${esc(sceneName(any.scenario_id))}</td><td class="muted">${any.difficulty || ""}</td>${cells}</tr>`;
+  }).join("");
+  const matrixTable = `<div class="panel"><div class="scroll"><table>
+    <thead><tr><th>Scenario</th><th style="text-align:left"></th>${cols.map((c) => `<th>${reask ? "Re-ask" : CONDITION[c]}</th>`).join("")}</tr></thead>
+    <tbody>${matrix}</tbody></table></div></div>`;
+
+  $("view").innerHTML = head
+    + section("Protocol", protocolGrid(e))
+    + section("Mean judge score", table, reask ? `<span>shift vs ${esc(baseRun?.name || "—")}</span>` : `<span>shift vs unedited</span>`)
+    + section("By scenario", matrixTable, `<span>shaded by shift from unedited</span>`);
+}
+
+/* ---------- Page: scenarios ---------- */
+
+function currentBuild() {
+  return SITE.builds.find((b) => b.manifest.split === state.split) || SITE.builds[0] || null;
+}
+
+function highlight(text, secrets, snippet) {
+  let html = esc(text);
+  if (snippet) html = html.replace(esc(snippet), `<mark class="correlate">${esc(snippet)}</mark>`);
+  for (const v of secrets) html = html.split(esc(v)).join(`<mark class="secret">${esc(v)}</mark>`);
+  return html;
+}
+
+function scenarioDetail(s) {
+  if (!s) return `<p class="empty">No scenario selected.</p>`;
+  const values = s.secrets.map((x) => x.value);
+  const corrByLog = Object.fromEntries(s.correlates.map((c) => [c.log_id, c]));
+  const keys = new Set(s.key_evidence_ids);
+  const secretRows = s.secrets.map((x) => {
+    const cs = s.correlates.filter((c) => c.secret_type === x.secret_type);
+    return `<tr><td>${esc(human(x.secret_type))}</td><td class="mono-cell">${esc(x.value)}</td>
+      <td class="mono-cell">${cs.map((c) => `${esc(c.log_id)} · ${c.strength}`).join("<br>") || "—"}</td>
+      <td class="wrap muted">${cs.map((c) => esc(c.rationale)).join("<br>")}</td></tr>`;
+  }).join("");
+  const hidden = s.logs.filter((e) => e.kind === "background").length;
+  const logs = s.logs.filter((e) => state.showBackground || e.kind !== "background").map((e) => {
+    const c = corrByLog[e.log_id];
+    return `<div class="${e.kind === "background" ? "background" : ""} ${keys.has(e.log_id) ? "key" : ""}">
+      <i class="k-${e.kind || "background"}" title="${esc(human(e.kind || ""))}"></i>
+      <span class="id">${esc(e.log_id)}</span><span class="src">${esc(e.source)}</span>
+      <span class="txt">${highlight(e.text, values, c && c.snippet)}</span></div>`;
+  }).join("");
+  return `
+    <div><h3>${esc(s.scenario_id)}</h3><p class="claim">${esc(s.claim)}</p></div>
+    <dl class="kv">
+      <div><dt>Label</dt><dd class="label-${s.label}">${labelText(s)}</dd></div>
+      <div><dt>Setup</dt><dd>${esc(s.variant || "—")}</dd></div>
+      <div><dt>Lab</dt><dd>${esc(s.lab_name)}</dd></div>
+      <div><dt>Lines</dt><dd>${s.logs.length} <span class="faint">${keys.size} key</span></dd></div>
+    </dl>
+    <div><h4>Secrets</h4><div class="panel"><div class="scroll"><table class="left">
+      <thead><tr><th>Secret</th><th>Value</th><th>Correlates</th><th>Why it leaks</th></tr></thead><tbody>${secretRows}</tbody></table></div></div></div>
+    <div>
+      <div class="sub" style="justify-content:space-between;margin:0 0 8px">
+        <h4 style="margin:0">Logs</h4>
+        <span><label class="toggle"><input type="checkbox" id="show-bg" ${state.showBackground ? "checked" : ""}> ${hidden} background lines</label></span>
+      </div>
+      <div class="logs">${logs}</div>
+      <div class="sub"><span><mark class="secret">value</mark> secret</span><span><mark class="correlate">detail</mark> correlate</span><span style="color:var(--evidence)">LOG-ID</span><span>key evidence</span></div>
+    </div>`;
+}
+
+function pageScenarios(id) {
+  const build = currentBuild();
+  if (!build) { $("view").innerHTML = pageHead({ title: "Scenarios" }) + `<p class="empty">No builds. Run <code>uv run redaction data build</code>.</p>`; return; }
+  const types = [...new Set(build.scenarios.map((s) => s.violation_type))];
+  const list = build.scenarios.filter((s) => (!state.scLabel || s.label === state.scLabel) && (!state.scType || s.violation_type === state.scType));
+  const selected = build.scenarios.find((s) => s.scenario_id === id) || list[0] || null;
+  const splits = `<div class="seg" role="group" aria-label="Split">${SITE.builds.map((b) =>
+    `<button type="button" data-split="${esc(b.manifest.split)}" aria-pressed="${b === build}">${esc(b.manifest.split)}</button>`).join("")}</div>`;
+  const filters = `${splits}
+    <select id="f-label" aria-label="Label"><option value="">All labels</option>${LABEL_ORDER.map((l) => `<option value="${l}" ${state.scLabel === l ? "selected" : ""}>${LABELS[l]}</option>`).join("")}</select>
+    <select id="f-type" aria-label="Violation type"><option value="">All types</option>${types.map((t) => `<option value="${t}" ${state.scType === t ? "selected" : ""}>${esc(human(t))}</option>`).join("")}</select>`;
+  const items = list.map((s) => `<li tabindex="0" data-id="${esc(s.scenario_id)}" aria-selected="${s === selected}"><b>${esc(s.scenario_id)}</b><span class="label-${s.label}">${labelText(s)}</span></li>`).join("")
+    || `<li><span>No scenarios match.</span></li>`;
+  $("view").innerHTML = pageHead({ title: "Scenarios", sub: `<span>${list.length} of ${build.scenarios.length}</span><span class="mono">build ${esc(build.manifest.version)}</span>` })
+    + section("Browse", `<div class="browser"><ol class="list panel">${items}</ol><article class="detail">${scenarioDetail(selected)}</article></div>`, filters);
+  $("view").querySelectorAll(".list li[data-id]").forEach((li) => onKey(li, () => { location.hash = `#/scenarios/${li.dataset.id}`; }));
+  $("view").querySelectorAll("[data-split]").forEach((b) => { b.onclick = () => { state.split = b.dataset.split; location.hash = "#/scenarios"; route(); }; });
+  $("f-label").onchange = (e) => { state.scLabel = e.target.value; pageScenarios(); };
+  $("f-type").onchange = (e) => { state.scType = e.target.value; pageScenarios(); };
+  const bg = $("show-bg");
+  if (bg) bg.onchange = (e) => { state.showBackground = e.target.checked; pageScenarios(selected?.scenario_id); };
+}
+
+/* ---------- Page: data ---------- */
+
+function pageData() {
+  const build = currentBuild();
+  if (!build) { $("view").innerHTML = pageHead({ title: "Data" }) + `<p class="empty">No builds.</p>`; return; }
+  const m = build.manifest;
+  const splits = `<div class="seg" role="group" aria-label="Split">${SITE.builds.map((b) =>
+    `<button type="button" data-split="${esc(b.manifest.split)}" aria-pressed="${b === build}">${esc(b.manifest.split)}</button>`).join("")}</div>`;
+  const stages = `<div class="stages">${STAGES.map(([key, name]) => {
+    const skipped = key === "reviewed" && !m.reviewer;
+    return `<div class="stage ${skipped ? "skipped" : ""}"><b>${skipped ? "—" : m.stages[key]}</b><span>${name}</span></div>`;
+  }).join("")}</div>`;
+  const kept = build.scenarios;
+  const types = [...new Set(build.records.map((r) => r.violation_type))];
+  const cols = [["violation", null, "Violation"], ["red_herring", "easy", "RH easy"], ["red_herring", "medium", "RH medium"], ["red_herring", "hard", "RH hard"], ["clean", null, "Clean"]];
+  const count = (t, l, d) => kept.filter((s) => s.violation_type === t && s.label === l && (s.difficulty ?? null) === d).length;
+  const composition = `<div class="panel"><div class="scroll"><table><thead><tr><th>Violation type</th>${cols.map((c) => `<th>${c[2]}</th>`).join("")}</tr></thead>
+    <tbody>${types.map((t) => `<tr><td>${esc(human(t))}</td>${cols.map(([l, d]) => { const n = count(t, l, d); return `<td class="${n ? "" : "muted"}">${n}</td>`; }).join("")}</tr>`).join("")}</tbody></table></div></div>`;
+  const total = Object.values(m.line_kinds).reduce((a, b) => a + b, 0) || 1;
+  const kinds = `<div class="panel pad"><div class="kind-bar" role="img" aria-label="Share of lines by kind">${KINDS.map(([k]) =>
+      `<i class="k-${k}" style="width:${(100 * (m.line_kinds[k] || 0) / total).toFixed(2)}%"></i>`).join("")}</div>
+    <div class="legend">${KINDS.map(([k, name]) => `<div><i class="k-${k}"></i><span>${name}</span><span>${(100 * (m.line_kinds[k] || 0) / total).toFixed(0)}%</span></div>`).join("")}</div>
+    <div class="sub" style="margin-top:14px"><span>${m.lines.min}–${m.lines.max} lines per scenario</span><span>mean ${m.lines.mean}</span>${m.background_jobs ? `<span>${m.background_jobs.toLocaleString()} real jobs sampled</span>` : ""}</div></div>`;
+  const counts = m.issues || {};
+  const checks = `<div class="panel"><div class="scroll"><table><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>${Object.entries(CHECKS).map(([k, name]) => {
+    const n = counts[k] || 0;
+    return `<tr><td>${name}</td><td><span class="badge ${n ? "fail" : "pass"}">${n ? n + " failed" : "pass"}</span></td></tr>`;
+  }).join("")}<tr><td>Blind label review</td><td>${m.reviewer ? `<span class="badge ${build.records.some((r) => r.status === "review_disagrees") ? "fail" : "pass"}">${esc(m.reviewer)}</span>` : '<span class="badge">not run</span>'}</td></tr></tbody></table></div></div>`;
+  $("view").innerHTML = pageHead({ title: "Data", sub: `<span class="mono">build ${esc(m.version)}</span><span>renderer ${esc(m.renderer)}</span><span>${esc(m.built_at.replace("T", " ").slice(0, 16))} UTC</span>` })
+    + section("Pipeline", stages, splits)
+    + `<div class="grid2">${section("Composition", composition)}${section("Line kinds", kinds)}</div>`
+    + section("Validation", checks);
+  $("view").querySelectorAll("[data-split]").forEach((b) => { b.onclick = () => { state.split = b.dataset.split; pageData(); }; });
+}
+
+/* ---------- Page: notes ---------- */
+
+function markdown(src) {
+  const inline = (t) => esc(t)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[\s(])\*([^*]+)\*/g, "$1<em>$2</em>");
+  const out = [];
+  let para = [], list = [];
+  const flush = () => {
+    if (para.length) { out.push(`<p>${inline(para.join(" "))}</p>`); para = []; }
+    if (list.length) { out.push(`<ul>${list.map((li) => `<li>${inline(li)}</li>`).join("")}</ul>`); list = []; }
+  };
+  for (const line of src.split(/\r?\n/)) {
+    if (/^#\s/.test(line)) { flush(); continue; } // the page title replaces the file's H1
+    const h = line.match(/^#{2,3}\s+(.*)/);
+    if (h) { flush(); out.push(`<h2>${inline(h[1])}</h2>`); continue; }
+    const li = line.match(/^\s*[-*]\s+(.*)/);
+    if (li) { if (para.length) flush(); list.push(li[1]); continue; }
+    if (!line.trim()) { flush(); continue; }
+    if (list.length) list[list.length - 1] += " " + line.trim(); else para.push(line.trim());
   }
-  renderRunPicker();
-  renderRun();
+  flush();
+  return out.join("");
 }
 
-/* ---------- Boot ---------- */
+function pageNotes() {
+  $("view").innerHTML = pageHead({ title: "Notes" })
+    + (SITE.notes ? `<article class="prose">${markdown(SITE.notes)}</article>` : `<p class="empty">No notes. Add <code>runs/NOTES.md</code>.</p>`);
+}
 
-$("tab-pipeline").onclick = () => setTab("pipeline");
-$("tab-runs").onclick = () => setTab("runs");
-$("f-label").onchange = renderList;
-$("f-type").onchange = renderList;
+/* ---------- Router ---------- */
+
+function route() {
+  const hash = location.hash === "#runs" ? "#/" : location.hash || "#/";
+  const [, page = "", arg = ""] = hash.match(/^#\/([^/]*)\/?(.*)$/) || [];
+  const nav = { "": "runs", run: "runs", ablation: "runs", scenarios: "scenarios", data: "data", notes: "notes" }[page] || "runs";
+  document.querySelectorAll("[data-nav]").forEach((a) => a.toggleAttribute("aria-current", false));
+  document.querySelector(`[data-nav="${nav}"]`)?.setAttribute("aria-current", "page");
+  const name = decodeURIComponent(arg);
+  if (page === "run") { if (state.lastRun !== name) { state.runSample = null; state.lastRun = name; } pageRun(name); }
+  else if (page === "ablation") pageAblation(name);
+  else if (page === "scenarios") pageScenarios(name);
+  else if (page === "data") pageData();
+  else if (page === "notes") pageNotes();
+  else pageRuns();
+}
+
+window.addEventListener("hashchange", () => { route(); window.scrollTo(0, 0); });
 
 fetch("data/site.json")
   .then((r) => { if (!r.ok) throw new Error(`site.json: HTTP ${r.status}`); return r.json(); })
   .then((site) => {
-    SITE = site;
-    build = SITE.builds.find((b) => b.manifest.split === "dev") || SITE.builds[0] || null;
-    renderPipeline();
-    renderRuns();
-    setTab(location.hash === "#runs" ? "runs" : "pipeline");
+    SITE = { builds: [], runs: [], ablations: [], ledger: [], notes: "", ...site };
+    route();
   })
   .catch((err) => {
-    document.querySelector("main").innerHTML = `<section class="card"><p class="empty">Could not load data/site.json (${esc(err.message)}). Rebuild with <code>uv run redaction site</code>.</p></section>`;
+    $("view").innerHTML = `<p class="empty">Could not load data/site.json (${esc(err.message)}). Rebuild with <code>uv run redaction site</code>.</p>`;
   });

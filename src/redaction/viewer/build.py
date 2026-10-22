@@ -173,6 +173,35 @@ def _runs(results_dir: Path, log_dir: Path | None) -> list[dict[str, Any]]:
     return runs
 
 
+def _ledger(ledger_dir: Path | None) -> list[dict[str, Any]]:
+    """Run records from the committed ledger, newest first; a later line for a run wins."""
+    if ledger_dir is None:
+        return []
+    entries = {e["name"]: e for e in _jsonl(ledger_dir / "ledger.jsonl")}
+    return sorted(entries.values(), key=lambda e: e["name"].split("-")[-1], reverse=True)
+
+
+def _notes(ledger_dir: Path | None) -> str:
+    notes = ledger_dir / "NOTES.md" if ledger_dir is not None else None
+    return notes.read_text(encoding="utf-8") if notes is not None and notes.exists() else ""
+
+
+def _ablations(results_dir: Path) -> list[dict[str, Any]]:
+    """Marker-ablation runs: their per-scenario scores and summary table."""
+    runs = []
+    for run in sorted(results_dir.glob("ablation-*"), reverse=True):
+        summary = run / "ablation.json"
+        if summary.exists():
+            runs.append(
+                {
+                    "name": run.name,
+                    "summary": json.loads(summary.read_text(encoding="utf-8")),
+                    "samples": _jsonl(run / "samples.jsonl"),
+                }
+            )
+    return runs
+
+
 def _bundle_inspect(log_dir: Path, out: Path) -> bool:
     """Bundle Inspect View with the logs; False if there are no logs or the CLI fails."""
     if not log_dir.exists() or not any(log_dir.rglob("*.eval")):
@@ -195,14 +224,28 @@ def _bundle_inspect(log_dir: Path, out: Path) -> bool:
     return True
 
 
-def build_site(*, built_dir: Path, results_dir: Path, log_dir: Path | None, out_dir: Path) -> Path:
+def build_site(
+    *,
+    built_dir: Path,
+    results_dir: Path,
+    log_dir: Path | None,
+    out_dir: Path,
+    ledger_dir: Path | None = None,
+) -> Path:
     """Write the viewer into `out_dir`, replacing what was there."""
     if out_dir.exists():
         shutil.rmtree(out_dir)
     shutil.copytree(STATIC, out_dir)
     has_viewer = log_dir is not None and _bundle_inspect(log_dir, out_dir / "viewer")
     builds, runs = _builds(built_dir), _runs(results_dir, log_dir)
-    payload = {"builds": builds, "runs": runs, "inspect_viewer": has_viewer}
+    payload = {
+        "builds": builds,
+        "runs": runs,
+        "ablations": _ablations(results_dir),
+        "ledger": _ledger(ledger_dir),
+        "notes": _notes(ledger_dir),
+        "inspect_viewer": has_viewer,
+    }
     (out_dir / "data").mkdir(exist_ok=True)
     (out_dir / "data" / "site.json").write_text(json.dumps(payload), encoding="utf-8")
     log.info(

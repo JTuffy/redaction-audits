@@ -126,6 +126,7 @@ def site(
         results_dir=settings.results_dir,
         log_dir=settings.inspect_log_dir if bundle_logs else None,
         out_dir=settings.site_dir,
+        ledger_dir=settings.ledger_dir,
     )
     typer.echo(str(out))
 
