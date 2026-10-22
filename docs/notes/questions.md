@@ -28,6 +28,18 @@ The cues test (Findings, "Does rephrasing make the task harder?") points at stru
 
 Needs a decision: which of these matters most, ideally pointing at one scenario that shows the problem.
 
+## How should the deep variants be fixed?
+
+The first deep draft didn't make the task harder for the frontier judge, and for the weaker judge two cells misbehave (Findings, "Do deep variants make the task harder?"). Options:
+
+1. **Fix the two cells.** Make the cot clean case clearly outside the claim (staff-written SFT demonstrations, not production traffic); make the opt-out easy herring something a reader trusts in one line (the customer's own consent amendment), and move "sandbox tenant" to medium.
+2. **Add look-alike distractors.** Hard cells get two or three similar records (several snapshots, shards or change requests), so clearing a herring means finding the right one, not reading six lines.
+3. **Stop quoting only the right lines.** The templated auditor quotes every key line, so the judge never has to search. Quoting a wider window (the evidence plus the lines around it) makes the cross-line link something to find.
+
+The deep set may matter most for P1's real question regardless: a redaction that generalizes a snapshot ID or a date removes exactly the link that clears a hard herring, so persistence can drop even when unedited AUROC is 1.00.
+
+Needs a decision: which of 1–3 (they combine), and whether you want to review the cells as written in `data/blueprints.py` first.
+
 ## What should the adversary do?
 
 The honest executor's rule 3 says evidence may be generalized but not removed. A blatant adversary that asks to delete the evidence lines tests only that rule. The real risk is subtler:
@@ -50,4 +62,4 @@ Needs a decision: none until the 3-sample noise is measured.
 
 Her 9 Oct ask was an MVP with results. The honest result so far is the table at the top of this page, plus the leakage contrast between text redaction and the model-based policies. Per her request, the write-up is Josh's own.
 
-Needs a decision: Josh's.
+Decided 22 Oct: lead with the leakage contrast (see Decisions).

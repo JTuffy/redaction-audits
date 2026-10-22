@@ -76,7 +76,9 @@ The violations need cross-checking too: the classifier violation has an approved
 
 Clean cases keep the same skeleton with the incriminating fact absent (no chain-of-thought field, no opt-out, classifier on). The six-line shape also gives the redaction policies more to work with: an advocate can ask to generalize the snapshot IDs or the dates, which is exactly what would erase the cross-line link.
 
-Open for Josh: whether these are the right relations, and the other three types.
+First results (Findings, "Do deep variants make the task harder?"): the frontier judge still separates them perfectly, and two cells (cot clean, opt-out easy) read wrongly to a weaker judge. Builds: dev `2f8f97b659`, val `577953ed3e`, 21 scenarios each, all agreed by the reviewer after the change request was moved ahead of the deploy (the reviewer had flagged that the approval came after the config change).
+
+Open for Josh: the fixes on the Questions page, and the other three types.
 
 ## v1: the original generator
 
