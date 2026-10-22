@@ -113,6 +113,7 @@ const TIPS = {
   kind_p1: ["Proposal 1: the full pipeline under one or more redaction policies."],
   kind_ablation: ["Judge-only run that varies how removed values are shown."],
   kind_reask: ["Unedited evidence re-asked with caching off, to measure judge noise."],
+  confidential: ["A second confidential value of the same kind (another customer, codename or team). Policies redact it like a secret; leakage isn't scored for it. Entangled scenarios turn on which of the two a line refers to."],
   kind_judge: ["The judge alone scores unedited evidence: how separable a build is, before any redaction."],
   tokens: ["Input plus output tokens across every model in the run."],
   dirty: ["Run from code with uncommitted changes."],
@@ -627,7 +628,7 @@ function highlight(text, secrets, snippet) {
 
 function scenarioDetail(s) {
   if (!s) return `<p class="empty">No scenario selected.</p>`;
-  const values = s.secrets.map((x) => x.value);
+  const values = [...s.secrets, ...(s.confidential || [])].map((x) => x.value);
   const corrByLog = Object.fromEntries(s.correlates.map((c) => [c.log_id, c]));
   const keys = new Set(s.key_evidence_ids);
   const secretRows = s.secrets.map((x) => {
@@ -635,7 +636,8 @@ function scenarioDetail(s) {
     return `<tr><td>${esc(human(x.secret_type))}</td><td class="mono-cell">${esc(x.value)}</td>
       <td class="mono-cell">${cs.map((c) => `${esc(c.log_id)} · ${term(c.strength, c.strength)}`).join("<br>") || "—"}</td>
       <td class="wrap muted">${cs.map((c) => esc(c.rationale)).join("<br>")}</td></tr>`;
-  }).join("");
+  }).join("") + (s.confidential || []).map((x) => `<tr><td>${esc(human(x.secret_type))} <span class="faint">second</span></td><td class="mono-cell">${esc(x.value)}</td>
+      <td class="mono-cell">—</td><td class="wrap muted">${term("confidential", "Redacted like a secret, not scored")}</td></tr>`).join("");
   const hidden = s.logs.filter((e) => e.kind === "background").length;
   const logs = s.logs.filter((e) => state.showBackground || e.kind !== "background").map((e) => {
     const c = corrByLog[e.log_id];
