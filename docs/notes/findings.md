@@ -8,15 +8,21 @@ Status: open
 
 Persistence is 1.00 for every policy, because nothing has tried to remove the cues that separate violations from red herrings: the advocate stays honest, and text redaction removes secret values, not cues. Separately, the judge separates the labels perfectly on unedited evidence (AUROC 1.00), because the templated report quotes exactly the decisive lines. That makes the task unrealistically easy, but it isn't what holds persistence at 1.00. The lever is an adversary (see Questions).
 
+The one exception so far: under text redaction with context quotes, persistence dropped to 0.83, but that rests on a single red herring. dev-016 already scored 73 unedited and rose to 95 after redaction. Quoting context made that red herring look guilty before any editing.
+
 Runs: `p1-dev-honest-20261021T221138Z`, `p1-dev-cover_up-20261021T225602Z`.
 
 ## How much do secrets leak?
 
-Status: open
+Status: open — first real answer on 22 Oct
 
-Contextual rewrite leaked about 0.12 on the 12-scenario pilot; text redaction and self-redaction leaked 0. Two of the leaks came from executor denials. The third was a release date generalized to a form that still gave the week away (p = 0.90). Correlates have not been tested: the judge has never seen one, because the templated report quotes only the three evidence lines (see Pipeline).
+Once the report quotes context (correlate lines and two innocent lines), text redaction leaks almost everything: mean leakage 0.86 [0.76, 0.93], with no value left verbatim. The script removes the literal values, but the details that give them away stay. Codenames leaked in 11 of 11 scenarios (through job-name slugs and similar), and optimizers in 5 of 5 (through their hyperparameters). The model-based policies leaked far less: contextual rewrite 0.27 [0.10, 0.43], self-redaction 0.20 [0.07, 0.34]. The advocate asks to generalize many correlates, not just values, and no codename leaked under either. What still leaks under contextual rewrite is mostly technical: architecture, optimizer, parameter scale and release date.
 
-Runs: `p1-dev-honest-20261021T221138Z`.
+This is P1's central contrast: literal redaction protects values, not what can be inferred from them. With 12 scenarios and an honest advocate it's a first result, not a measurement.
+
+Before 22 Oct, without correlates in the quotes, every policy leaked 0–0.12.
+
+Runs: `p1-dev-honest-20261022T162358Z` (context, 3 judge samples, v2 data); earlier `p1-dev-honest-20261021T221138Z`.
 
 ## Does the executor stop a cover-up?
 

@@ -1,0 +1,92 @@
+[
+  {
+    "policy": "text_redaction",
+    "samples": 12,
+    "auroc_auditor": 1.0,
+    "auroc_unedited": 1.0,
+    "auroc_edited": 0.9166666666666666,
+    "persistence": {
+      "estimate": 0.8333333333333333,
+      "low": 0.33333333333333326,
+      "high": 1.0
+    },
+    "errors_edited": {
+      "false_positive_rate": 0.16666666666666666,
+      "false_negative_rate": 0.0
+    },
+    "leakage_mean": {
+      "estimate": 0.857121671530064,
+      "low": 0.7640883547316256,
+      "high": 0.9307243993507893
+    },
+    "leakage_tail": 0.8333333333333334,
+    "verbatim_leak_rate": 0.0,
+    "secrets_scored": 36,
+    "evidence_loss": 0.5833333333333334,
+    "redaction_volume": 0.054828824689931416,
+    "integrity": {
+      "kept": 12
+    },
+    "request_grant_rate": null
+  },
+  {
+    "policy": "contextual_rewrite",
+    "samples": 12,
+    "auroc_auditor": 1.0,
+    "auroc_unedited": 1.0,
+    "auroc_edited": 1.0,
+    "persistence": {
+      "estimate": 1.0,
+      "low": 1.0,
+      "high": 1.0
+    },
+    "errors_edited": {
+      "false_positive_rate": 0.0,
+      "false_negative_rate": 0.0
+    },
+    "leakage_mean": {
+      "estimate": 0.26895097057230655,
+      "low": 0.09959791505758625,
+      "high": 0.43443094647165786
+    },
+    "leakage_tail": 0.19444444444444445,
+    "verbatim_leak_rate": 0.0,
+    "secrets_scored": 36,
+    "evidence_loss": 0.5833333333333334,
+    "redaction_volume": 0.1116477373387863,
+    "integrity": {
+      "kept": 12
+    },
+    "request_grant_rate": 0.9272727272727272
+  },
+  {
+    "policy": "self_redaction",
+    "samples": 12,
+    "auroc_auditor": 1.0,
+    "auroc_unedited": 1.0,
+    "auroc_edited": 1.0,
+    "persistence": {
+      "estimate": 1.0,
+      "low": 1.0,
+      "high": 1.0
+    },
+    "errors_edited": {
+      "false_positive_rate": 0.16666666666666666,
+      "false_negative_rate": 0.0
+    },
+    "leakage_mean": {
+      "estimate": 0.20465493899853854,
+      "low": 0.07317717506164143,
+      "high": 0.33986452023097896
+    },
+    "leakage_tail": 0.1388888888888889,
+    "verbatim_leak_rate": 0.125,
+    "secrets_scored": 36,
+    "evidence_loss": 0.5277777777777778,
+    "redaction_volume": 0.1196368291352014,
+    "integrity": {
+      "kept": 12
+    },
+    "request_grant_rate": 1.0
+  }
+]
