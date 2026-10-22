@@ -82,4 +82,5 @@ def assemble(plan: ScenarioPlan, rendering: Rendering) -> Scenario:
         separating_cues=plan.separating_cues,
         secret_cues=plan.secret_cues,
         correlates=plan.correlates_for(log_ids),
+        depth=plan.depth,
     )

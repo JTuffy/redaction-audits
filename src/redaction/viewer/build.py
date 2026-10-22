@@ -48,19 +48,31 @@ def _build_payload(directory: Path) -> dict[str, Any]:
     }
 
 
+SHOWN_SPLITS: Final = ("dev", "val")  # test is held out: never shown, so never read
+
+
+def _newest_deep(split_dir: Path) -> Path | None:
+    deep = []
+    for manifest in split_dir.glob("*/manifest.json"):
+        meta = json.loads(manifest.read_text(encoding="utf-8"))
+        if meta.get("depth") == "deep":
+            deep.append((meta.get("built_at", ""), manifest.parent))
+    return max(deep)[1] if deep else None
+
+
 def _builds(built_dir: Path) -> list[dict[str, Any]]:
-    """The LATEST build of each split."""
+    """Per shown split: the LATEST build, then the newest deep-variant build if there is one."""
     builds = []
-    order = {"dev": 0, "val": 1, "test": 2}
-    split_dirs = sorted(
-        (p for p in built_dir.glob("*") if p.is_dir()), key=lambda p: order.get(p.name, 9)
-    )
-    for split_dir in split_dirs:
+    for split in SHOWN_SPLITS:
+        split_dir = built_dir / split
         latest = split_dir / "LATEST"
         if latest.exists():
             directory = split_dir / latest.read_text(encoding="utf-8").strip()
             if (directory / "manifest.json").exists():
-                builds.append(_build_payload(directory))
+                builds.append({"key": split, **_build_payload(directory)})
+        deep = _newest_deep(split_dir) if split_dir.is_dir() else None
+        if deep is not None:
+            builds.append({"key": f"{split} deep", **_build_payload(deep)})
     return builds
 
 

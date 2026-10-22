@@ -4,6 +4,20 @@ One line per decision, newest first, with the reason. Change a line only to mark
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-10-22 | Deep variants drafted for three types (cot_in_training, opted_out_data, classifier_off): five or six evidence lines per scenario, one shared skeleton per type, label decided by a relation between lines. Built with `--depth deep`, alongside the original set. | Josh, mentor grill: the scenarios lack "sufficient logs or depth"; scale-up waits on better scenarios. |
+| 2026-10-22 | Model families: the template build stays the headline; the second label reviewer is GPT-5.6; a third-family reviewer and fallback renderer when a key is available. | Josh delegated this. The judge (GPT-5.6 Terra) is OpenAI and the executor Anthropic. A second reviewer from either family shares blind spots with one role, so the third family is the clean fix, and is noted as open. |
+| 2026-10-22 | Lead the MVP with the leakage contrast (text redaction 0.86 vs 0.27 and 0.20). | Mentor grill. |
+| 2026-10-22 | Add a summary policy: the executor writes a summary of the evidence instead of editing it. | Mentor grill: puts a second rung of the brief's access ladder on the curve. |
+| 2026-10-22 | Paper target: NeurIPS Datasets & Benchmarks track. | Mentor grill. |
+| 2026-10-22 | Report the honest and the adversarial lab separately: leakage leads the first, persistence the second. | Mentor grill. |
+| 2026-10-22 | Scope stated plainly: P1 measures whether a finding survives redaction, not whether it is found. Model auditor after the adversaries. | Mentor grill. |
+| 2026-10-22 | Variants and adversaries in parallel. The adversary gets a better harness (a model that will play the role), with scripted attacks as bounds. | Mentor grill; Josh: "we can work around this, maybe with better harness". |
+| 2026-10-22 | Second label reviewer from another model family, no human pass yet. | Mentor grill. |
+| 2026-10-22 | Full dev and val runs wait for the deeper scenarios. | Mentor grill (Josh's note). |
+| 2026-10-22 | Self-redaction is the no-executor baseline: the executor's value is the gap to contextual rewrite. | Mentor grill. |
+| 2026-10-22 | Separate the redaction-display choices in the ablation: marker alone, marker with rationale, pseudonym. | Mentor grill (Josh: see these choices separated). |
+| 2026-10-22 | FOIA redaction benchmarks: related work only. ZK proofs and TEEs: out of scope. Realism: internal validity only, stated in limitations. | Mentor grill. |
+| 2026-10-22 | Repo goes public at paper time; test split released as a sealed eval. No weekly update this week. | Mentor grill. |
 | 2026-10-22 | The paper lives in `paper/` (NeurIPS 2025 style, compiled with Tectonic), with a live Paper page on the site. Numbers in the text come from generated macros. | Josh asked for a live paper page. Overleaf has no plugin API and its Git sync needs a paid plan; generated numbers can't drift from the runs. |
 | 2026-10-22 | Cues stay verbatim in the reference build; paraphrase mode stays available. | Built both: separation was unchanged (AUROC 1.00 vs 0.99), so the variants, not the tokens, make the task easy. |
 | 2026-10-22 | Dev `LATEST` is the template build; the model-rendered builds are kept beside it. | Rephrasing didn't change difficulty, and the template build has no renderer-family confound. |

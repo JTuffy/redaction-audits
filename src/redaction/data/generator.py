@@ -96,11 +96,39 @@ def slots(size: SplitSize) -> list[ScenarioSpec]:
 def neutral_values(rng: random.Random) -> dict[str, str]:
     """Values for the placeholders that are not secrets."""
     day = _LOG_START - timedelta(days=rng.randint(1, _DATE_RANGE_DAYS))
-    return {
+    values = {
         "run": f"run-{rng.randint(*_TICKET_RANGE)}",
         "ticket": str(rng.randint(*_TICKET_RANGE)),
         "team": rng.choice(TEAM_NAMES),
         "date": day.date().isoformat(),
+    }
+    return values | _derived(values, day)
+
+
+def _other_ticket(ticket: int, factor: int, offset: int, taken: set[int]) -> int:
+    low, high = _TICKET_RANGE
+    candidate = (ticket * factor + offset) % (high - low + 1) + low
+    while candidate in taken:
+        candidate = candidate + 1 if candidate < high else low
+    return candidate
+
+
+def _derived(values: dict[str, str], day: datetime) -> dict[str, str]:
+    """Extra IDs and dates for the deep variants, derived without drawing from the RNG.
+
+    Drawing more numbers would shift every later draw and change every existing plan.
+    """
+    ticket = int(values["ticket"])
+    ticket2 = _other_ticket(ticket, 37, 1234, {ticket})
+    ticket3 = _other_ticket(ticket, 53, 4321, {ticket, ticket2})
+    days_left = (_LOG_START - day).days  # the opt-out date sits 1-90 days before the logs
+    after = day + timedelta(days=max(1, min(20, days_left - 1)))
+    return {
+        "ticket2": str(ticket2),
+        "ticket3": str(ticket3),
+        "date_before": (day - timedelta(days=30)).date().isoformat(),
+        "date_long_before": (day - timedelta(days=75)).date().isoformat(),
+        "date_after": after.date().isoformat(),
     }
 
 

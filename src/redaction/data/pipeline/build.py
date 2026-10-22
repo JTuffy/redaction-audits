@@ -22,6 +22,7 @@ from typing import Protocol
 
 from redaction.core.models import Frozen, Label, Scenario, Split
 from redaction.data.background import PhillyJob
+from redaction.data.blueprints import blueprints_for
 from redaction.data.generator import DEFAULT_SEEDS, SPLIT_SIZES, slots
 from redaction.data.pipeline.plan import LineKind, ScenarioPlan, plan_scenario
 from redaction.data.pipeline.render import Renderer, Rendering, assemble
@@ -84,6 +85,7 @@ class BuildResult(Frozen):
     renderer: str
     reviewer: str | None
     cues: str = "verbatim"  # whether evidence cues had to survive rendering word for word
+    depth: str = "shallow"  # which blueprint set the plans use
     plans: tuple[ScenarioPlan, ...]
     scenarios: tuple[Scenario, ...]
     records: tuple[ScenarioRecord, ...]
@@ -97,7 +99,9 @@ def _version(plans: tuple[ScenarioPlan, ...], settings: str) -> str:
     """A hash of the plans and every setting that changes the output (renderer, reviewer, cues)."""
     digest = hashlib.sha256(settings.encode())
     for plan in plans:
-        digest.update(plan.model_dump_json().encode())
+        # Shallow plans hash as they did before `depth` existed, so old versions stay valid.
+        exclude = {"depth"} if plan.depth == "shallow" else None
+        digest.update(plan.model_dump_json(exclude=exclude).encode())
     return digest.hexdigest()[:10]
 
 
@@ -155,16 +159,19 @@ async def build_split_v2(
     max_attempts: int = 3,
     paraphrase: bool = False,
     concurrency: int = 8,
+    depth: str = "shallow",
 ) -> BuildResult:
     """Plan, render, validate and (optionally) review every scenario in a split.
 
     Scenarios run concurrently (at most `concurrency` at once); output order is plan order.
     """
     split_seed = DEFAULT_SEEDS[split] if seed is None else seed
-    planned = slots(SPLIT_SIZES[split])[:limit]
+    types = set(blueprints_for(depth))
+    every = enumerate(slots(SPLIT_SIZES[split]))
+    planned = [(i, slot) for i, slot in every if slot.violation_type in types][:limit]
     plans = tuple(
-        plan_scenario(slot, split=split, index=i, seed=split_seed, jobs=jobs)
-        for i, slot in enumerate(planned)
+        plan_scenario(slot, split=split, index=i, seed=split_seed, jobs=jobs, depth=depth)
+        for i, slot in planned
     )
     attempts = 1 if renderer.name == "template" else max_attempts  # templates are deterministic
     gate = asyncio.Semaphore(concurrency)
@@ -180,6 +187,7 @@ async def build_split_v2(
         split=split,
         version=_version(plans, f"{renderer.name}|{reviewer_name}|{cues}"),
         cues=cues,
+        depth=depth,
         renderer=renderer.name,
         reviewer=reviewer.name if reviewer else None,
         plans=plans,
@@ -200,6 +208,7 @@ def manifest(result: BuildResult, *, background_jobs: int) -> dict[str, object]:
         "renderer": result.renderer,
         "reviewer": result.reviewer,
         "cues": result.cues,
+        "depth": result.depth,
         "built_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "background_jobs": background_jobs,
         "stages": {
@@ -224,8 +233,10 @@ def manifest(result: BuildResult, *, background_jobs: int) -> dict[str, object]:
     }
 
 
-def write_build(result: BuildResult, out_dir: Path, *, background_jobs: int) -> Path:
-    """Freeze a build to disk and point `<out>/<split>/LATEST` at it."""
+def write_build(
+    result: BuildResult, out_dir: Path, *, background_jobs: int, latest: bool = True
+) -> Path:
+    """Freeze a build to disk and, unless `latest` is off, point `<out>/<split>/LATEST` at it."""
     directory = out_dir / str(result.split) / result.version
     directory.mkdir(parents=True, exist_ok=True)
     for name, items in (
@@ -239,5 +250,6 @@ def write_build(result: BuildResult, out_dir: Path, *, background_jobs: int) -> 
         json.dumps(manifest(result, background_jobs=background_jobs), indent=2) + "\n",
         encoding="utf-8",
     )
-    (out_dir / str(result.split) / "LATEST").write_text(result.version + "\n", encoding="utf-8")
+    if latest:
+        (out_dir / str(result.split) / "LATEST").write_text(result.version + "\n", encoding="utf-8")
     return directory

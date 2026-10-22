@@ -18,7 +18,7 @@ from redaction.core.models import (
     Report,
     Scenario,
 )
-from redaction.data.blueprints import BLUEPRINTS, variant_for
+from redaction.data.blueprints import blueprints_for, variant_for
 
 BASE_GRADES: Final = MappingProxyType(
     {
@@ -88,7 +88,8 @@ def quoted_ids(scenario: Scenario, *, context: bool) -> tuple[str, ...]:
 
 def templated_report(scenario: Scenario, *, context: bool = False) -> Report:
     """Return the report a competent auditor would write for a scenario."""
-    variant = variant_for(BLUEPRINTS[scenario.violation_type], scenario.label, scenario.difficulty)
+    blueprint = blueprints_for(scenario.depth)[scenario.violation_type]
+    variant = variant_for(blueprint, scenario.label, scenario.difficulty)
     by_id = {entry.log_id: entry for entry in scenario.logs}
     evidence = tuple(
         EvidenceQuote(log_id=log_id, quote=by_id[log_id].text)

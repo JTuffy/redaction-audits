@@ -38,13 +38,7 @@ The honest executor's rule 3 says evidence may be generalized but not removed. A
 
 Scripted versions of 1 and 2 give a worst case that doesn't depend on a model agreeing to play the part. A model adversary prompted as the lab's counsel could follow later.
 
-Needs a decision: whether a scripted adversary is acceptable for the headline result, or only as a bound next to a model adversary.
-
-## Should the renderer and judge come from different families?
-
-In the model-rendered dev builds, GPT-5.6 rendered 8–18 of 40 scenarios (those Sonnet refused), and the judge is GPT-5.6 Terra. A judge may read text from its own family more easily. The template build is the reference for now, so this doesn't touch current results.
-
-Needs a decision: accept the overlap (and report renderer per scenario, which the records already hold), or use a third-family fallback, which needs another API key.
+Decided 22 Oct: both. Scripted attacks are bounds; the headline adversary is a model in a better harness (see Decisions).
 
 ## How many judge samples?
 

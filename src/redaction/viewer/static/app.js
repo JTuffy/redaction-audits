@@ -592,7 +592,7 @@ function pageAblation(name) {
 /* ---------- Page: scenarios ---------- */
 
 function currentBuild() {
-  return SITE.builds.find((b) => b.manifest.split === state.split) || SITE.builds[0] || null;
+  return SITE.builds.find((b) => (b.key ?? b.manifest.split) === state.split) || SITE.builds[0] || null;
 }
 
 function highlight(text, secrets, snippet) {
@@ -648,7 +648,7 @@ function pageScenarios(id) {
   const list = build.scenarios.filter((s) => (!state.scLabel || s.label === state.scLabel) && (!state.scType || s.violation_type === state.scType));
   const selected = build.scenarios.find((s) => s.scenario_id === id) || list[0] || null;
   const splits = `<div class="seg" role="group" aria-label="Split">${SITE.builds.map((b) =>
-    `<button type="button" data-split="${esc(b.manifest.split)}" aria-pressed="${b === build}">${esc(b.manifest.split)}</button>`).join("")}</div>`;
+    `<button type="button" data-split="${esc(b.key ?? b.manifest.split)}" aria-pressed="${b === build}">${esc(b.key ?? b.manifest.split)}</button>`).join("")}</div>`;
   const filters = `${splits}
     <select id="f-label" aria-label="Label"><option value="">All labels</option>${LABEL_ORDER.map((l) => `<option value="${l}" ${state.scLabel === l ? "selected" : ""}>${LABELS[l]}</option>`).join("")}</select>
     <select id="f-type" aria-label="Violation type"><option value="">All types</option>${types.map((t) => `<option value="${t}" ${state.scType === t ? "selected" : ""}>${esc(human(t))}</option>`).join("")}</select>`;
@@ -671,7 +671,7 @@ function pageData() {
   if (!build) { $("view").innerHTML = pageHead({ title: "Data" }) + `<p class="empty">No builds.</p>`; return; }
   const m = build.manifest;
   const splits = `<div class="seg" role="group" aria-label="Split">${SITE.builds.map((b) =>
-    `<button type="button" data-split="${esc(b.manifest.split)}" aria-pressed="${b === build}">${esc(b.manifest.split)}</button>`).join("")}</div>`;
+    `<button type="button" data-split="${esc(b.key ?? b.manifest.split)}" aria-pressed="${b === build}">${esc(b.key ?? b.manifest.split)}</button>`).join("")}</div>`;
   const stages = `<div class="stages">${STAGES.map(([key, name]) => {
     const skipped = key === "reviewed" && !m.reviewer;
     return `<div class="stage ${skipped ? "skipped" : ""}"><b>${skipped ? "—" : m.stages[key]}</b><span>${term(key, name)}</span></div>`;
@@ -692,7 +692,7 @@ function pageData() {
     const n = counts[k] || 0;
     return `<tr><td>${name}</td><td><span class="badge ${n ? "fail" : "pass"}">${n ? n + " failed" : "pass"}</span></td></tr>`;
   }).join("")}<tr><td>Blind label review</td><td>${m.reviewer ? `<span class="badge ${build.records.some((r) => r.status === "review_disagrees") ? "fail" : "pass"}">${esc(m.reviewer)}</span>` : '<span class="badge">not run</span>'}</td></tr></tbody></table></div></div>`;
-  $("view").innerHTML = pageHead({ title: "Data", sub: `<span class="mono">build ${esc(m.version)}</span><span>renderer ${esc(m.renderer)}</span><span>${esc(m.built_at.replace("T", " ").slice(0, 16))} UTC</span>` })
+  $("view").innerHTML = pageHead({ title: "Data", sub: `<span class="mono">build ${esc(m.version)}</span><span>renderer ${esc(m.renderer)}</span>${m.depth === "deep" ? "<span>deep variants (draft)</span>" : ""}<span>${esc(m.built_at.replace("T", " ").slice(0, 16))} UTC</span>` })
     + section("Pipeline", stages, splits)
     + `<div class="grid2">${section("Composition", composition)}${section("Line kinds", kinds)}</div>`
     + section("Validation", checks);

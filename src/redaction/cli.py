@@ -14,6 +14,7 @@ from inspect_ai.model import Model
 from redaction.core.models import Split
 from redaction.core.roles import Role, Stance
 from redaction.data.background import build_sample, load_sample
+from redaction.data.blueprints import DEPTHS
 from redaction.data.generator import build_split
 from redaction.data.pipeline.build import build_split_v2, manifest, write_build
 from redaction.data.pipeline.model_render import ModelRenderer, ModelReviewer
@@ -104,6 +105,12 @@ def build(
     cues: Annotated[
         str, typer.Option(help="'verbatim' (cue tokens kept word for word) or 'paraphrase'.")
     ] = "verbatim",
+    depth: Annotated[
+        str, typer.Option(help="Blueprints: 'shallow' (all six types) or 'deep' (draft, 3 types).")
+    ] = "shallow",
+    latest: Annotated[
+        bool, typer.Option(help="Point LATEST at this build (runs read LATEST).")
+    ] = True,
     fallback: Annotated[
         str | None,
         typer.Option(help="Model that renders an attempt the main renderer refuses."),
@@ -113,6 +120,8 @@ def build(
 ) -> None:
     """Run the synthetic data pipeline for one split and freeze the result."""
     settings = get_settings()
+    if depth not in DEPTHS:
+        raise typer.BadParameter(f"depth must be one of {DEPTHS}")
     if cues not in {"verbatim", "paraphrase"}:
         raise typer.BadParameter("cues must be 'verbatim' or 'paraphrase'")
     paraphrase = cues == "paraphrase"
@@ -136,9 +145,10 @@ def build(
             limit=limit,
             max_attempts=attempts,
             paraphrase=paraphrase,
+            depth=depth,
         )
     )
-    directory = write_build(result, settings.built_dir, background_jobs=len(jobs))
+    directory = write_build(result, settings.built_dir, background_jobs=len(jobs), latest=latest)
     summary = manifest(result, background_jobs=len(jobs))
     typer.echo(f"{directory}\n{summary['stages']}\nissues: {summary['issues']}")
 

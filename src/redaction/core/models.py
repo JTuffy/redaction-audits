@@ -144,6 +144,7 @@ class Scenario(Frozen):
     separating_cues: tuple[str, ...]
     secret_cues: tuple[SecretType, ...] = ()
     correlates: tuple[Correlate, ...] = ()
+    depth: str = "shallow"  # blueprint set: "shallow" (three evidence lines) or "deep"
 
     @model_validator(mode="after")
     def _check_consistency(self) -> Scenario:

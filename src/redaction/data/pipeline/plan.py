@@ -26,11 +26,11 @@ from redaction.core.models import (
 from redaction.core.registry import spec_for
 from redaction.data.background import PhillyJob, background_lines
 from redaction.data.blueprints import (
-    BLUEPRINTS,
     NEUTRAL_LINES,
     NOISE_SECRET_LINES,
     SECRET_PLACEHOLDERS,
     Variant,
+    blueprints_for,
     variant_for,
 )
 from redaction.data.correlates import correlate_lines
@@ -88,6 +88,7 @@ class ScenarioPlan(Frozen):
     separating_cues: tuple[str, ...]
     secret_cues: tuple[SecretType, ...]
     forbidden: tuple[str, ...]  # violation-only tokens a non-violation must not contain
+    depth: str = "shallow"  # which blueprint set: the original three-line one, or "deep"
 
     def correlates_for(self, log_ids: tuple[str, ...]) -> tuple[Correlate, ...]:
         """Correlate records once lines have log IDs (log_ids in plan order)."""
@@ -152,10 +153,11 @@ def plan_scenario(
     index: int,
     seed: int,
     jobs: tuple[PhillyJob, ...],
+    depth: str = "shallow",
 ) -> ScenarioPlan:
     """Fix every fact for one scenario. The same arguments always give the same plan."""
     rng = random.Random(f"plan:{seed}:{index}")
-    blueprint = BLUEPRINTS[slot.violation_type]
+    blueprint = blueprints_for(depth)[slot.violation_type]
     variant = variant_for(blueprint, slot.label, slot.difficulty)
     noise_type = rng.choice([t for t in SecretType if t not in blueprint.core_secrets])
     secrets = tuple(
@@ -225,4 +227,5 @@ def plan_scenario(
         forbidden=()
         if slot.label is Label.VIOLATION
         else _forbidden(variant, blueprint.violation, values),
+        depth=depth,
     )
