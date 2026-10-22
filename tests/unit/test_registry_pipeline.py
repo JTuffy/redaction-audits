@@ -6,6 +6,7 @@ import asyncio
 import json
 from collections import Counter
 
+import pytest
 from inspect_ai.model import ModelOutput
 
 from redaction.core.models import CorrelateStrength, SecretType, Split
@@ -13,7 +14,7 @@ from redaction.core.registry import OPTIONS_PER_SECRET, REGISTRY
 from redaction.data.correlates import correlate_lines
 from redaction.data.generator import DEFAULT_SEEDS, SPLIT_SIZES, slots
 from redaction.data.pipeline import model_render
-from redaction.data.pipeline.plan import LineKind, plan_scenario, required_for
+from redaction.data.pipeline.plan import LineKind, ScenarioPlan, plan_scenario, required_for
 from redaction.data.pipeline.render import Rendering
 from redaction.data.pipeline.validate import Check, validate
 
@@ -71,7 +72,7 @@ def test_secret_types_all_registered() -> None:
     assert set(REGISTRY) == set(SecretType)
 
 
-def _plan():
+def _plan() -> ScenarioPlan:
     slot = slots(SPLIT_SIZES[Split.DEV])[0]
     return plan_scenario(slot, split=Split.DEV, index=0, seed=DEFAULT_SEEDS[Split.DEV], jobs=())
 
@@ -81,14 +82,14 @@ def test_refused_rendering_is_one_refused_issue() -> None:
     assert [i.check for i in issues] == [Check.REFUSED]
 
 
-def _scripted(replies: dict[str, ModelOutput]):
+def _scripted(replies: dict[str, ModelOutput]) -> tuple[type, list[str]]:
     calls: list[str] = []
 
     class _Model:
         def __init__(self, name: str) -> None:
             self.name = name
 
-        async def generate(self, _messages, config=None) -> ModelOutput:  # noqa: ARG002
+        async def generate(self, _messages: object, config: object = None) -> ModelOutput:  # noqa: ARG002
             calls.append(self.name)
             return replies[self.name]
 
@@ -101,7 +102,7 @@ def _refusal(model: str) -> ModelOutput:
     return output
 
 
-def test_refusal_falls_back_and_records_the_model(monkeypatch) -> None:
+def test_refusal_falls_back_and_records_the_model(monkeypatch: pytest.MonkeyPatch) -> None:
     plan = _plan()
     body = {
         "lines": [
