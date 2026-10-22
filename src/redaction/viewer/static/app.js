@@ -51,6 +51,9 @@ function when(name) {
   const d = new Date(`${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T${s.slice(9, 11)}:${s.slice(11, 13)}:${s.slice(13, 15)}Z`);
   return d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
+const stampDate = (name) => { const s = stampOf(name); return s ? new Date(`${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T${s.slice(9, 11)}:${s.slice(11, 13)}:${s.slice(13, 15)}Z`) : null; };
+const dayOf = (name) => stampDate(name)?.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" }) ?? "Undated";
+const timeOf = (name) => stampDate(name)?.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) ?? "—";
 const kTokens = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
 const tokensOf = (e) => Object.values(e?.config?.tokens || {}).reduce((a, t) => a + (t.input_tokens || 0) + (t.output_tokens || 0), 0);
 const labelText = (x) => `${LABELS[x.label]}${x.difficulty ? " · " + x.difficulty : ""}`;
@@ -58,7 +61,7 @@ const rankScenario = (x) => LABEL_ORDER.indexOf(x.label) * 10 + DIFFICULTY.index
 const onKey = (el, fn) => { el.onclick = fn; el.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(); } }; };
 
 let SITE = null;
-const state = { runPolicy: "contextual_rewrite", runSample: null, split: "dev", scenario: null, showBackground: false, runFilter: "all", scLabel: "", scType: "" };
+const state = { allSecrets: false, runPolicy: "contextual_rewrite", runSample: null, split: "dev", scenario: null, showBackground: false, runFilter: "all", scLabel: "", scType: "" };
 
 /* ---------- Data access ---------- */
 
@@ -129,15 +132,26 @@ function pageRuns() {
     return `${STANCE[c.stance] || "—"}${pols.length && pols.length < 3 ? " · " + pols.map((p) => POLICY[p]).join(", ") : ""}`;
   };
   const n = (e) => { const c = e.config || {}; return c.sample_ids?.length ?? c.limit ?? "all"; };
+  let lastDay = null;
   const body = rows.length ? `<div class="panel"><div class="scroll"><table class="left">
-    <thead><tr><th>When</th><th>Type</th><th>Setup</th><th class="num">Scenarios</th><th class="num">Tokens</th><th>Commit</th><th>Purpose</th></tr></thead>
-    <tbody>${rows.map((e) => `<tr class="link" tabindex="0" data-href="${hrefOf(e)}">
-      <td>${when(e.name)}</td><td>${kindOf(e)}</td><td>${esc(setup(e))}</td>
+    <thead><tr><th>Time</th><th>Type</th><th>Setup</th><th class="num">Scenarios</th><th class="num">Tokens</th><th>Commit</th><th>Purpose</th></tr></thead>
+    <tbody>${rows.map((e) => {
+      const d = dayOf(e.name);
+      const head = d !== lastDay ? `<tr class="group-row"><td colspan="7">${d}</td></tr>` : "";
+      lastDay = d;
+      return `${head}<tr class="link" tabindex="0" data-href="${hrefOf(e)}">
+      <td>${timeOf(e.name)}</td><td>${kindOf(e)}</td><td>${esc(setup(e))}</td>
       <td class="num">${n(e)}</td><td class="num">${tokensOf(e) ? kTokens(tokensOf(e)) : "—"}</td>
       <td class="mono-cell">${e.commit ? esc(String(e.commit).slice(0, 7)) : "—"}${e.dirty ? '<span class="dot" title="Uncommitted changes when run"></span>' : ""}</td>
-      <td class="ellipsis" title="${esc(e.purpose || "")}">${esc(e.purpose || "")}</td></tr>`).join("")}</tbody></table></div></div>`
+      <td class="ellipsis" title="${esc(e.purpose || "")}">${esc(e.purpose || "")}</td></tr>`;
+    }).join("")}</tbody></table></div></div>`
     : `<p class="empty">No recorded runs.</p>`;
-  $("view").innerHTML = pageHead({ title: "Runs", sub: `<span>${allRuns().length} recorded</span>` }) + section("All runs", body, filter);
+  const all = allRuns();
+  const count = (k) => all.filter((e) => kindOf(e) === k).length;
+  const total = all.reduce((a, e) => a + tokensOf(e), 0);
+  const sub = [`${all.length} runs`, `${count("P1")} P1`, `${count("Ablation")} ablation`, `${count("Re-ask")} re-ask`, `${kTokens(total)} tokens`]
+    .map((t) => `<span>${t}</span>`).join("");
+  $("view").innerHTML = pageHead({ title: "Runs", sub }) + section("History", body, filter);
   $("view").querySelectorAll("tr[data-href]").forEach((tr) => onKey(tr, () => { location.hash = tr.dataset.href; }));
   $("view").querySelectorAll(".seg button").forEach((b) => { b.onclick = () => { state.runFilter = b.dataset.k; pageRuns(); }; });
 }
@@ -220,8 +234,10 @@ function secretsTable(r) {
   const pols = runPolicies(r);
   const groups = byScenario(r.samples);
   const scorable = (x) => x.p_unedited - x.p_prior > 0.01;
+  const leaks = (g, i) => pols.some((p) => (g.pol[p]?.secrets[i]?.leakage ?? 0) > 0);
   let last = null;
-  const rows = groups.flatMap((g) => g.any.secrets.map((x, i) => [x, i]).filter(([x]) => scorable(x)).map(([x, i]) => {
+  const rows = groups.flatMap((g) => g.any.secrets.map((x, i) => [x, i])
+    .filter(([x, i]) => scorable(x) && (state.allSecrets || leaks(g, i))).map(([x, i]) => {
     const head = g.any.label !== last ? `<tr class="group-row"><td colspan="${5 + pols.length}">${LABELS[g.any.label]}</td></tr>` : "";
     last = g.any.label;
     const cells = pols.map((p) => {
@@ -236,7 +252,18 @@ function secretsTable(r) {
   })).join("");
   return `<div class="panel"><div class="scroll"><table>
     <thead><tr><th>Scenario</th><th style="text-align:left">Secret</th><th style="text-align:left">True value</th><th>Prior</th><th>Unedited</th>${pols.map((p) => `<th>${POLICY[p]}</th>`).join("")}</tr></thead>
-    <tbody>${rows}</tbody></table></div></div>`;
+    <tbody>${rows || `<tr><td colspan="${5 + pols.length}" class="muted" style="text-align:left">No secret leaked under any policy.</td></tr>`}</tbody></table></div></div>`;
+}
+
+function secretCounts(r) {
+  const pols = runPolicies(r);
+  let scored = 0, leakedRows = 0;
+  for (const g of byScenario(r.samples)) g.any.secrets.forEach((x, i) => {
+    if (x.p_unedited - x.p_prior <= 0.01) return;
+    scored++;
+    if (pols.some((p) => (g.pol[p]?.secrets[i]?.leakage ?? 0) > 0)) leakedRows++;
+  });
+  return { scored, leakedRows };
 }
 
 function wordDiff(a, b) {
@@ -310,7 +337,7 @@ function sampleBrowser(r) {
     </article></div>`;
 }
 
-function pageRun(name) {
+function pageRun(name, tab = "") {
   const r = p1Run(name);
   const e = ledgerEntry(name) || { name, config: {} };
   const c = e.config || {};
@@ -320,23 +347,31 @@ function pageRun(name) {
   const sub = subLine(e, [`<span>${esc(c.split || "dev")}</span>`, n ? `<span>${n} scenarios</span>` : ""]);
   const head = pageHead({ crumbs, title, sub, purpose: e.purpose });
   if (!r) { $("view").innerHTML = head + `<p class="empty">No results for this run in this build.</p>`; return; }
-  const transcripts = SITE.inspect_viewer ? `<a href="viewer/" target="_blank" rel="noopener">Transcripts ↗</a>` : "";
-  const legend = `<span class="legend-mark"><i class="before"></i>Unedited</span><span class="legend-mark"><i class="after"></i>Edited</span><span class="legend-mark"><i class="bad"></i>Moved ${SHIFT}+ the wrong way</span>`;
-  $("view").innerHTML = head
-    + section("Protocol", protocolGrid(e), transcripts)
-    + section("Results", resultsTable(r))
-    + (r.samples?.length ? section("Judge score", dumbbells(r), legend)
-      + section("Secrets", secretsTable(r), `<span>p(true value) after editing · shaded by leakage</span>`)
-      + section("Samples", sampleBrowser(r)) : "");
-  const open = (id, p, scroll) => {
-    state.runSample = id; if (p) state.runPolicy = p;
-    pageRun(name);
-    if (scroll) $("samples").scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-  $("view").querySelectorAll(".db-row").forEach((el) => onKey(el, () => open(el.dataset.id, el.dataset.p, true)));
-  $("view").querySelectorAll("tr.link[data-id]").forEach((el) => onKey(el, () => open(el.dataset.id, null, true)));
-  $("view").querySelectorAll("#run-list li").forEach((li) => onKey(li, () => open(li.dataset.id, null, false)));
-  $("view").querySelectorAll("#samples .seg button").forEach((b) => { b.onclick = () => open(state.runSample, b.dataset.p, false); });
+  const base = `#/run/${encodeURIComponent(name)}`;
+  const hasSamples = !!r.samples?.length;
+  const tabs = hasSamples ? `<nav class="tabs" aria-label="Run">
+    <a href="${base}" ${tab !== "samples" ? 'aria-current="page"' : ""}>Overview</a>
+    <a href="${base}/samples" ${tab === "samples" ? 'aria-current="page"' : ""}>Samples</a>
+    ${SITE.inspect_viewer ? `<a class="ext" href="viewer/" target="_blank" rel="noopener">Transcripts ↗</a>` : ""}</nav>` : "";
+  let body;
+  if (tab === "samples" && hasSamples) {
+    body = sampleBrowser(r);
+  } else {
+    const legend = `<span class="legend-mark"><i class="before"></i>Unedited</span><span class="legend-mark"><i class="after"></i>Edited</span><span class="legend-mark"><i class="bad"></i>Moved ${SHIFT}+ the wrong way</span>`;
+    const counts = hasSamples ? secretCounts(r) : null;
+    const toggle = counts ? `<span>${counts.leakedRows} of ${counts.scored} leaked</span><button type="button" class="link-btn" id="all-secrets">${state.allSecrets ? "Show leaked only" : "Show all"}</button>` : "";
+    body = section("Results", resultsTable(r))
+      + (hasSamples ? section("Judge score", dumbbells(r), legend) + section("Secret leakage", secretsTable(r), toggle) : "")
+      + section("Protocol", protocolGrid(e));
+  }
+  $("view").innerHTML = `<div>${head}${tabs}</div>${body}`;
+  const open = (id, p) => { state.runSample = id; if (p) state.runPolicy = p; location.hash = `${base}/samples`; };
+  $("view").querySelectorAll(".db-row").forEach((el) => onKey(el, () => open(el.dataset.id, el.dataset.p)));
+  $("view").querySelectorAll("tr.link[data-id]").forEach((el) => onKey(el, () => open(el.dataset.id, null)));
+  $("view").querySelectorAll("#run-list li").forEach((li) => onKey(li, () => { state.runSample = li.dataset.id; pageRun(name, "samples"); }));
+  $("view").querySelectorAll("#samples .seg button").forEach((b) => { b.onclick = () => { state.runPolicy = b.dataset.p; pageRun(name, "samples"); }; });
+  const t = $("all-secrets");
+  if (t) t.onclick = () => { state.allSecrets = !state.allSecrets; pageRun(name, tab); };
 }
 
 /* ---------- Page: ablation ---------- */
@@ -567,7 +602,11 @@ function route() {
   document.querySelectorAll("[data-nav]").forEach((a) => a.toggleAttribute("aria-current", false));
   document.querySelector(`[data-nav="${nav}"]`)?.setAttribute("aria-current", "page");
   const name = decodeURIComponent(arg);
-  if (page === "run") { if (state.lastRun !== name) { state.runSample = null; state.lastRun = name; } pageRun(name); }
+  if (page === "run") {
+    const [runName, tab = ""] = name.split("/");
+    if (state.lastRun !== runName) { state.runSample = null; state.lastRun = runName; }
+    pageRun(runName, tab);
+  }
   else if (page === "ablation") pageAblation(name);
   else if (page === "scenarios") pageScenarios(name);
   else if (page === "data") pageData();
