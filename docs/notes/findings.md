@@ -2,6 +2,41 @@
 
 What the runs have shown so far, by question. Each finding has a status. Edit an entry when the evidence changes; don't append a new one.
 
+## Does redaction cost signal when the secret is the evidence?
+
+Status: open — yes; first answer on 22 Oct
+
+The entangled draft (see Pipeline) makes the deciding fact run through a secret: which of two confidential customers or endpoints a line refers to, or whether a confidential compute footprint is above a threshold. Under markers, the hard red herring and the violation become the same text.
+
+Judge only, four display conditions, AUROC (dev / val):
+
+| Condition | GPT-5.6 Terra | GPT-5-mini |
+|---|---|---|
+| Unedited | 0.95 / 0.94 | 1.00 / 1.00 |
+| Markers (`[REDACTED: customer]` for every customer) | 0.75 / 0.92 | 0.79 / 0.69 |
+| Consistent pseudonyms (Customer A, Customer B) | 1.00 / 0.95 | 0.99 / 0.95 |
+| Markers appended, values kept | 1.00 / 0.96 | 1.00 / 1.00 |
+
+Under markers, the judge picks one reading for text that has become identical, and which reading depends on the type:
+
+- **Classifier: markers hide violations.** "CR approved for [codename]" is read as covering the endpoint that is off. Violations fall from about 85 to 6–15 under every judge and split. An honest lab redacting with standard markers makes a real violation look approved.
+- **Opt-out and compute: markers incriminate.** Hard red herrings rise from about 5 to 53–91.
+- **Pseudonyms keep identity, not magnitude.** They preserve the opt-out and classifier links, but "allocation C1" erases the compute comparison: compute violations drop to 27–75 and the hard herring rises to 13–60.
+
+Full P1, honest lab, dev entangled build (20 scenarios):
+
+| Policy | Persistence | Leakage | FPR / FNR |
+|---|---|---|---|
+| Text redaction | 0.52 [−0.29, 1.31] | 0.85 | 0.22 / 0.33 |
+| Contextual rewrite | 1.00 | 0.56 | 0.11 / 0.00 |
+| Self-redaction | 1.13 | 0.38 | 0.00 / 0.17 |
+
+Contextual rewrite keeps the signal because the advocate and executor invented consistent pseudonyms on their own ("Endpoint A", "Endpoint B"). Its leakage rose from 0.27 on the disjoint pilot to 0.56: when the secret is the evidence, the executor keeps the evidence, and the cost moves to leakage, mostly through correlates it left alone ("tenant hal-log usage export"). This is the tradeoff P1 is about, visible for the first time.
+
+Caveats: each type has one or two scenarios per cell per run, so per-type numbers are single cases; the direction holds across both splits and both judges. The ablation runs were recorded from a dirty tree because site and blueprint-text edits were made during them; the runs read frozen builds, so the results are unaffected.
+
+Runs: `ablation-dev-20261022T203030Z`, `ablation-val-20261022T203206Z`, `ablation-dev-20261022T203334Z`, `ablation-val-20261022T203526Z`, `p1-dev-honest-20261022T203706Z`.
+
 ## Does editing preserve the audit signal?
 
 Status: open
@@ -10,7 +45,7 @@ Persistence is 1.00 for every policy. The main reason is by design: secrets and 
 
 Two things add to it: AUROC only counts rank and starts at 1.00, so a redaction could lower every violation's score by 30 points without moving it; and no run has had a lab that tried to hide the finding.
 
-Persistence can only move when the secret is itself the evidence. That is the next experiment (Entanglement on the Overview page): scenarios where the link between lines runs through a secret value, so markers break it, consistent pseudonyms keep it, and generalizing a number erases a comparison.
+Persistence can only move when the secret is itself the evidence. It does: see "Does redaction cost signal when the secret is the evidence?" above. This section covers the disjoint (original) scenarios.
 
 The one exception so far: under text redaction with context quotes, persistence dropped to 0.83, but that rests on a single red herring. dev-016 already scored 73 unedited and rose to 95 after redaction. Quoting context made that red herring look guilty before any editing.
 

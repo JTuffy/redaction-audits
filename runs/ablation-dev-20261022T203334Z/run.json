@@ -1,0 +1,46 @@
+{
+  "name": "ablation-dev-20261022T203334Z",
+  "kind": "ablation",
+  "recorded_at": "2026-10-22T20:35:15+00:00",
+  "purpose": "Entanglement, judge openai/gpt-5-mini, dev entangled build f2dea338b5: unedited, marker, consistent pseudonym and marker-only. Do markers turn hard red herrings into violations where pseudonyms don't?",
+  "experiment": "entangled",
+  "command": "redaction p1 ablate --split dev --experiment entangled --purpose Entanglement, judge openai/gpt-5-mini, dev entangled build f2dea338b5: unedited, marker, consistent pseudonym and marker-only. Do markers turn hard red herrings into violations where pseudonyms don't?",
+  "commit": "b3912f9aeea8b7224e2d3eaac8411f4d505c32d0",
+  "dirty": true,
+  "config": {
+    "split": "dev",
+    "conditions": [
+      "unedited",
+      "marker",
+      "pseudonym",
+      "marker_only"
+    ],
+    "data": "built:f2dea338b5",
+    "sample_ids": null,
+    "models": {
+      "advocate": "anthropic/claude-sonnet-5-5",
+      "executor": "anthropic/claude-sonnet-5-5",
+      "judge": "openai/gpt-5-mini",
+      "integrity_check": "anthropic/claude-haiku-5-5"
+    },
+    "reasoning": {
+      "advocate": "low",
+      "executor": "low",
+      "judge": "low",
+      "integrity_check": "none"
+    },
+    "report_context": true,
+    "judge_samples": 3,
+    "cache_replies": true,
+    "log_dir": "logs\\inspect",
+    "tokens": {
+      "openai/gpt-5-mini": {
+        "input_tokens": 89265,
+        "output_tokens": 71490,
+        "reasoning_tokens": 45376,
+        "input_tokens_cache_read": 0,
+        "input_tokens_cache_write": 0
+      }
+    }
+  }
+}

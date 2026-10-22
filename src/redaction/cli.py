@@ -260,6 +260,7 @@ def _protocol(settings: Settings) -> dict[str, object]:
         "reasoning": {role.value: settings.reasoning_for(role) for role in Role},
         "report_context": settings.report_context,
         "judge_samples": settings.judge_samples,
+        "cache_replies": settings.cache_replies,
         "log_dir": str(settings.inspect_log_dir),
     }
 

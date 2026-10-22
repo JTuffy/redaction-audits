@@ -4,8 +4,8 @@
 [project]
 question = "When a lab redacts an audit report to protect its secrets, how much audit signal survives, and how much do the secrets still leak?"
 hypothesis = "Redaction is nearly free when secrets and evidence are separate, and becomes a real tradeoff when the secret is the evidence. Which policy loses less then depends on whether it keeps identity across lines (pseudonyms) or erases it (markers, generalization)."
-focus = "Entangled scenarios: make the secret the link between evidence lines, so persistence can move."
-next = "Build the entangled set for three types, run the four display conditions with both judges, then the adversary harness."
+focus = "Entanglement works: markers hide classifier violations and incriminate opt-out and compute herrings; pseudonyms keep identity but not magnitude. Turn it into protocol requirements."
+next = "Decide what the protocol requires (Questions), add a pseudonymized text-redaction policy, extend entangled variants to all six types, then the adversary harness."
 updated = "2026-10-22"
 
 # One entry per experiment thread, newest first. status: planned | running | open | settled | blocked
@@ -15,9 +15,9 @@ updated = "2026-10-22"
 id = "entangled"
 title = "Entanglement"
 question = "When the secret is the link between evidence lines, does redaction finally cost signal, and do pseudonyms keep it where markers don't?"
-status = "planned"
-result = "Not run yet."
-finding = ""
+status = "open"
+result = "Yes: markers drop AUROC to 0.69–0.92 and hide classifier violations; pseudonyms keep 0.95–1.00 except on compute magnitudes."
+finding = "Does redaction cost signal when the secret is the evidence?"
 runs = []
 
 [[experiment]]

@@ -1,0 +1,54 @@
+{
+  "name": "p1-dev-honest-20261022T203706Z",
+  "kind": "p1",
+  "recorded_at": "2026-10-22T20:39:37+00:00",
+  "purpose": "Entanglement, full P1 honest run on dev entangled build f2dea338b5: does contextual rewrite keep which-customer and above-threshold links that text redaction erases?",
+  "experiment": "entangled",
+  "command": "redaction p1 run --split dev --experiment entangled --purpose Entanglement, full P1 honest run on dev entangled build f2dea338b5: does contextual rewrite keep which-customer and above-threshold links that text redaction erases?",
+  "commit": "b3912f9aeea8b7224e2d3eaac8411f4d505c32d0",
+  "dirty": true,
+  "config": {
+    "split": "dev",
+    "policies": [
+      "text_redaction",
+      "contextual_rewrite",
+      "self_redaction"
+    ],
+    "stance": "honest",
+    "data": "built:f2dea338b5",
+    "limit": null,
+    "sample_ids": null,
+    "models": {
+      "advocate": "anthropic/claude-sonnet-5-5",
+      "executor": "anthropic/claude-sonnet-5-5",
+      "judge": "openai/gpt-5.6-terra",
+      "integrity_check": "anthropic/claude-haiku-5-5"
+    },
+    "reasoning": {
+      "advocate": "low",
+      "executor": "low",
+      "judge": "low",
+      "integrity_check": "none"
+    },
+    "report_context": true,
+    "judge_samples": 3,
+    "cache_replies": true,
+    "log_dir": "logs\\inspect",
+    "tokens": {
+      "openai/gpt-5.6-terra": {
+        "input_tokens": 181602,
+        "output_tokens": 134199,
+        "reasoning_tokens": 37360,
+        "input_tokens_cache_read": 0,
+        "input_tokens_cache_write": 0
+      },
+      "anthropic/claude-sonnet-5-5": {
+        "input_tokens": 244,
+        "output_tokens": 38067,
+        "reasoning_tokens": 966,
+        "input_tokens_cache_read": 1538,
+        "input_tokens_cache_write": 75971
+      }
+    }
+  }
+}

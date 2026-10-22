@@ -110,6 +110,7 @@ const TIPS = {
   kind_p1: ["Proposal 1: the full pipeline under one or more redaction policies."],
   kind_ablation: ["Judge-only run that varies how removed values are shown."],
   kind_reask: ["Unedited evidence re-asked with caching off, to measure judge noise."],
+  kind_judge: ["The judge alone scores unedited evidence: how separable a build is, before any redaction."],
   tokens: ["Input plus output tokens across every model in the run."],
   dirty: ["Run from code with uncommitted changes."],
   backfilled: ["Recorded by hand after the run, before the ledger existed."],
@@ -205,7 +206,9 @@ const isMock = (r) => (r.models || []).some((m) => m.startsWith("mockllm"));
 function kindOf(e) {
   if (e.kind !== "ablation") return "P1";
   const conds = e.config?.conditions || [];
-  return conds.length === 1 && conds[0] === "unedited" ? "Re-ask" : "Ablation";
+  if (!(conds.length === 1 && conds[0] === "unedited")) return "Ablation";
+  // Re-asks repeat unedited evidence with the cache off; other unedited-only runs score a build.
+  return e.config?.cache_replies === false || /cache off|re-ask/i.test(e.purpose || "") ? "Re-ask" : "Judge only";
 }
 function allRuns() {
   // Recorded runs come from the ledger; unrecorded real runs (none expected) fall back to results.
@@ -255,7 +258,7 @@ function subLine(e, extra = []) {
 
 function pageRuns() {
   const rows = allRuns().filter((e) => state.runFilter === "all" || kindOf(e) === state.runFilter);
-  const kinds = ["all", "P1", "Ablation", "Re-ask"];
+  const kinds = ["all", "P1", "Ablation", "Judge only", "Re-ask"];
   const filter = `<div class="seg" role="group" aria-label="Type">${kinds.map((k) =>
     `<button type="button" data-k="${k}" aria-pressed="${state.runFilter === k}">${k === "all" ? "All" : k}</button>`).join("")}</div>`;
   const setup = (e) => {
@@ -273,7 +276,7 @@ function pageRuns() {
       const head = d !== lastDay ? `<tr class="group-row"><td colspan="7">${d}</td></tr>` : "";
       lastDay = d;
       return `${head}<tr class="link" tabindex="0" data-href="${hrefOf(e)}">
-      <td>${timeOf(e.name)}</td><td>${term({ P1: "kind_p1", Ablation: "kind_ablation", "Re-ask": "kind_reask" }[kindOf(e)], kindOf(e))}</td><td>${esc(setup(e))}</td>
+      <td>${timeOf(e.name)}</td><td>${term({ P1: "kind_p1", Ablation: "kind_ablation", "Judge only": "kind_judge", "Re-ask": "kind_reask" }[kindOf(e)], kindOf(e))}</td><td>${esc(setup(e))}</td>
       <td class="num">${n(e)}</td><td class="num">${tokensOf(e) ? kTokens(tokensOf(e)) : "—"}</td>
       <td class="mono-cell">${e.commit ? esc(String(e.commit).slice(0, 7)) : "—"}${e.dirty ? `<span class="dot" data-tip="dirty"></span>` : ""}</td>
       <td class="ellipsis" ${e.purpose ? dataTip(esc(e.purpose)) : ""}>${esc(e.purpose || "")}</td></tr>`;
@@ -282,7 +285,7 @@ function pageRuns() {
   const all = allRuns();
   const count = (k) => all.filter((e) => kindOf(e) === k).length;
   const total = all.reduce((a, e) => a + tokensOf(e), 0);
-  const sub = [`${all.length} runs`, `${count("P1")} P1`, `${count("Ablation")} ablation`, `${count("Re-ask")} re-ask`, `${kTokens(total)} tokens`]
+  const sub = [`${all.length} runs`, `${count("P1")} P1`, `${count("Ablation")} ablation`, `${count("Judge only")} judge-only`, `${count("Re-ask")} re-ask`, `${kTokens(total)} tokens`]
     .map((t) => `<span>${t}</span>`).join("");
   const group = `<div class="seg" role="group" aria-label="Group">${[["experiment", "By experiment"], ["date", "By date"]].map(([k, t]) =>
     `<button type="button" data-g="${k}" aria-pressed="${state.runGroup === k}">${t}</button>`).join("")}</div>`;
@@ -539,8 +542,9 @@ function pageAblation(name) {
   const e = ledgerEntry(name) || { name, config: {} };
   const crumbs = `<a href="#/runs">Runs</a>${experimentOf(ledgerEntry(name) || { name }) ? ` / ${esc(experimentOf(ledgerEntry(name) || { name }).title)}` : ""} / <span class="mono">${esc(name)}</span>`;
   const conds = CONDITIONS.filter((c) => r?.samples.some((s) => s.condition === c));
-  const reask = conds.length === 1 && conds[0] === "unedited";
-  const title = reask ? term("kind_reask", "Judge re-ask") : term("kind_ablation", "Marker ablation");
+  const reask = kindOf(e) === "Re-ask";
+  const judgeOnly = kindOf(e) === "Judge only";
+  const title = reask ? term("kind_reask", "Judge re-ask") : judgeOnly ? term("kind_judge", "Judge only") : term("kind_ablation", "Marker ablation");
   const n = r ? new Set(r.samples.map((s) => s.scenario_id)).size : null;
   const head = pageHead({ crumbs, title, sub: subLine(e, [`<span>${esc(e.config?.split || "dev")}</span>`, n ? `<span>${n} scenarios</span>` : ""]), purpose: e.purpose });
   if (!r) { $("view").innerHTML = head + `<p class="empty">No results for this run in this build.</p>`; return; }
@@ -825,7 +829,8 @@ function feedItems() {
 
 function feedRow(it) {
   if (it.kind === "decision") {
-    return `<li class="feed-item"><span class="feed-kind">Decision</span><div><p>${esc(it.text).replace(/`([^`]+)`/g, "<code>$1</code>")}</p>${it.why ? `<p class="muted small">${esc(it.why).replace(/`([^`]+)`/g, "<code>$1</code>")}</p>` : ""}</div></li>`;
+    const why = it.why ? dataTip(esc(it.why)) : "";
+    return `<li class="feed-item decision"><span class="feed-kind">Decision</span><div><p ${why} tabindex="${it.why ? 0 : -1}">${esc(it.text).replace(/`([^`]+)`/g, "<code>$1</code>")}</p></div></li>`;
   }
   const e = it.e;
   return `<li class="feed-item"><span class="feed-kind">${kindOf(e)} <span class="faint">${timeOf(e.name)}</span></span><div><p><a href="${hrefOf(e)}">${esc(e.purpose || e.name)}</a></p>${it.x ? `<p class="muted small">${esc(it.x.title)}</p>` : ""}</div></li>`;
@@ -859,7 +864,9 @@ function pageOverview() {
       <div><dt>Current focus</dt><dd>${esc(p.focus)}</dd></div>
       <div><dt>Next</dt><dd>${esc(p.next)}</dd></div>
     </dl></div>`;
-  const cards = experiments().map((x) => {
+  const active = experiments().filter((x) => x.status !== "settled");
+  const settled = experiments().filter((x) => x.status === "settled");
+  const cards = active.map((x) => {
     const rs = runsOf(x);
     const latest = rs.length ? dayOf(rs[0].name) : "";
     const links = [findingHref(x) ? `<a href="${findingHref(x)}">Finding</a>` : "", rs.length ? `<a href="#/runs" data-exp="${esc(x.id)}">${rs.length} run${rs.length === 1 ? "" : "s"}</a>` : ""].filter(Boolean).join("");
@@ -867,13 +874,19 @@ function pageOverview() {
       <p class="exp-q">${esc(x.question)}</p><p class="exp-r">${esc(x.result)}</p>
       <footer><span class="faint">${esc(latest)}</span><span class="exp-links">${links}</span></footer></article>`;
   }).join("");
+  const settledList = settled.length ? `<ul class="settled">${settled.map((x) => {
+    const rs = runsOf(x);
+    const href = findingHref(x);
+    return `<li><span class="s-title">${href ? `<a href="${href}">${esc(x.title)}</a>` : esc(x.title)}</span><span class="s-result">${esc(x.result)}</span><span class="faint">${rs.length} run${rs.length === 1 ? "" : "s"}</span></li>`;
+  }).join("")}</ul>` : "";
   const open = openDecisions();
   const decisions = open.length
     ? `<ul class="plain">${open.map((q) => `<li><a href="#/notes/questions/${slugify(q.title)}">${esc(q.title)}</a><span class="muted small">${esc(q.needs)}</span></li>`).join("")}</ul>`
     : `<p class="empty">Nothing waiting on a decision.</p>`;
   const recent = feedItems().slice(0, 6).map(feedRow).join("");
   $("view").innerHTML = head
-    + section("Experiments", `<div class="exps">${cards}</div>`, `<span>${experiments().length} threads</span><span>updated ${esc(p.updated || "")}</span>`)
+    + section("Experiments", `<div class="exps">${cards}</div>`, `<span>${active.length} active</span><span>updated ${esc(p.updated || "")}</span>`)
+    + (settled.length ? section("Settled", settledList) : "")
     + `<div class="grid2">${section(`Open decisions <span class="count">${open.length}</span>`, decisions)}${section("Recent", `<ol class="feed compact">${recent}</ol>`, `<a href="#/notes/timeline">Timeline</a>`)}</div>`;
   $("view").querySelectorAll("[data-exp]").forEach((a) => { a.onclick = () => { state.runGroup = "experiment"; state.openExp = a.dataset.exp; }; });
 }

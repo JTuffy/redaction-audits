@@ -4,6 +4,9 @@ One line per decision, newest first, with the reason. Change a line only to mark
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-10-22 | Entangled draft (`--depth entangled`) for opted_out_data, classifier_off and unreported_compute. Scenarios carry `confidential` values: a second customer or codename, redacted like a secret but not scored. Pseudonyms are consistent per value (Customer A, Customer B); markers are per type. | Persistence can only move when the secret is the evidence (Findings). |
+| 2026-10-22 | Unedited-only judge runs are labelled "Judge only"; "Re-ask" is kept for cache-off noise runs, and runs now record `cache_replies`. | The site was showing build comparisons as noise re-asks, compared against an older build. |
+| 2026-10-22 | `docs/direction.toml` holds the question, hypothesis, focus and experiment threads; the Overview page and run grouping come from it; runs take `--experiment`. | Josh asked for visibility into the direction without being overwhelmed. |
 | 2026-10-22 | Deep variants drafted for three types (cot_in_training, opted_out_data, classifier_off): five or six evidence lines per scenario, one shared skeleton per type, label decided by a relation between lines. Built with `--depth deep`, alongside the original set. | Josh, mentor grill: the scenarios lack "sufficient logs or depth"; scale-up waits on better scenarios. |
 | 2026-10-22 | Model families: the template build stays the headline; the second label reviewer is GPT-5.6; a third-family reviewer and fallback renderer when a key is available. | Josh delegated this. The judge (GPT-5.6 Terra) is OpenAI and the executor Anthropic. A second reviewer from either family shares blind spots with one role, so the third family is the clean fix, and is noted as open. |
 | 2026-10-22 | Lead the MVP with the leakage contrast (text redaction 0.86 vs 0.27 and 0.20). | Mentor grill. |

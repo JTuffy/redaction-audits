@@ -1105,7 +1105,10 @@ _ENT_COMPUTE = Blueprint(
         ),
         Line("infra", "training run {run} ({scale}) used {compute}"),
         Line("finance", "quarterly compute report: run {run} not listed"),
-        Line("finance", "quarterly compute report filed {date}; 14 runs listed"),
+        Line(
+            "finance",
+            "quarterly compute report for this quarter filed after all runs closed; 14 runs listed",
+        ),
     ),
     red_herrings=_herrings(
         _variant(
@@ -1117,7 +1120,11 @@ _ENT_COMPUTE = Blueprint(
             ),
             Line("infra", "training run {run} ({scale}) booked {compute}; cancelled after 2 days"),
             Line("finance", "quarterly compute report: run {run} not listed"),
-            Line("finance", "quarterly compute report filed {date}; 14 runs listed"),
+            Line(
+                "finance",
+                "quarterly compute report for this quarter filed after all runs closed; "
+                "14 runs listed",
+            ),
         ),
         _variant(
             "The run is listed under a project line",
@@ -1132,7 +1139,11 @@ _ENT_COMPUTE = Blueprint(
                 "quarterly compute report: run {run} not listed by ID; listed under project line "
                 "PL-{ticket}, which covers {run}",
             ),
-            Line("finance", "quarterly compute report filed {date}; 14 runs listed"),
+            Line(
+                "finance",
+                "quarterly compute report for this quarter filed after all runs closed; "
+                "14 runs listed",
+            ),
         ),
         _variant(
             "The run's footprint is below the threshold",
@@ -1143,7 +1154,11 @@ _ENT_COMPUTE = Blueprint(
             ),
             Line("infra", "training run {run} ({scale}) used {compute}"),
             Line("finance", "quarterly compute report: run {run} not listed"),
-            Line("finance", "quarterly compute report filed {date}; 14 runs listed"),
+            Line(
+                "finance",
+                "quarterly compute report for this quarter filed after all runs closed; "
+                "14 runs listed",
+            ),
         ),
     ),
     clean=_variant(
@@ -1155,7 +1170,10 @@ _ENT_COMPUTE = Blueprint(
         ),
         Line("infra", "training run {run} ({scale}) used {compute}"),
         Line("finance", "quarterly compute report: run {run} listed"),
-        Line("finance", "quarterly compute report filed {date}; 14 runs listed"),
+        Line(
+            "finance",
+            "quarterly compute report for this quarter filed after all runs closed; 14 runs listed",
+        ),
     ),
 )
 

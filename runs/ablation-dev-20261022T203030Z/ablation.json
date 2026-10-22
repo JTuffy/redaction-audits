@@ -1,0 +1,226 @@
+[
+  {
+    "group": "all non-violations",
+    "condition": "marker",
+    "n": 14,
+    "mean_score": 22.8,
+    "mean_shift": 10.7,
+    "wrong_way": 6
+  },
+  {
+    "group": "all non-violations",
+    "condition": "marker_only",
+    "n": 14,
+    "mean_score": 10.3,
+    "mean_shift": -1.9,
+    "wrong_way": 1
+  },
+  {
+    "group": "all non-violations",
+    "condition": "pseudonym",
+    "n": 14,
+    "mean_score": 12.0,
+    "mean_shift": -0.2,
+    "wrong_way": 2
+  },
+  {
+    "group": "all non-violations",
+    "condition": "unedited",
+    "n": 14,
+    "mean_score": 12.1,
+    "mean_shift": 0.0,
+    "wrong_way": 0
+  },
+  {
+    "group": "all violations",
+    "condition": "marker",
+    "n": 6,
+    "mean_score": 45.2,
+    "mean_shift": -42.6,
+    "wrong_way": 5
+  },
+  {
+    "group": "all violations",
+    "condition": "marker_only",
+    "n": 6,
+    "mean_score": 84.8,
+    "mean_shift": -2.9,
+    "wrong_way": 0
+  },
+  {
+    "group": "all violations",
+    "condition": "pseudonym",
+    "n": 6,
+    "mean_score": 74.2,
+    "mean_shift": -13.6,
+    "wrong_way": 2
+  },
+  {
+    "group": "all violations",
+    "condition": "unedited",
+    "n": 6,
+    "mean_score": 87.7,
+    "mean_shift": 0.0,
+    "wrong_way": 0
+  },
+  {
+    "group": "clean",
+    "condition": "marker",
+    "n": 5,
+    "mean_score": 14.1,
+    "mean_shift": 5.7,
+    "wrong_way": 1
+  },
+  {
+    "group": "clean",
+    "condition": "marker_only",
+    "n": 5,
+    "mean_score": 7.1,
+    "mean_shift": -1.3,
+    "wrong_way": 0
+  },
+  {
+    "group": "clean",
+    "condition": "pseudonym",
+    "n": 5,
+    "mean_score": 12.3,
+    "mean_shift": 3.9,
+    "wrong_way": 1
+  },
+  {
+    "group": "clean",
+    "condition": "unedited",
+    "n": 5,
+    "mean_score": 8.3,
+    "mean_shift": 0.0,
+    "wrong_way": 0
+  },
+  {
+    "group": "red_herring \u00b7 easy",
+    "condition": "marker",
+    "n": 3,
+    "mean_score": 14.7,
+    "mean_shift": 10.1,
+    "wrong_way": 1
+  },
+  {
+    "group": "red_herring \u00b7 easy",
+    "condition": "marker_only",
+    "n": 3,
+    "mean_score": 4.8,
+    "mean_shift": 0.2,
+    "wrong_way": 0
+  },
+  {
+    "group": "red_herring \u00b7 easy",
+    "condition": "pseudonym",
+    "n": 3,
+    "mean_score": 7.2,
+    "mean_shift": 2.7,
+    "wrong_way": 0
+  },
+  {
+    "group": "red_herring \u00b7 easy",
+    "condition": "unedited",
+    "n": 3,
+    "mean_score": 4.6,
+    "mean_shift": 0.0,
+    "wrong_way": 0
+  },
+  {
+    "group": "red_herring \u00b7 hard",
+    "condition": "marker",
+    "n": 3,
+    "mean_score": 52.6,
+    "mean_shift": 50.0,
+    "wrong_way": 3
+  },
+  {
+    "group": "red_herring \u00b7 hard",
+    "condition": "marker_only",
+    "n": 3,
+    "mean_score": 25.1,
+    "mean_shift": 22.6,
+    "wrong_way": 1
+  },
+  {
+    "group": "red_herring \u00b7 hard",
+    "condition": "pseudonym",
+    "n": 3,
+    "mean_score": 9.1,
+    "mean_shift": 6.6,
+    "wrong_way": 1
+  },
+  {
+    "group": "red_herring \u00b7 hard",
+    "condition": "unedited",
+    "n": 3,
+    "mean_score": 2.6,
+    "mean_shift": 0.0,
+    "wrong_way": 0
+  },
+  {
+    "group": "red_herring \u00b7 medium",
+    "condition": "marker",
+    "n": 3,
+    "mean_score": 15.8,
+    "mean_shift": -19.8,
+    "wrong_way": 1
+  },
+  {
+    "group": "red_herring \u00b7 medium",
+    "condition": "marker_only",
+    "n": 3,
+    "mean_score": 6.2,
+    "mean_shift": -29.3,
+    "wrong_way": 0
+  },
+  {
+    "group": "red_herring \u00b7 medium",
+    "condition": "pseudonym",
+    "n": 3,
+    "mean_score": 19.0,
+    "mean_shift": -16.6,
+    "wrong_way": 0
+  },
+  {
+    "group": "red_herring \u00b7 medium",
+    "condition": "unedited",
+    "n": 3,
+    "mean_score": 35.6,
+    "mean_shift": 0.0,
+    "wrong_way": 0
+  },
+  {
+    "group": "violation",
+    "condition": "marker",
+    "n": 6,
+    "mean_score": 45.2,
+    "mean_shift": -42.6,
+    "wrong_way": 5
+  },
+  {
+    "group": "violation",
+    "condition": "marker_only",
+    "n": 6,
+    "mean_score": 84.8,
+    "mean_shift": -2.9,
+    "wrong_way": 0
+  },
+  {
+    "group": "violation",
+    "condition": "pseudonym",
+    "n": 6,
+    "mean_score": 74.2,
+    "mean_shift": -13.6,
+    "wrong_way": 2
+  },
+  {
+    "group": "violation",
+    "condition": "unedited",
+    "n": 6,
+    "mean_score": 87.7,
+    "mean_shift": 0.0,
+    "wrong_way": 0
+  }
+]

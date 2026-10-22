@@ -26,6 +26,18 @@ The cues test (Findings, "Does rephrasing make the task harder?") points at stru
 
 Needs a decision: which of these matters most, ideally pointing at one scenario that shows the problem.
 
+## Markers can hide a real violation. What should a redaction protocol require?
+
+On entangled classifier scenarios, standard `[REDACTED: label]` markers made real violations score 6–15: "change approved for [codename]" reads as covering the endpoint that is off. On opt-out and compute, the same markers made innocent labs look guilty. Options:
+
+1. **Require consistent pseudonyms** for every redacted entity, so identity across lines survives. Doesn't help magnitudes.
+2. **Require property-preserving generalization** for numbers ("above the reporting threshold") under executor rule 3, checked by the executor.
+3. **Mark entanglement explicitly**: the redactor must state when two redacted spans refer to the same or different entities.
+
+The P1 contextual-rewrite run suggests the model policies already do 1 on their own; text redaction does none of these.
+
+Needs a decision: which requirement P1's protocol recommends, and whether to add a "pseudonymized text redaction" policy to measure 1 directly.
+
 ## How should the deep variants be fixed?
 
 The first deep draft didn't make the task harder for the frontier judge, and for the weaker judge two cells misbehave (Findings, "Do deep variants make the task harder?"). Options:
