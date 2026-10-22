@@ -34,9 +34,11 @@ On entangled classifier scenarios, standard `[REDACTED: label]` markers made rea
 2. **Require property-preserving generalization** for numbers ("above the reporting threshold") under executor rule 3, checked by the executor.
 3. **Mark entanglement explicitly**: the redactor must state when two redacted spans refer to the same or different entities.
 
-The P1 contextual-rewrite run suggests the model policies already do 1 on their own; text redaction does none of these.
+Evidence from the benchmark (Findings): consistent pseudonyms restore identity links fully and do nothing for magnitudes and dates; the model policies already do 1 on their own and keep magnitudes too.
 
-Needs a decision: which requirement P1's protocol recommends, and whether to add a "pseudonymized text redaction" policy to measure 1 directly.
+Leaning: require 1 for every redacted entity and 2 for every number or date that a finding compares, and add a scripted "generalize" policy to measure 2 the way text pseudonyms measured 1.
+
+Needs a decision: whether that pair is the recommendation, and whether 3 is worth testing.
 
 ## How should the deep variants be fixed?
 

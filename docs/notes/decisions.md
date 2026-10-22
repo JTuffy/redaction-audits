@@ -4,6 +4,9 @@ One line per decision, newest first, with the reason. Change a line only to mark
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-10-22 | The benchmark is one build per split: the disjoint (original) set plus the entangled set for all six types; `data build` defaults to it and it is LATEST. Scenario IDs carry the set (`dev-e012-…`). The deep draft is archived. | Josh asked why there was "dev" and "dev deep". Entanglement is the variable, so both sets belong in one build. |
+| 2026-10-22 | New policy: text pseudonyms (consistent pseudonyms by script). | Tests the first protocol option directly. It restores identity links, not magnitudes. |
+| 2026-10-22 | Removed val build `633ff46daf`; older builds stay because recorded runs used them. The site shows only LATEST. | Clean-up. |
 | 2026-10-22 | Entangled draft (`--depth entangled`) for opted_out_data, classifier_off and unreported_compute. Scenarios carry `confidential` values: a second customer or codename, redacted like a secret but not scored. Pseudonyms are consistent per value (Customer A, Customer B); markers are per type. | Persistence can only move when the secret is the evidence (Findings). |
 | 2026-10-22 | Unedited-only judge runs are labelled "Judge only"; "Re-ask" is kept for cache-off noise runs, and runs now record `cache_replies`. | The site was showing build comparisons as noise re-asks, compared against an older build. |
 | 2026-10-22 | `docs/direction.toml` holds the question, hypothesis, focus and experiment threads; the Overview page and run grouping come from it; runs take `--experiment`. | Josh asked for visibility into the direction without being overwhelmed. |

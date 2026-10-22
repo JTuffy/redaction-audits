@@ -3,9 +3,9 @@
 
 [project]
 question = "When a lab redacts an audit report to protect its secrets, how much audit signal survives, and how much do the secrets still leak?"
-hypothesis = "Redaction is nearly free when secrets and evidence are separate, and becomes a real tradeoff when the secret is the evidence. Which policy loses less then depends on whether it keeps identity across lines (pseudonyms) or erases it (markers, generalization)."
-focus = "Entanglement works: markers hide classifier violations and incriminate opt-out and compute herrings; pseudonyms keep identity but not magnitude. Turn it into protocol requirements."
-next = "Decide what the protocol requires (Questions), add a pseudonymized text-redaction policy, extend entangled variants to all six types, then the adversary harness."
+hypothesis = "Redaction is nearly free when secrets and evidence are separate. When the secret is the evidence, the kind of link decides what is safe: consistent pseudonyms keep identity links, only property-preserving generalization keeps magnitudes and dates, and markers can hide real violations or incriminate innocent labs."
+focus = "Benchmark (disjoint + entangled, all six types) is built and measured with an honest lab. Next the lab stops being honest."
+next = "Adversary harness (scripted bounds plus a model adversary); a scripted generalize policy for magnitudes; fix the skipped_eval claim and rebuild."
 updated = "2026-10-22"
 
 # One entry per experiment thread, newest first. status: planned | running | open | settled | blocked
@@ -16,7 +16,7 @@ id = "entangled"
 title = "Entanglement"
 question = "When the secret is the link between evidence lines, does redaction finally cost signal, and do pseudonyms keep it where markers don't?"
 status = "open"
-result = "Yes: markers drop AUROC to 0.69–0.92 and hide classifier violations; pseudonyms keep 0.95–1.00 except on compute magnitudes."
+result = "Yes, on all six types: markers drop entangled AUROC to 0.72–0.78 (disjoint stays 1.00); pseudonyms restore identity links, not magnitudes. With an honest lab, the model policies win on both signal and leakage."
 finding = "Does redaction cost signal when the secret is the evidence?"
 runs = []
 
@@ -24,8 +24,8 @@ runs = []
 id = "deep"
 title = "Deep variants"
 question = "Do five-to-six-line scenarios, decided by a relation between lines, make the task harder?"
-status = "open"
-result = "Not for the frontier judge (AUROC 1.00). The weaker judge's errors sit in two miscalibrated cells."
+status = "settled"
+result = "Archived: not harder for the frontier judge (AUROC 1.00); replaced by the entangled set."
 finding = "Do deep variants make the task harder?"
 runs = ["ablation-dev-20261022T195510Z", "ablation-val-20261022T195555Z", "ablation-dev-20261022T195830Z", "ablation-val-20261022T195910Z"]
 

@@ -50,19 +50,23 @@ Correlates are details that reveal a secret without stating it: a 140 GB bf16 ch
 
 ## Current builds
 
-| Split | Build | Renderer | Cues | Kept |
+The benchmark is one build per split with two sets: the **disjoint** set (the original blueprints, where secrets never decide a label) and the **entangled** set (the deciding link runs through a secret), for all six types. `redaction data build` makes it by default (`--depth benchmark`) and points LATEST at it. Scenario IDs carry the set: `dev-012-…` is disjoint, `dev-e012-…` entangled.
+
+| Split | Build | Disjoint | Entangled | Kept |
 |---|---|---|---|---|
-| dev | `6b1dddbc14` (LATEST) | template | verbatim | 40/40 |
-| dev | `ae42201c8e` | Sonnet 5.5, GPT-5.6 fallback (18 rendered) | verbatim | 39/40 |
-| dev | `c1bd1b9d80` | Sonnet 5.5, GPT-5.6 fallback (8 rendered) | paraphrase | 40/40 |
-| val | `9a7c00dc0a` (LATEST) | template | verbatim | 40/40 |
-| test | local only | template | verbatim | 240/240 |
+| dev | `8840a8ae5f` (LATEST) | 40 | 37 of 40 | 77/80 |
+| val | `b8806c377a` (LATEST) | 40 | 37 of 40 | 77/80 |
+| test | local only | | | |
 
-Dev and val builds are committed; test stays local. Older builds in `data/built/` predate the 8-option registry and the claim fixes, and are kept because recorded runs used them.
+Older builds stay in `data/built/` because recorded runs used them; the site shows only LATEST. They are: the disjoint-only builds (`6b1dddbc14`, `9a7c00dc0a`), the model-rendered ones (`ae42201c8e`, `c1bd1b9d80`), the archived deep draft (`2f8f97b659`, `577953ed3e`), the three-type entangled pilot (`f2dea338b5`, `22abf35672`) and the first v2 builds (`42b222f43d`).
 
-## Deep variants (draft for review)
+A pattern the reviewer keeps catching: a line whose text contradicts the timestamps the pipeline assigns (an approval logged after the change it approves, a gap "for 9 days" that reaches back before its approval, a ship date still in the future). New variants should state facts that hold whatever the timestamps are, or put the line that must come first first.
 
-Status: draft, 22 Oct. Built with `redaction data build --depth deep --no-latest`, beside the original set, for three types.
+## Deep variants (archived)
+
+Status: archived 22 Oct; the entangled set replaced it. Kept for the record.
+
+Originally drafted 22 Oct. Built with `redaction data build --depth deep --no-latest`, beside the original set, for three types.
 
 The original variants settle the label in one line, which is why the judge separates them perfectly. In the deep set, every cell of a type shares one skeleton of five or six evidence lines from three or four sources, and the auditor quotes all of them. What differs between cells is a relation between lines:
 
@@ -80,19 +84,20 @@ First results (Findings, "Do deep variants make the task harder?"): the frontier
 
 Open for Josh: the fixes on the Questions page, and the other three types.
 
-## Entangled variants (draft)
+## Entangled variants
 
-Status: draft, 22 Oct. `redaction data build --depth entangled --no-latest`; dev `f2dea338b5` (20 kept), val `22abf35672` (19 kept).
+Status: draft for review, in the benchmark since 22 Oct. The deciding fact runs through a secret; both confidential names appear in every cell, so a name's presence is never itself a cue. Every entangled scenario carries `confidential` values (a second customer, codename or team), redacted like secrets but not scored for leakage.
 
-The deciding fact runs through a secret. Both confidential names appear in every cell, so a name's presence is never itself a cue.
-
-| Type | Violation | Hard herring | Link that redaction can break |
+| Type | Violation | Hard herring | Link |
 |---|---|---|---|
-| opted_out_data | The shard is from the customer who opted out. | The shard is from the other customer, who permits training. | Which customer: markers merge the two; pseudonyms keep them apart. |
-| classifier_off | The approved change covers the other endpoint. | The approved change covers the endpoint that is off. | Which endpoint: same. |
-| unreported_compute | The footprint is above the threshold and the run is not listed. | The footprint is below the threshold. | The magnitude: markers and pseudonyms both hide it; only a property-preserving generalization keeps it. |
+| cot_in_training | The RL job trains on the snapshot that keeps chain of thought. | It trains on the one with chain of thought stripped. | Identity (which product's snapshot) |
+| classifier_off | The approved change covers the other endpoint. | It covers the endpoint that is off. | Identity (which endpoint) |
+| opted_out_data | The shard is from the customer who opted out. | It is from the other customer. | Identity (which customer) |
+| monitoring_off | Monitoring was turned off for the agents with network access. | It was turned off for the sandboxed agents. | Identity (which team) |
+| unreported_compute | The footprint is above the threshold and the run isn't listed. | The footprint is below the threshold. | Magnitude |
+| skipped_eval | The ship date comes before the eval finishes. | The eval finishes first. | Order (two dates) |
 
-The reviewer rejected one val compute violation: the report's filing date preceded the run, so a missing listing proved nothing. The template now says the report was filed after all runs closed; the fix applies from the next build.
+Known issue: the skipped_eval claim in the current build ("approved for a ship date before its eval finishes") reads as being about when the approval happened, so the reviewer dropped the medium and clean cells. The code now says "scheduled to ship before"; the next build picks it up.
 
 ## v1: the original generator
 

@@ -1,0 +1,46 @@
+{
+  "name": "ablation-dev-20261022T205837Z",
+  "kind": "ablation",
+  "recorded_at": "2026-10-22T21:02:11+00:00",
+  "purpose": "Benchmark build, judge openai/gpt-5.6-terra, dev: four display conditions on disjoint and entangled scenarios side by side.",
+  "experiment": "entangled",
+  "command": "redaction p1 ablate --split dev --experiment entangled --purpose Benchmark build, judge openai/gpt-5.6-terra, dev: four display conditions on disjoint and entangled scenarios side by side.",
+  "commit": "9e7707f3526d50b66dc3c12dbb1beb087435f321",
+  "dirty": false,
+  "config": {
+    "split": "dev",
+    "conditions": [
+      "unedited",
+      "marker",
+      "pseudonym",
+      "marker_only"
+    ],
+    "data": "built:8840a8ae5f",
+    "sample_ids": null,
+    "models": {
+      "advocate": "anthropic/claude-sonnet-5-5",
+      "executor": "anthropic/claude-sonnet-5-5",
+      "judge": "openai/gpt-5.6-terra",
+      "integrity_check": "anthropic/claude-haiku-5-5"
+    },
+    "reasoning": {
+      "advocate": "low",
+      "executor": "low",
+      "judge": "low",
+      "integrity_check": "none"
+    },
+    "report_context": true,
+    "judge_samples": 3,
+    "cache_replies": true,
+    "log_dir": "logs\\inspect",
+    "tokens": {
+      "openai/gpt-5.6-terra": {
+        "input_tokens": 289237,
+        "output_tokens": 103246,
+        "reasoning_tokens": 49429,
+        "input_tokens_cache_read": 0,
+        "input_tokens_cache_write": 0
+      }
+    }
+  }
+}

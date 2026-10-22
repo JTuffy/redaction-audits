@@ -4,38 +4,53 @@ What the runs have shown so far, by question. Each finding has a status. Edit an
 
 ## Does redaction cost signal when the secret is the evidence?
 
-Status: open — yes; first answer on 22 Oct
+Status: open — yes, and the kind of link decides which redaction is safe
 
-The entangled draft (see Pipeline) makes the deciding fact run through a secret: which of two confidential customers or endpoints a line refers to, or whether a confidential compute footprint is above a threshold. Under markers, the hard red herring and the violation become the same text.
+The benchmark build (dev `8840a8ae5f`, val `b8806c377a`) holds the disjoint scenarios (secrets never decide the label) and the entangled ones (the deciding link runs through a secret) side by side, for all six types.
 
-Judge only, four display conditions, AUROC (dev / val):
+Judge only, AUROC by set and display condition:
 
-| Condition | GPT-5.6 Terra | GPT-5-mini |
-|---|---|---|
-| Unedited | 0.95 / 0.94 | 1.00 / 1.00 |
-| Markers (`[REDACTED: customer]` for every customer) | 0.75 / 0.92 | 0.79 / 0.69 |
-| Consistent pseudonyms (Customer A, Customer B) | 1.00 / 0.95 | 0.99 / 0.95 |
-| Markers appended, values kept | 1.00 / 0.96 | 1.00 / 1.00 |
+| Judge, split | Set | Unedited | Markers | Pseudonyms |
+|---|---|---|---|---|
+| Terra, dev | disjoint | 1.00 | 0.99 | 1.00 |
+| Terra, dev | entangled | 0.94 | 0.78 | 0.93 |
+| Terra, val | disjoint | 1.00 | 1.00 | 1.00 |
+| Terra, val | entangled | 1.00 | 0.78 | 0.97 |
+| mini, dev | disjoint | 1.00 | 1.00 | 1.00 |
+| mini, dev | entangled | 0.99 | 0.73 | 0.94 |
+| mini, val | disjoint | 1.00 | 1.00 | 1.00 |
+| mini, val | entangled | 0.99 | 0.72 | 0.90 |
 
-Under markers, the judge picks one reading for text that has become identical, and which reading depends on the type:
+Markers cost nothing when secrets and evidence are separate, and about a quarter of the separation when they aren't. The entangled types fall into two kinds (mean judge score over all four runs):
 
-- **Classifier: markers hide violations.** "CR approved for [codename]" is read as covering the endpoint that is off. Violations fall from about 85 to 6–15 under every judge and split. An honest lab redacting with standard markers makes a real violation look approved.
-- **Opt-out and compute: markers incriminate.** Hard red herrings rise from about 5 to 53–91.
-- **Pseudonyms keep identity, not magnitude.** They preserve the opt-out and classifier links, but "allocation C1" erases the compute comparison: compute violations drop to 27–75 and the hard herring rises to 13–60.
-
-Full P1, honest lab, dev entangled build (20 scenarios):
-
-| Policy | Persistence | Leakage | FPR / FNR |
+| Link | Type | Violation: unedited, markers, pseudonyms | Hard herring: unedited, markers, pseudonyms |
 |---|---|---|---|
-| Text redaction | 0.52 [−0.29, 1.31] | 0.85 | 0.22 / 0.33 |
-| Contextual rewrite | 1.00 | 0.56 | 0.11 / 0.00 |
-| Self-redaction | 1.13 | 0.38 | 0.00 / 0.17 |
+| Identity | classifier_off | 86, 16, 90 | 27, 35, 19 |
+| Identity | cot_in_training | 88, 67, 87 | 26, 59, 25 |
+| Identity | opted_out_data | 84, 77, 82 | 19, 77, 11 |
+| Identity | monitoring_off | 96, 91, 97 | 40, 75, 43 |
+| Magnitude | unreported_compute | 94, 66, 48 | 5, 61, 48 |
+| Magnitude | skipped_eval | 93, 48, 40 | 5, 34, 22 |
 
-Contextual rewrite keeps the signal because the advocate and executor invented consistent pseudonyms on their own ("Endpoint A", "Endpoint B"). Its leakage rose from 0.27 on the disjoint pilot to 0.56: when the secret is the evidence, the executor keeps the evidence, and the cost moves to leakage, mostly through correlates it left alone ("tenant hal-log usage export"). This is the tradeoff P1 is about, visible for the first time.
+- **Identity links** (which customer, endpoint, snapshot or team): markers break them and consistent pseudonyms restore them fully. Which way the judge then errs depends on the type: classifier violations are hidden (86 to 16, "change approved for [codename]" reads as covering the endpoint that's off), while cot, opt-out and monitoring herrings are incriminated.
+- **Magnitude and order links** (a footprint against a threshold, a ship date against an eval date): markers and pseudonyms both break them. Only a generalization that keeps the comparison ("above the threshold") would preserve them.
 
-Caveats: each type has one or two scenarios per cell per run, so per-type numbers are single cases; the direction holds across both splits and both judges. The ablation runs were recorded from a dirty tree because site and blueprint-text edits were made during them; the runs read frozen builds, so the results are unaffected.
+Full P1, honest lab, dev benchmark (77 scenarios), persistence and leakage recomputed per set:
 
-Runs: `ablation-dev-20261022T203030Z`, `ablation-val-20261022T203206Z`, `ablation-dev-20261022T203334Z`, `ablation-val-20261022T203526Z`, `p1-dev-honest-20261022T203706Z`.
+| Policy | Disjoint: persistence, leakage | Entangled: persistence, leakage | Entangled: FPR / FNR |
+|---|---|---|---|
+| Text redaction | 0.98, 0.83 | 0.63, 0.85 | 0.28 / 0.25 |
+| Text pseudonyms | 1.00, 0.88 | 0.99, 0.89 | 0.08 / 0.17 |
+| Contextual rewrite | 1.00, 0.42 | 1.08, 0.43 | 0.04 / 0.00 |
+| Self-redaction | 1.00, 0.23 | 1.15, 0.39 | 0.00 / 0.00 |
+
+The policies behave as the display conditions predict. Text redaction loses a third of the signal on entangled scenarios; consistent pseudonyms recover it except on magnitudes (FNR 0.17). Both scripted policies leak heavily (0.83–0.89) because they leave correlates alone. The model policies keep the signal and leak half as much; the advocate and executor invent consistent pseudonyms on their own.
+
+With an honest lab there is no tradeoff between the model policies: self-redaction, with no executor, is best on both axes. The executor's value can only show when the lab isn't honest, which is what the adversary harness has to test.
+
+Caveats: one judge sample set per run (3 samples each), n = 4–8 per type cell. Two skipped_eval cells (medium and clean) were dropped by the reviewer in both splits because the claim's wording read as approval timing; fixed for the next build. The first entangled runs (three types, 22 Oct, 20:30–20:37) agree and are kept as the pilot.
+
+Runs: `ablation-dev-20261022T205837Z`, `ablation-val-20261022T210223Z`, `ablation-dev-20261022T210613Z`, `ablation-val-20261022T211036Z`, `p1-dev-honest-20261022T211458Z`; pilot `ablation-dev-20261022T203030Z`, `ablation-val-20261022T203206Z`, `ablation-dev-20261022T203334Z`, `ablation-val-20261022T203526Z`, `p1-dev-honest-20261022T203706Z`.
 
 ## Does editing preserve the audit signal?
 
