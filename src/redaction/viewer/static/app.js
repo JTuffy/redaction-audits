@@ -38,6 +38,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const human = (s) => String(s).replaceAll("_", " ");
 const f2 = (v) => (v == null ? "—" : Number(v).toFixed(2));
+const sc = (v) => (v == null ? "—" : Number.isInteger(+v) ? String(v) : Number(v).toFixed(1)); // judge score, possibly a k-sample mean
 const f0 = (v) => (v == null ? "—" : Number(v).toFixed(0));
 const signed = (v, d = 0) => (v == null ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(d)}`);
 const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
@@ -351,8 +352,8 @@ function dumbbells(r) {
       const s = g.pol[p];
       if (!s) return "";
       const a = x(k, s.judge_unedited), b = x(k, s.judge_edited), d = s.judge_edited - s.judge_unedited;
-      const tip = `${s.scenario_id} · ${POLICY[p]}: ${s.judge_unedited} → ${s.judge_edited}`;
-      const html = tipRows(`${sceneName(s.scenario_id)} · ${POLICY[p]}`, [["Unedited", s.judge_unedited], ["Edited", s.judge_edited], ["Change", signed(d)]]);
+      const tip = `${s.scenario_id} · ${POLICY[p]}: ${sc(s.judge_unedited)} → ${sc(s.judge_edited)}`;
+      const html = tipRows(`${sceneName(s.scenario_id)} · ${POLICY[p]}`, [["Unedited", sc(s.judge_unedited)], ["Edited", sc(s.judge_edited)], ["Change", signed(d)]]);
       return `<g class="db-row ${wrongWay(s) ? "bad" : ""} ${state.runSample === s.scenario_id && state.runPolicy === p ? "sel" : ""}" data-id="${esc(s.scenario_id)}" data-p="${p}" tabindex="0" role="button" aria-label="${esc(tip)}" ${dataTip(html)}>
         <rect x="${x0(k) - 8}" y="${row.y - rowH / 2 + 1}" width="${panelW - 12}" height="${rowH - 2}" rx="4" class="db-hit"></rect>
         <line x1="${a}" x2="${b}" y1="${row.y}" y2="${row.y}" class="db-line"/>
@@ -450,8 +451,8 @@ function sampleBrowser(r) {
     body = `
       <dl class="kv">
         <div><dt>${term("auditor_grade", "Auditor grade")}</dt><dd>${s.auditor_grade}</dd></div>
-        <div><dt>${term("judge_score", "Judge, unedited")}</dt><dd>${s.judge_unedited}</dd></div>
-        <div><dt>${term("judge_score", "Judge, edited")}</dt><dd>${s.judge_edited} <span class="faint">${signed(s.judge_edited - s.judge_unedited)}</span></dd></div>
+        <div><dt>${term("judge_score", "Judge, unedited")}</dt><dd>${sc(s.judge_unedited)}</dd></div>
+        <div><dt>${term("judge_score", "Judge, edited")}</dt><dd>${sc(s.judge_edited)} <span class="faint">${signed(s.judge_edited - s.judge_unedited)}</span></dd></div>
         <div><dt>${term("finding", "Finding")}</dt><dd>${esc(s.integrity)}</dd></div>
       </dl>
       <div><h4>Evidence shown to the judge</h4><div class="logs diff">${ev}</div></div>
@@ -571,10 +572,10 @@ function pageAblation(name) {
     const cells = cols.map((c) => {
       const s = r.samples.find((x) => x.scenario_id === any.scenario_id && x.condition === c);
       if (!s) return `<td class="muted">—</td>`;
-      if (c === "unedited" && !reask) return `<td>${s.score}</td>`;
+      if (c === "unedited" && !reask) return `<td>${sc(s.score)}</td>`;
       const d = b == null ? 0 : s.score - b;
       const k = Math.min(1, Math.abs(d) / 50).toFixed(2);
-      return `<td class="${d > 0 ? "shift-up" : d < 0 ? "shift-down" : ""}" style="--s:${k}" ${dataTip(tipRows(`${sceneName(any.scenario_id)} · ${reask ? "Re-ask" : CONDITION[c]}`, [["Unedited", b ?? "—"], ["This condition", s.score], ["Change", signed(d)]]))}>${s.score}</td>`;
+      return `<td class="${d > 0 ? "shift-up" : d < 0 ? "shift-down" : ""}" style="--s:${k}" ${dataTip(tipRows(`${sceneName(any.scenario_id)} · ${reask ? "Re-ask" : CONDITION[c]}`, [["Unedited", sc(b)], ["This condition", sc(s.score)], ["Change", signed(d)]]))}>${sc(s.score)}</td>`;
     }).join("");
     return `${head}<tr><td class="mono-cell">${esc(sceneName(any.scenario_id))}</td><td class="muted">${any.difficulty || ""}</td>${cells}</tr>`;
   }).join("");

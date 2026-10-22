@@ -6,7 +6,7 @@ What the runs have shown so far, by question. Each finding has a status. Edit an
 
 Status: open
 
-Persistence is 1.00 for every policy, but that says nothing yet. The judge separates violations from red herrings perfectly on the unedited evidence (AUROC 1.00), so there is no room for it to fall. The templated report quotes exactly the lines whose cues separate the labels, which probably makes the task easy by construction. This needs harder scenarios: a model-rendered build, or a model auditor.
+Persistence is 1.00 for every policy, because nothing has tried to remove the cues that separate violations from red herrings: the advocate stays honest, and text redaction removes secret values, not cues. Separately, the judge separates the labels perfectly on unedited evidence (AUROC 1.00), because the templated report quotes exactly the decisive lines. That makes the task unrealistically easy, but it isn't what holds persistence at 1.00. The lever is an adversary (see Questions).
 
 Runs: `p1-dev-honest-20261021T221138Z`, `p1-dev-cover_up-20261021T225602Z`.
 

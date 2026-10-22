@@ -4,6 +4,8 @@ One line per decision, newest first, with the reason. Change a line only to mark
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-10-22 | The CLI loads the repo `.env` with override. | A user-level `OPENAI_API_KEY` on the PC silently replaced the experiment key and every judge call failed with 401. |
+| 2026-10-22 | Added a Questions page for open design questions. | One place to review and decide; decided questions move here. |
 | 2026-10-22 | Reports quote context: key evidence, every correlate line, and two innocent lines (`REDACTION_REPORT_CONTEXT`, default on). | The judge never saw a correlate, so leakage could only be verbatim. Quoting what surrounds a finding is also closer to a real auditor. |
 | 2026-10-22 | Secrets are scored when their value is quoted or one of their correlate lines is. | Otherwise a secret given away only by a correlate would never be scored. |
 | 2026-10-22 | The judge answers every question 3 times and scores are averaged (`REDACTION_JUDGE_SAMPLES`). | One sample moved 15+ points on about 1 in 6 red-herring re-asks. Each sample is cached separately, so reruns are free. |

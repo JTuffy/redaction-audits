@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from dotenv import load_dotenv
 from inspect_ai.model import Model
 
 from redaction.core.models import Split
@@ -44,6 +45,9 @@ log = get_logger(__name__)
 @app.callback()
 def main() -> None:
     """Privacy-preserving redaction in AI audits: shared data and the P1 harness."""
+    # The repo's .env wins over machine-wide variables, so these experiments always use their
+    # own provider keys (a user-level OPENAI_API_KEY once silently replaced them).
+    load_dotenv(Path(".env"), override=True)
     settings = get_settings()
     configure_logging(settings.log_level, settings.log_format)
 

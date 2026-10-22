@@ -182,7 +182,7 @@ def _ledger(ledger_dir: Path | None) -> list[dict[str, Any]]:
 
 
 # Notes pages, in sidebar order. Each is a markdown file edited in place, not a log.
-NOTES_PAGES: Final = ("pipeline", "protocol", "findings", "decisions")
+NOTES_PAGES: Final = ("pipeline", "protocol", "findings", "questions", "decisions")
 
 
 def _notes(notes_dir: Path | None) -> list[dict[str, str]]:
