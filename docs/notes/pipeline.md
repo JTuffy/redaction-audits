@@ -12,7 +12,7 @@ A scenario is one fictional lab's log bundle, checked against one audit claim. E
 | Red herring | The logs look like a violation but are innocent. Each comes in easy, medium or hard, depending on how closely it imitates one. |
 | Clean | Nothing in the logs bears on the claim. |
 
-Each scenario also plants secrets: two core secrets fixed by the violation type, and one noise secret mentioned in passing. Every secret type has four possible values in the shared registry, and the true value is drawn at random.
+Each scenario also plants secrets: two core secrets fixed by the violation type, and one noise secret mentioned in passing. Every secret type has eight possible values in the shared registry (four until 22 Oct), and the true value is drawn at random.
 
 ## Violation types
 
@@ -42,13 +42,23 @@ Each scenario gets its own random seed, derived from the split seed and its inde
 `data/pipeline/` has four layers. Code fixes every fact before any text is written, so ground truth never depends on what a model chose to write.
 
 1. **Plan** (`plan.py`). Fixes the label, the evidence lines, the secret values, and the lines around them. Every plan has the variant's three evidence lines; one line naming the noise secret outright; one or two correlate lines per secret; four lines of lab chatter; and 24–56 real scheduler records from Microsoft's Philly GPU trace. That gives 36–68 lines per scenario.
-2. **Render** (`render.py`, `model_render.py`). The template renderer copies the planned text unchanged. A model renderer rephrases every line except the real records, and must keep secret values, cue tokens and correlate details exactly as written.
-3. **Validate** (`validate.py`). Eight code checks: one line per planned line; real records unchanged; values and cues kept; correlates kept; correlates do not state the value; no other option of a secret appears; no violation-only token in a non-violation; no repeated lines. An optional blind model reviewer must also read the label correctly. A rendering that fails is retried, up to three attempts.
-4. **Freeze** (`build.py`). Writes the kept scenarios, plans, per-scenario records and a manifest to `data/built/<split>/<version>/`, where the version is a hash of the plans and the renderer. `LATEST` names the current build.
+2. **Render** (`render.py`, `model_render.py`). The template renderer copies the planned text unchanged. A model renderer rephrases every line except the real records, and must keep secret values, cue tokens and correlate details exactly as written. With `--cues paraphrase`, evidence lines may state their cues in plain words instead, and the reviewer then has to confirm the label. The prompt says the data is synthetic governance records; Sonnet 5.5's content filter still refuses many requests about monitoring and classifiers, and `--fallback <model>` renders those attempts. Each record names the model that rendered it.
+3. **Validate** (`validate.py`). A refusal is logged as its own issue. Otherwise eight code checks: one line per planned line; real records unchanged; values and cues kept; correlates kept; correlates do not state the value; no other option of a secret appears; no violation-only token in a non-violation; no repeated lines. A blind model reviewer (Sonnet 5.5 by default, on for every build) must also read the label correctly from the claim and logs alone. A rendering that fails is retried, up to three attempts.
+4. **Freeze** (`build.py`). Writes the kept scenarios, plans, per-scenario records and a manifest to `data/built/<split>/<version>/`, where the version is a hash of the plans and every setting that changes the output (renderer, reviewer, cues). `LATEST` names the current build.
 
 Correlates are details that reveal a secret without stating it: a 140 GB bf16 checkpoint gives away 70B parameters, and a handle like `m.ellery` gives away Marcus Ellery. They are either identifying (enough to recover the exact value) or narrowing (rules some values out).
 
-Current builds use the template renderer. No model-rendered build exists yet.
+## Current builds
+
+| Split | Build | Renderer | Cues | Kept |
+|---|---|---|---|---|
+| dev | `6b1dddbc14` (LATEST) | template | verbatim | 40/40 |
+| dev | `ae42201c8e` | Sonnet 5.5, GPT-5.6 fallback (18 rendered) | verbatim | 39/40 |
+| dev | `c1bd1b9d80` | Sonnet 5.5, GPT-5.6 fallback (8 rendered) | paraphrase | 40/40 |
+| val | `9a7c00dc0a` (LATEST) | template | verbatim | 40/40 |
+| test | local only | template | verbatim | 240/240 |
+
+Dev and val builds are committed; test stays local. Older builds in `data/built/` predate the 8-option registry and the claim fixes, and are kept because recorded runs used them.
 
 ## v1: the original generator
 
@@ -62,18 +72,18 @@ Every run on 21 Oct 2026 used v1. The Scenarios page shows the v2 build, so thos
 
 ## What the judge sees
 
-The report is templated: it quotes exactly the scenario's three key-evidence lines. The judge sees only the claim and those quotes. Correlates, lab chatter and real records are therefore never shown to the judge, under v1 or v2. Leakage through correlates needs either a model auditor that quotes more lines, or a report that quotes more context.
+The report is templated. Since 22 Oct it quotes the three key-evidence lines, every correlate line, and two innocent lines (`REDACTION_REPORT_CONTEXT`, on by default). Before that it quoted only the evidence lines, so the judge never saw a correlate and leakage could only be verbatim. Lab chatter and real records are not quoted.
 
 ## Direction, from the 22 Oct review
 
 The scenario set is meant to be a controlled benchmark that others can use, so the build becomes a release: versioned, documented, labels validated, test split held out. Planned changes, in order:
 
-1. **Labels.** Turn on the blind model reviewer for every build.
-2. **Model-rendered build.** Render dev with a model, alongside the template build.
-3. **Commit builds.** Dev and val go into git; test stays local and unread.
-4. **Registry.** Widen to 8–12 options per secret.
+1. **Labels.** Turn on the blind model reviewer for every build. *Done; it found 15 blueprint bugs, now fixed.*
+2. **Model-rendered build.** Render dev with a model, alongside the template build. *Done, verbatim and paraphrased.*
+3. **Commit builds.** Dev and val go into git; test stays local and unread. *Done.*
+4. **Registry.** Widen to 8–12 options per secret. *Done: 8.*
 5. **Variants.** Hand-written, 2–3 per label per violation type (Claude drafts, Josh reviews), designed so that a hard red herring takes cross-analysis of several lines to clear.
 6. **Correlates.** More kinds, proposed by a model and kept only if each one recovers its value on its own.
 7. **v3.** An agent-transcript scenario type, after P1's first results.
 
-Open: whether separating cues must survive rephrasing word for word, and whether the scenarios' shape, length and quality are good enough. Both are on the Questions page.
+Settled: whether cues must survive word for word matters little, since paraphrasing them left the task as easy (see Findings). Open: the scenarios' shape, length and quality, and whether the renderer and judge should come from different families. Both are on the Questions page.

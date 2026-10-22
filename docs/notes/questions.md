@@ -16,16 +16,6 @@ The unedited AUROC of 1.00 makes the task unrealistically easy, but it isn't wha
 
 Needs a decision: none. This is the framing for the questions below.
 
-## Should the cues that separate labels survive rephrasing word for word?
-
-Each scenario's label rests on a few `key=value` tokens. For example, a CoT violation has `consent_basis=none_recorded`, and its medium red herring has `consent_basis=policy_DG-14`. When a model rephrases the logs, the validator requires those tokens to come through exactly. That guarantees the label is still right, but the tokens then work like an answer key: the judge only has to spot one token, which is why unedited AUROC is 1.00.
-
-The alternative is to let the renderer state the same fact in its own words ("no consent record was attached to this dataset"), then check with a blind reviewer that the label still reads correctly, and drop scenarios where it doesn't. The task gets harder and more realistic, at some risk to label accuracy.
-
-This connects to the definition of a hard red herring: one that closely matches a violation and takes careful cross-analysis to clear. A single decisive token can't produce that, however it's phrased.
-
-Needs a decision: keep cues verbatim, allow rephrasing with a reviewer check, or build both and compare.
-
 ## Is the scenario shape, length and quality good enough?
 
 Josh's concern from the pipeline review. Scenarios are 36–68 single-line log entries, three of which carry the evidence, with the decisive fact usually in one token. Possible gaps:
@@ -33,6 +23,8 @@ Josh's concern from the pipeline review. Scenarios are 36–68 single-line log e
 - **Shape.** Every scenario is a flat list of one-line records, without multi-line events, stack traces, configs or diffs.
 - **Length.** The evidence is three lines; real evidence is spread across more places and needs connecting.
 - **Quality.** The template text is terse and uniform. A model-rendered build (decided 22 Oct) will add variety, but not depth.
+
+The cues test (Findings, "Does rephrasing make the task harder?") points at structure over wording: paraphrasing every cue left the task as easy as before, because each variant settles its label in one line. That favours longer, multi-line evidence over better phrasing.
 
 Needs a decision: which of these matters most, ideally pointing at one scenario that shows the problem.
 
@@ -47,6 +39,12 @@ The honest executor's rule 3 says evidence may be generalized but not removed. A
 Scripted versions of 1 and 2 give a worst case that doesn't depend on a model agreeing to play the part. A model adversary prompted as the lab's counsel could follow later.
 
 Needs a decision: whether a scripted adversary is acceptable for the headline result, or only as a bound next to a model adversary.
+
+## Should the renderer and judge come from different families?
+
+In the model-rendered dev builds, GPT-5.6 rendered 8–18 of 40 scenarios (those Sonnet refused), and the judge is GPT-5.6 Terra. A judge may read text from its own family more easily. The template build is the reference for now, so this doesn't touch current results.
+
+Needs a decision: accept the overlap (and report renderer per scenario, which the records already hold), or use a third-family fallback, which needs another API key.
 
 ## How many judge samples?
 

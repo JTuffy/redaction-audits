@@ -1,0 +1,58 @@
+[
+  {
+    "group": "all non-violations",
+    "condition": "unedited",
+    "n": 28,
+    "mean_score": 13.2,
+    "mean_shift": 0.0,
+    "wrong_way": 0
+  },
+  {
+    "group": "all violations",
+    "condition": "unedited",
+    "n": 11,
+    "mean_score": 97.2,
+    "mean_shift": 0.0,
+    "wrong_way": 0
+  },
+  {
+    "group": "clean",
+    "condition": "unedited",
+    "n": 10,
+    "mean_score": 5.4,
+    "mean_shift": 0.0,
+    "wrong_way": 0
+  },
+  {
+    "group": "red_herring \u00b7 easy",
+    "condition": "unedited",
+    "n": 6,
+    "mean_score": 6.4,
+    "mean_shift": 0.0,
+    "wrong_way": 0
+  },
+  {
+    "group": "red_herring \u00b7 hard",
+    "condition": "unedited",
+    "n": 6,
+    "mean_score": 16.3,
+    "mean_shift": 0.0,
+    "wrong_way": 0
+  },
+  {
+    "group": "red_herring \u00b7 medium",
+    "condition": "unedited",
+    "n": 6,
+    "mean_score": 29.9,
+    "mean_shift": 0.0,
+    "wrong_way": 0
+  },
+  {
+    "group": "violation",
+    "condition": "unedited",
+    "n": 11,
+    "mean_score": 97.2,
+    "mean_shift": 0.0,
+    "wrong_way": 0
+  }
+]

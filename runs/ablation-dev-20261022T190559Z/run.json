@@ -1,0 +1,41 @@
+{
+  "name": "ablation-dev-20261022T190559Z",
+  "kind": "ablation",
+  "recorded_at": "2026-10-22T19:06:43+00:00",
+  "purpose": "Cues question: judge-only unedited scores on dev build c1bd1b9d80 (model-rendered, paraphrased cues). Does separation (AUROC) drop when cues are rephrased?",
+  "command": "redaction p1 ablate --split dev --condition unedited --purpose Cues question: judge-only unedited scores on dev build c1bd1b9d80 (model-rendered, paraphrased cues). Does separation (AUROC) drop when cues are rephrased?",
+  "commit": "3aaf7a1d3072cd544ee3be5be771777606e11a8d",
+  "dirty": true,
+  "config": {
+    "split": "dev",
+    "conditions": [
+      "unedited"
+    ],
+    "data": "built:c1bd1b9d80",
+    "sample_ids": null,
+    "models": {
+      "advocate": "anthropic/claude-sonnet-5-5",
+      "executor": "anthropic/claude-sonnet-5-5",
+      "judge": "openai/gpt-5.6-terra",
+      "integrity_check": "anthropic/claude-haiku-5-5"
+    },
+    "reasoning": {
+      "advocate": "low",
+      "executor": "low",
+      "judge": "low",
+      "integrity_check": "none"
+    },
+    "report_context": true,
+    "judge_samples": 3,
+    "log_dir": "logs\\inspect",
+    "tokens": {
+      "openai/gpt-5.6-terra": {
+        "input_tokens": 42381,
+        "output_tokens": 13236,
+        "reasoning_tokens": 5433,
+        "input_tokens_cache_read": 0,
+        "input_tokens_cache_write": 0
+      }
+    }
+  }
+}

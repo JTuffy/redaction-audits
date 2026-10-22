@@ -28,3 +28,6 @@ site/dist/
 
 # Files the Claude desktop app saves into this folder
 Claude outputs/
+
+# Paper build output
+paper/build/

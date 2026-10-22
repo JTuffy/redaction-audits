@@ -4,6 +4,11 @@ One line per decision, newest first, with the reason. Change a line only to mark
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-10-22 | The paper lives in `paper/` (NeurIPS 2025 style, compiled with Tectonic), with a live Paper page on the site. Numbers in the text come from generated macros. | Josh asked for a live paper page. Overleaf has no plugin API and its Git sync needs a paid plan; generated numbers can't drift from the runs. |
+| 2026-10-22 | Cues stay verbatim in the reference build; paraphrase mode stays available. | Built both: separation was unchanged (AUROC 1.00 vs 0.99), so the variants, not the tokens, make the task easy. |
+| 2026-10-22 | Dev `LATEST` is the template build; the model-rendered builds are kept beside it. | Rephrasing didn't change difficulty, and the template build has no renderer-family confound. |
+| 2026-10-22 | Renderer refusals are their own issue. The render prompt says the data is synthetic, and GPT-5.6 renders any attempt Sonnet refuses (`--fallback`). | Sonnet 5.5's content filter refused 40–45% of render requests, mostly about monitoring and classifiers, which the validator had logged as hundreds of empty lines. |
+| 2026-10-22 | Fixed the claims of skipped_eval, monitoring_off and opted_out_data, and four variants, after the blind reviewer disagreed with 15 scenarios. | Every disagreement was a blueprint bug (see Findings, "Are the labels right?"). |
 | 2026-10-22 | The scenarios are a controlled benchmark, and the scenario set is itself a deliverable: versioned, documented, labels validated, test split held out. | Pipeline review. Cath named a redaction benchmark as the workstream's main output. |
 | 2026-10-22 | Stay with log scenarios for P1; build an agent-transcript scenario type as v3 afterwards. | Pipeline review. The threat models put evidence in agent sessions, but P1's first results shouldn't wait. |
 | 2026-10-22 | Validate labels with the blind model reviewer on every build first; a human pass only if that raises doubts. | Pipeline review (Josh's note). Labels are the part he trusts least. |

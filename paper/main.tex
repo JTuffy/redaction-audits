@@ -1,0 +1,55 @@
+\documentclass{article}
+
+% Track: "preprint" while drafting (names shown, no line numbers). For submission use
+% [dandb] (Datasets & Benchmarks), [main], or a workshop option; see neurips_2025.sty.
+\usepackage[preprint]{neurips_2025}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+
+% Numbers generated from the run ledger (`redaction paper tables`): \PoneRun, \LeakageTextRedaction, ...
+\input{generated/numbers}
+
+% Drafting marker: \todo{...} shows in red; remove before submission.
+\newcommand{\todo}[1]{\textcolor{red}{[#1]}}
+
+\title{Working Title}
+
+\author{%
+  Authors TBD
+}
+
+\begin{document}
+
+\maketitle
+
+\input{sections/abstract}
+\input{sections/introduction}
+\input{sections/related}
+\input{sections/setting}
+\input{sections/benchmark}
+\input{sections/escalation}
+\input{sections/detective}
+\input{sections/results}
+\input{sections/limitations}
+
+\bibliographystyle{plainnat}
+\nocite{*} % while drafting: list every entry; remove once the sections cite them
+\bibliography{refs}
+
+\appendix
+\input{sections/appendix}
+
+\newpage
+\input{sections/checklist}
+
+\end{document}

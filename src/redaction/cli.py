@@ -32,6 +32,7 @@ from redaction.infra.log_setup import configure_logging, get_logger
 from redaction.infra.runs import record_run
 from redaction.infra.settings import Settings, get_settings
 from redaction.infra.storage import write_jsonl
+from redaction.paper.build import compile_paper, publish, watch, write_generated
 from redaction.viewer.build import build_site
 
 app = typer.Typer(no_args_is_help=True, help=__doc__)
@@ -39,6 +40,10 @@ data_app = typer.Typer(no_args_is_help=True, help="Scenario data shared by both 
 p1_app = typer.Typer(no_args_is_help=True, help="Proposal 1: Redaction Under Escalation.")
 app.add_typer(data_app, name="data")
 app.add_typer(p1_app, name="p1")
+paper_app = typer.Typer(
+    no_args_is_help=True, help="The paper in paper/: tables, build, live preview."
+)
+app.add_typer(paper_app, name="paper")
 log = get_logger(__name__)
 
 
@@ -153,6 +158,7 @@ def site(
         out_dir=settings.site_dir,
         ledger_dir=settings.ledger_dir,
         notes_dir=settings.notes_dir,
+        paper_dir=settings.paper_dir,
     )
     typer.echo(str(out))
 
@@ -225,6 +231,7 @@ def _refresh_site(settings: Settings) -> None:
             out_dir=settings.site_dir,
             ledger_dir=settings.ledger_dir,
             notes_dir=settings.notes_dir,
+            paper_dir=settings.paper_dir,
         )
     except OSError as error:  # the run is recorded either way; the site can be rebuilt by hand
         log.warning("site_refresh_failed", error=str(error))
@@ -305,3 +312,42 @@ def analyze(
         raise typer.Exit(code=1)
     typer.echo(summary_table(analysis.summaries))
     typer.echo("\nMVP gate:\n" + checks_table(analysis.checks))
+
+
+@paper_app.command("tables")
+def paper_tables() -> None:
+    """Regenerate paper/generated/ from the frozen builds and the run ledger."""
+    settings = get_settings()
+    for path in write_generated(
+        settings.paper_dir, built_dir=settings.built_dir, ledger_dir=settings.ledger_dir
+    ):
+        typer.echo(path)
+
+
+@paper_app.command("build")
+def paper_build() -> None:
+    """Regenerate tables, compile the paper once, and copy the PDF into the site."""
+    settings = get_settings()
+    write_generated(
+        settings.paper_dir, built_dir=settings.built_dir, ledger_dir=settings.ledger_dir
+    )
+    status = compile_paper(settings.paper_dir)
+    publish(settings.paper_dir, settings.site_dir)
+    typer.echo("ok" if status["ok"] else "\n".join(status["errors"]))
+    if not status["ok"]:
+        raise typer.Exit(1)
+
+
+@paper_app.command("watch")
+def paper_watch(
+    interval: Annotated[float, typer.Option(help="Seconds between checks for changes.")] = 1.0,
+) -> None:
+    """Recompile on every save; the site's Paper page reloads the PDF by itself."""
+    settings = get_settings()
+    watch(
+        settings.paper_dir,
+        settings.site_dir,
+        built_dir=settings.built_dir,
+        ledger_dir=settings.ledger_dir,
+        interval=interval,
+    )

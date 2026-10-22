@@ -216,6 +216,20 @@ def _ablations(results_dir: Path) -> list[dict[str, Any]]:
     return runs
 
 
+def _paper(paper_dir: Path | None, out_dir: Path) -> dict[str, Any] | None:
+    """Copy the last compiled PDF and its status in; the Paper page then polls the status."""
+    build = paper_dir / "build" if paper_dir else None
+    if build is None or not (build / "status.json").is_file():
+        return None
+    target = out_dir / "paper"
+    target.mkdir(parents=True, exist_ok=True)
+    for name in ("main.pdf", "status.json"):
+        if (build / name).is_file():
+            shutil.copyfile(build / name, target / name)
+    status: dict[str, Any] = json.loads((build / "status.json").read_text(encoding="utf-8"))
+    return status
+
+
 def _bundle_inspect(log_dir: Path, out: Path) -> bool:
     """Bundle Inspect View with the logs; False if there are no logs or the CLI fails."""
     if not log_dir.exists() or not any(log_dir.rglob("*.eval")):
@@ -246,6 +260,7 @@ def build_site(
     out_dir: Path,
     ledger_dir: Path | None = None,
     notes_dir: Path | None = None,
+    paper_dir: Path | None = None,
 ) -> Path:
     """Write the viewer into `out_dir`, replacing what was there."""
     if out_dir.exists():
@@ -260,6 +275,7 @@ def build_site(
         "ledger": _ledger(ledger_dir),
         "notes": _notes(notes_dir),
         "inspect_viewer": has_viewer,
+        "paper": _paper(paper_dir, out_dir),
     }
     (out_dir / "data").mkdir(exist_ok=True)
     (out_dir / "data" / "site.json").write_text(json.dumps(payload), encoding="utf-8")
