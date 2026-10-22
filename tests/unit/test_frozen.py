@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from redaction.core.models import Split
+from redaction.core.models import SecretGuess, SecretType, Split
 from redaction.data.frozen import latest_version, load_built
 from redaction.data.generator import build_split
+from redaction.data.reports import quoted_ids, templated_report
+from redaction.escalation.calls import average_guesses
+from redaction.escalation.scoring import secrets_in_evidence
 
 
 def _write_build(root: Path, version: str) -> None:
@@ -36,3 +39,25 @@ def test_latest_pointing_at_a_missing_version_is_ignored(tmp_path: Path) -> None
     (tmp_path / "dev").mkdir()
     (tmp_path / "dev" / "LATEST").write_text("gone\n", encoding="utf-8")
     assert load_built(Split.DEV, tmp_path) is None
+
+
+def test_context_report_quotes_correlates_and_scores_their_secrets() -> None:
+
+    scenarios = load_built(Split.DEV, Path("data/built"))
+    if scenarios is None:  # CI has no built data
+        return
+    scenario = next(s for s in scenarios if s.correlates)
+    plain, rich = quoted_ids(scenario, context=False), quoted_ids(scenario, context=True)
+    assert set(plain) < set(rich)
+    assert {c.log_id for c in scenario.correlates} <= set(rich)
+    assert rich == tuple(sorted(rich))  # quotes stay in log order
+    scored = secrets_in_evidence(scenario, templated_report(scenario, context=True))
+    assert {c.secret_type for c in scenario.correlates} <= set(scored)
+
+
+def test_judge_samples_average_distributions() -> None:
+
+    a = (SecretGuess(secret_type=SecretType.OPTIMIZER, probabilities={"AdamW": 1.0}),)
+    b = (SecretGuess(secret_type=SecretType.OPTIMIZER, probabilities={"Muon": 1.0}),)
+    (avg,) = average_guesses([a, b])
+    assert avg.probabilities == {"AdamW": 0.5, "Muon": 0.5}

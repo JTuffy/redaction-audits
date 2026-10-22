@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: LogFormat = LogFormat.CONSOLE
     max_connections: int = Field(default=10, ge=1)
+    # Protocol knobs added after the first pilot (see docs/notes/decisions.md).
+    report_context: bool = True  # reports also quote correlates and two innocent lines
+    judge_samples: int = Field(default=3, ge=1)  # judge replies averaged per question
     parse_attempts: int = Field(default=2, ge=1)
     cache_replies: bool = True
 

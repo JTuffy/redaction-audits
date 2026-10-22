@@ -17,13 +17,14 @@ from redaction.escalation import calls
 from redaction.escalation.policies import Policy, redact
 from redaction.escalation.scoring import TrialRecord, secrets_in_evidence
 from redaction.infra.log_setup import get_logger
+from redaction.infra.settings import get_settings
 
 log = get_logger(__name__)
 
 
 def audit_report(scenario: Scenario) -> Report:
     """The auditor's report. Templated in the MVP; the model auditor replaces this."""
-    return templated_report(scenario)
+    return templated_report(scenario, context=get_settings().report_context)
 
 
 async def run_trial(scenario: Scenario, policy: Policy, stance: Stance) -> TrialRecord:
@@ -36,8 +37,9 @@ async def run_trial(scenario: Scenario, policy: Policy, stance: Stance) -> Trial
     edited = redact(policy, report, scenario, requests, rulings)
 
     secret_types = secrets_in_evidence(scenario, report)
-    judge_unedited, judge_edited = await collect(
-        calls.judge_violation(scenario, report), calls.judge_violation(scenario, edited)
+    unedited_scores, edited_scores = await collect(
+        calls.judge_violation_samples(scenario, report),
+        calls.judge_violation_samples(scenario, edited),
     )
     prior, unedited, after_edit = await collect(
         calls.judge_secrets(scenario, secret_types, None),
@@ -52,8 +54,10 @@ async def run_trial(scenario: Scenario, policy: Policy, stance: Stance) -> Trial
         edited=edited,
         requests=requests,
         rulings=rulings,
-        judge_unedited=judge_unedited,
-        judge_edited=judge_edited,
+        judge_unedited=sum(unedited_scores) / len(unedited_scores),
+        judge_edited=sum(edited_scores) / len(edited_scores),
+        judge_unedited_samples=unedited_scores,
+        judge_edited_samples=edited_scores,
         guesses_prior=prior,
         guesses_unedited=unedited,
         guesses_edited=after_edit,

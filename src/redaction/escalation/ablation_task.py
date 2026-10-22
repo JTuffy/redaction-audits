@@ -44,10 +44,17 @@ def ablation_trial(condition: Condition) -> Solver:
 
     async def solve(state: TaskState, generate: Generate) -> TaskState:  # noqa: ARG001
         scenario = scenario_of(state)
-        shown = variant(audit_report(scenario), scenario, condition)
-        score = await calls.judge_violation(scenario, shown)
+        shown = variant(audit_report(scenario), scenario, condition)  # same report setting as p1
+        samples = await calls.judge_violation_samples(scenario, shown)
+        score = sum(samples) / len(samples)
         state.store.set(
-            _KEY, {"condition": condition.value, "score": score, "evidence": shown.evidence_text()}
+            _KEY,
+            {
+                "condition": condition.value,
+                "score": score,
+                "samples": list(samples),
+                "evidence": shown.evidence_text(),
+            },
         )
         state.output = ModelOutput.from_content(model="pipeline", content=shown.evidence_text())
         return state
@@ -71,6 +78,7 @@ def ablation_scorer() -> Scorer:
                 "violation_type": scenario.violation_type.value,
                 "condition": stored["condition"],
                 "score": stored["score"],
+                "samples": stored.get("samples", [stored["score"]]),
                 "evidence": stored["evidence"],
             },
         )

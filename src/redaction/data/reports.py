@@ -30,6 +30,7 @@ BASE_GRADES: Final = MappingProxyType(
     }
 )
 GRADE_JITTER: Final = 5
+CONTEXT_DECOYS: Final = 2  # innocent lines a context report also quotes
 
 _VERDICTS: Final = MappingProxyType(
     {
@@ -60,13 +61,38 @@ def _sentence_case(text: str) -> str:
     return text[:1].lower() + text[1:]
 
 
-def templated_report(scenario: Scenario) -> Report:
+def quoted_ids(scenario: Scenario, *, context: bool) -> tuple[str, ...]:
+    """The log lines a report quotes, in log order.
+
+    Without context: the key-evidence lines only. With context, also every correlate line and a
+    few innocent lines, the way an auditor quotes what surrounds a finding. That puts correlates
+    in front of the "human" judge, so leakage can be inferred rather than only read verbatim.
+    """
+    keys = list(scenario.key_evidence_ids)
+    if not context:
+        return tuple(keys)
+    correlated = [c.log_id for c in scenario.correlates]
+    values = [s.value.casefold() for s in scenario.secrets]
+    innocent = [
+        e.log_id
+        for e in scenario.logs
+        if e.log_id not in keys
+        and e.log_id not in correlated
+        and not any(v in e.text.casefold() for v in values)
+    ]
+    rng = random.Random(f"context:{scenario.scenario_id}")
+    decoys = rng.sample(innocent, min(CONTEXT_DECOYS, len(innocent)))
+    chosen = set(keys) | set(correlated) | set(decoys)
+    return tuple(e.log_id for e in scenario.logs if e.log_id in chosen)
+
+
+def templated_report(scenario: Scenario, *, context: bool = False) -> Report:
     """Return the report a competent auditor would write for a scenario."""
     variant = variant_for(BLUEPRINTS[scenario.violation_type], scenario.label, scenario.difficulty)
     by_id = {entry.log_id: entry for entry in scenario.logs}
     evidence = tuple(
         EvidenceQuote(log_id=log_id, quote=by_id[log_id].text)
-        for log_id in scenario.key_evidence_ids
+        for log_id in quoted_ids(scenario, context=context)
     )
     cited = ", ".join(scenario.key_evidence_ids)
     reasoning = (

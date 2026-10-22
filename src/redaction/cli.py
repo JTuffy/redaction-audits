@@ -211,6 +211,8 @@ def _protocol(settings: Settings) -> dict[str, object]:
     return {
         "models": settings.model_roles(),
         "reasoning": {role.value: settings.reasoning_for(role) for role in Role},
+        "report_context": settings.report_context,
+        "judge_samples": settings.judge_samples,
         "log_dir": str(settings.inspect_log_dir),
     }
 

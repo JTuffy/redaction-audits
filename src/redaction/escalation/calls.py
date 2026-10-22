@@ -17,6 +17,7 @@ from inspect_ai.model import (
     GenerateConfig,
     get_model,
 )
+from inspect_ai.util import collect
 
 from redaction.core.models import (
     FindingIntegrity,
@@ -61,14 +62,22 @@ async def ask[T: Reply](
     prompt: str,
     schema: type[T],
     check: Callable[[T], None] | None = None,
+    sample: int = 0,
 ) -> T:
     """Ask a role's model and parse the reply, re-asking with the error if it is unreadable.
 
-    `check` adds validation the schema cannot express; it raises `ReplyFormatError`.
+    `check` adds validation the schema cannot express; it raises `ReplyFormatError`. `sample`
+    numbers repeated asks of the same prompt: each gets its own cache entry, so averaging k
+    samples costs k replies once and nothing on reruns.
     """
     settings = get_settings()
     model = get_model(role=role.value)
-    cache: CachePolicy | bool = _CACHE if settings.cache_replies and not is_mock(model) else False
+    policy = (
+        _CACHE
+        if sample == 0
+        else CachePolicy(expiry=None, per_epoch=True, scopes={"sample": str(sample)})
+    )
+    cache: CachePolicy | bool = policy if settings.cache_replies and not is_mock(model) else False
     config = GenerateConfig(reasoning_effort=settings.reasoning_for(role))
     messages: list[ChatMessage] = [ChatMessageUser(content=prompt)]
     attempts = settings.parse_attempts
@@ -105,9 +114,43 @@ async def executor(report: Report, requests: Sequence[RedactionRequest]) -> tupl
     return (await ask(Role.EXECUTOR, executor_prompt(report, requests), ExecutorReply)).rulings
 
 
-async def judge_violation(scenario: Scenario, report: Report) -> int:
-    """The "human" judge's 0-100 suspicion score from the evidence alone."""
-    return (await ask(Role.JUDGE, violation_prompt(scenario, report), ViolationReply)).score
+async def judge_violation_samples(scenario: Scenario, report: Report) -> tuple[int, ...]:
+    """The "human" judge's 0-100 suspicion scores, one per judge sample, from the evidence alone."""
+    prompt = violation_prompt(scenario, report)
+    replies = await collect(
+        *(ask(Role.JUDGE, prompt, ViolationReply, sample=i) for i in range(_judge_samples()))
+    )
+    return tuple(r.score for r in replies)
+
+
+async def judge_violation(scenario: Scenario, report: Report) -> float:
+    """The mean of the judge's suspicion samples."""
+    scores = await judge_violation_samples(scenario, report)
+    return sum(scores) / len(scores)
+
+
+def _judge_samples() -> int:
+    return get_settings().judge_samples
+
+
+def average_guesses(samples: Sequence[tuple[SecretGuess, ...]]) -> tuple[SecretGuess, ...]:
+    """Average each secret's distribution over the judge samples (missing options count as 0)."""
+    first = samples[0]
+    out = []
+    for guess in first:
+        dists = [next((g for g in s if g.secret_type is guess.secret_type), None) for s in samples]
+        options = {o for d in dists if d is not None for o in d.probabilities}
+        out.append(
+            SecretGuess(
+                secret_type=guess.secret_type,
+                probabilities={
+                    o: sum(d.probability_of(o) if d is not None else 0.0 for d in dists)
+                    / len(dists)
+                    for o in sorted(options)
+                },
+            )
+        )
+    return tuple(out)
 
 
 async def judge_secrets(
@@ -124,7 +167,13 @@ async def judge_secrets(
             raise ReplyFormatError(msg)
 
     prompt = secrets_prompt(scenario, secret_types, report)
-    return (await ask(Role.JUDGE, prompt, SecretsReply, covers_every_secret)).guesses
+    replies = await collect(
+        *(
+            ask(Role.JUDGE, prompt, SecretsReply, covers_every_secret, sample=i)
+            for i in range(_judge_samples())
+        )
+    )
+    return average_guesses([r.guesses for r in replies])
 
 
 async def check_integrity(original: Report, edited: Report) -> FindingIntegrity:
