@@ -78,11 +78,12 @@ def validate(
                 issues.append(
                     Issue(check=Check.NO_VERBATIM_IN_CORRELATE, line=i, detail=secret.value)
                 )
+    confidential = {c.value for c in plan.confidential}
     issues += [
         Issue(check=Check.NO_FOREIGN_OPTION, line=None, detail=f"{secret.secret_type}: {option}")
         for secret in plan.secrets
         for option in spec_for(secret.secret_type).options
-        if option != secret.value and option in corpus
+        if option != secret.value and option not in confidential and option in corpus
     ]
     issues += [
         Issue(check=Check.LABEL_CLEAN, line=None, detail=token)

@@ -144,7 +144,15 @@ class Scenario(Frozen):
     separating_cues: tuple[str, ...]
     secret_cues: tuple[SecretType, ...] = ()
     correlates: tuple[Correlate, ...] = ()
-    depth: str = "shallow"  # blueprint set: "shallow" (three evidence lines) or "deep"
+    depth: str = "shallow"  # blueprint set: "shallow", "deep" or "entangled"
+    # Further confidential values (a second customer or codename) that every policy treats like
+    # a secret but that are not scored for leakage: they let the evidence turn on which of two
+    # confidential entities a line refers to.
+    confidential: tuple[PlantedSecret, ...] = ()
+
+    def redactable(self) -> tuple[PlantedSecret, ...]:
+        """Every confidential value a redaction policy should treat as a secret."""
+        return self.secrets + self.confidential
 
     @model_validator(mode="after")
     def _check_consistency(self) -> Scenario:
@@ -157,7 +165,7 @@ class Scenario(Frozen):
             msg = f"key evidence ids not in logs: {sorted(missing)}"
             raise ValueError(msg)
         corpus = "\n".join(entry.text for entry in self.logs)
-        absent = [s.secret_type for s in self.secrets if s.value not in corpus]
+        absent = [s.secret_type for s in self.redactable() if s.value not in corpus]
         if absent:
             msg = f"planted secrets missing from logs: {absent}"
             raise ValueError(msg)

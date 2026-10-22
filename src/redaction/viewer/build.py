@@ -8,9 +8,11 @@ transcripts. The output needs no server beyond static hosting (tailnet-serve, Pa
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any, Final
 
@@ -197,6 +199,31 @@ def _ledger(ledger_dir: Path | None) -> list[dict[str, Any]]:
 NOTES_PAGES: Final = ("pipeline", "protocol", "findings", "questions", "decisions")
 
 
+def _direction(path: Path | None) -> dict[str, Any] | None:
+    """The curated direction file: the question, the focus and the experiment threads."""
+    if path is None or not path.is_file():
+        return None
+    data: dict[str, Any] = tomllib.loads(path.read_text(encoding="utf-8"))
+    return data
+
+
+_DECISION_ROW: Final = re.compile(r"^\|\s*(\d{4}-\d{2}-\d{2})\s*\|(.*)\|(.*)\|\s*$")
+
+
+def _decisions(notes_dir: Path | None) -> list[dict[str, str]]:
+    """The rows of the Decisions table, for the Timeline: date, decision, why."""
+    path = notes_dir / "decisions.md" if notes_dir else None
+    if path is None or not path.is_file():
+        return []
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = _DECISION_ROW.match(line)
+        if match:
+            date, decision, why = (part.strip() for part in match.groups())
+            rows.append({"date": date, "decision": decision, "why": why})
+    return rows
+
+
 def _notes(notes_dir: Path | None) -> list[dict[str, str]]:
     """The notes pages that exist, as slug, title (the file's H1) and markdown."""
     if notes_dir is None:
@@ -273,6 +300,7 @@ def build_site(
     ledger_dir: Path | None = None,
     notes_dir: Path | None = None,
     paper_dir: Path | None = None,
+    direction_file: Path | None = None,
 ) -> Path:
     """Write the viewer into `out_dir`, replacing what was there."""
     if out_dir.exists():
@@ -288,6 +316,8 @@ def build_site(
         "notes": _notes(notes_dir),
         "inspect_viewer": has_viewer,
         "paper": _paper(paper_dir, out_dir),
+        "direction": _direction(direction_file),
+        "decisions": _decisions(notes_dir),
     }
     (out_dir / "data").mkdir(exist_ok=True)
     (out_dir / "data" / "site.json").write_text(json.dumps(payload), encoding="utf-8")

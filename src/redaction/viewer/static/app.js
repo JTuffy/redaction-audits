@@ -194,7 +194,7 @@ const tipper = (() => {
 })();
 
 let SITE = null;
-const state = { allSecrets: false, runPolicy: "contextual_rewrite", runSample: null, split: "dev", scenario: null, showBackground: false, runFilter: "all", scLabel: "", scType: "" };
+const state = { allSecrets: false, runPolicy: "contextual_rewrite", runSample: null, split: "dev", scenario: null, showBackground: false, runFilter: "all", runGroup: "experiment", feed: "all", scLabel: "", scType: "" };
 
 /* ---------- Data access ---------- */
 
@@ -284,9 +284,25 @@ function pageRuns() {
   const total = all.reduce((a, e) => a + tokensOf(e), 0);
   const sub = [`${all.length} runs`, `${count("P1")} P1`, `${count("Ablation")} ablation`, `${count("Re-ask")} re-ask`, `${kTokens(total)} tokens`]
     .map((t) => `<span>${t}</span>`).join("");
-  $("view").innerHTML = pageHead({ title: "Runs", sub }) + section("History", body, filter);
+  const group = `<div class="seg" role="group" aria-label="Group">${[["experiment", "By experiment"], ["date", "By date"]].map(([k, t]) =>
+    `<button type="button" data-g="${k}" aria-pressed="${state.runGroup === k}">${t}</button>`).join("")}</div>`;
+  const grouped = () => {
+    const threads = [...experiments(), null].map((x) => ({ x, rs: rows.filter((e) => experimentOf(e) === x) })).filter((g) => g.rs.length);
+    return threads.map(({ x, rs }) => {
+      const open = state.openExp ? x?.id === state.openExp : false;
+      const table = `<div class="scroll"><table class="left"><tbody>${rs.map((e) => `<tr class="link" tabindex="0" data-href="${hrefOf(e)}">
+        <td class="nowrap">${esc(dayOf(e.name).split(",")[0])} ${timeOf(e.name)}</td><td>${kindOf(e)}</td><td>${esc(setup(e))}</td><td class="num">${n(e)}</td>
+        <td class="ellipsis" ${e.purpose ? dataTip(esc(e.purpose)) : ""}>${esc(e.purpose || "")}</td></tr>`).join("")}</tbody></table></div>`;
+      return `<details class="thread panel" ${open ? "open" : ""}><summary><span class="t-title">${x ? esc(x.title) : "Not filed"}</span>${x ? statusBadge(x.status) : ""}
+        <span class="t-result">${x ? esc(x.result) : "Runs not assigned to an experiment."}</span><span class="t-n">${rs.length}</span></summary>${table}</details>`;
+    }).join("");
+  };
+  const content = state.runGroup === "experiment" && experiments().length ? `<div class="threads">${grouped()}</div>` : body;
+  $("view").innerHTML = pageHead({ title: "Runs", sub }) + section("History", content, `${group}${filter}`);
+  state.openExp = null;
   $("view").querySelectorAll("tr[data-href]").forEach((tr) => onKey(tr, () => { location.hash = tr.dataset.href; }));
-  $("view").querySelectorAll(".seg button").forEach((b) => { b.onclick = () => { state.runFilter = b.dataset.k; pageRuns(); }; });
+  $("view").querySelectorAll("[data-k]").forEach((b) => { b.onclick = () => { state.runFilter = b.dataset.k; pageRuns(); }; });
+  $("view").querySelectorAll("[data-g]").forEach((b) => { b.onclick = () => { state.runGroup = b.dataset.g; pageRuns(); }; });
 }
 
 /* ---------- Page: P1 run ---------- */
@@ -476,7 +492,7 @@ function pageRun(name, tab = "") {
   const r = p1Run(name);
   const e = ledgerEntry(name) || { name, config: {} };
   const c = e.config || {};
-  const crumbs = `<a href="#/">Runs</a> / <span class="mono">${esc(name)}</span>`;
+  const crumbs = `<a href="#/runs">Runs</a>${experimentOf(ledgerEntry(name) || { name }) ? ` / ${esc(experimentOf(ledgerEntry(name) || { name }).title)}` : ""} / <span class="mono">${esc(name)}</span>`;
   const stance = c.stance || name.split("-")[2];
   const title = `P1 · ${STANCE[stance] ? term(stance, STANCE[stance]) : "run"}`;
   const n = r?.samples ? new Set(r.samples.map((s) => s.scenario_id)).size : null;
@@ -521,7 +537,7 @@ const GROUPS = [["violation", "Violation"], ["red_herring:easy", "Red herring ·
 function pageAblation(name) {
   const r = ablationRun(name);
   const e = ledgerEntry(name) || { name, config: {} };
-  const crumbs = `<a href="#/">Runs</a> / <span class="mono">${esc(name)}</span>`;
+  const crumbs = `<a href="#/runs">Runs</a>${experimentOf(ledgerEntry(name) || { name }) ? ` / ${esc(experimentOf(ledgerEntry(name) || { name }).title)}` : ""} / <span class="mono">${esc(name)}</span>`;
   const conds = CONDITIONS.filter((c) => r?.samples.some((s) => s.condition === c));
   const reask = conds.length === 1 && conds[0] === "unedited";
   const title = reask ? term("kind_reask", "Judge re-ask") : term("kind_ablation", "Marker ablation");
@@ -701,7 +717,9 @@ function pageData() {
 
 /* ---------- Page: notes ---------- */
 
-const STATUS_CLASS = { open: "warn", settled: "pass", superseded: "" };
+const STATUS_CLASS = { open: "warn", settled: "pass", superseded: "", planned: "", running: "info", blocked: "fail" };
+
+const slugify = (t) => String(t).toLowerCase().replace(/[`*]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 function markdown(src) {
   const runNames = new Set((SITE.ledger || []).map((e) => e.name));
@@ -733,7 +751,7 @@ function markdown(src) {
     }
     if (table) flush();
     const h = line.match(/^(#{2,3})\s+(.*)/);
-    if (h) { flush(); out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`); continue; }
+    if (h) { flush(); out.push(`<h${h[1].length} id="${slugify(h[2])}">${inline(h[2])}</h${h[1].length}>`); continue; }
     const st = line.match(/^Status:\s*(\w+)\s*(?:—\s*(.*))?$/);
     if (st) {
       flush();
@@ -756,14 +774,111 @@ function markdown(src) {
   return out.join("");
 }
 
-function pageNotes(slug) {
+function pageNotes(arg) {
   const pages = Array.isArray(SITE.notes) ? SITE.notes : [];
+  const [slug, anchor] = String(arg || "").split("/");
+  const side = (current) => `<nav class="side" aria-label="Notes">${pages.map((p) =>
+    `<a href="#/notes/${p.slug}" ${p.slug === current ? 'aria-current="page"' : ""}>${esc(p.title)}</a>`).join("")}
+    <a href="#/notes/timeline" ${current === "timeline" ? 'aria-current="page"' : ""}>Timeline</a></nav>`;
+  if (slug === "timeline") { $("view").innerHTML = `<div class="notes">${side("timeline")}<article class="feed-wrap">${timeline()}</article></div>`; wireTimeline(); return; }
   if (!pages.length) { $("view").innerHTML = pageHead({ title: "Notes" }) + `<p class="empty">No notes. Add pages under <code>docs/notes/</code>.</p>`; return; }
   const page = pages.find((p) => p.slug === slug) || pages[0];
-  const side = `<nav class="side" aria-label="Notes">${pages.map((p) =>
-    `<a href="#/notes/${p.slug}" ${p === page ? 'aria-current="page"' : ""}>${esc(p.title)}</a>`).join("")}</nav>`;
-  $("view").innerHTML = `<div class="notes">${side}<article class="prose"><h1>${esc(page.title)}</h1>${markdown(page.markdown)}</article></div>`;
+  $("view").innerHTML = `<div class="notes">${side(page.slug)}<article class="prose"><h1>${esc(page.title)}</h1>${markdown(page.markdown)}</article></div>`;
+  if (anchor) document.getElementById(anchor)?.scrollIntoView({ block: "start" });
 }
+
+/* ---------- Direction: experiments, overview, timeline ---------- */
+
+const experiments = () => SITE.direction?.experiment || [];
+const STATUS_TEXT = { planned: "planned", running: "running", open: "open", settled: "settled", blocked: "blocked" };
+const statusBadge = (st) => `<span class="badge ${STATUS_CLASS[st] ?? ""}">${esc(STATUS_TEXT[st] || st)}</span>`;
+function experimentOf(e) {
+  if (e.experiment) return experiments().find((x) => x.id === e.experiment) || null;
+  return experiments().find((x) => (x.runs || []).includes(e.name)) || null;
+}
+const runsOf = (x) => allRuns().filter((e) => experimentOf(e) === x);
+const findingHref = (x) => (x.finding ? `#/notes/findings/${slugify(x.finding)}` : "");
+
+function openDecisions() {
+  const page = (SITE.notes || []).find((p) => p.slug === "questions");
+  if (!page) return [];
+  const out = [];
+  let current = null;
+  for (const line of page.markdown.split(/\r?\n/)) {
+    const h = line.match(/^##\s+(.*)/);
+    if (h) { current = { title: h[1].trim(), needs: "" }; out.push(current); continue; }
+    const n = line.match(/^Needs a decision:\s*(.*)/);
+    if (n && current) current.needs = n[1].trim();
+  }
+  return out.filter((q) => q.needs && !/^none\b/i.test(q.needs));
+}
+
+function feedItems() {
+  const decisions = (SITE.decisions || []).map((d, i) => ({ kind: "decision", day: d.date, order: i, text: d.decision, why: d.why }));
+  const runs = allRuns().map((e) => {
+    const t = stampDate(e.name);
+    return { kind: "run", day: t ? t.toISOString().slice(0, 10) : "", t, e, x: experimentOf(e) };
+  });
+  return [...decisions, ...runs].sort((a, b) => b.day.localeCompare(a.day)
+    || (a.kind === b.kind ? (a.kind === "run" ? (b.t - a.t) : a.order - b.order) : a.kind === "decision" ? -1 : 1));
+}
+
+function feedRow(it) {
+  if (it.kind === "decision") {
+    return `<li class="feed-item"><span class="feed-kind">Decision</span><div><p>${esc(it.text).replace(/`([^`]+)`/g, "<code>$1</code>")}</p>${it.why ? `<p class="muted small">${esc(it.why).replace(/`([^`]+)`/g, "<code>$1</code>")}</p>` : ""}</div></li>`;
+  }
+  const e = it.e;
+  return `<li class="feed-item"><span class="feed-kind">${kindOf(e)} <span class="faint">${timeOf(e.name)}</span></span><div><p><a href="${hrefOf(e)}">${esc(e.purpose || e.name)}</a></p>${it.x ? `<p class="muted small">${esc(it.x.title)}</p>` : ""}</div></li>`;
+}
+
+function timeline() {
+  const items = feedItems().filter((it) => state.feed === "all" || (state.feed === "decisions" ? it.kind === "decision" : it.kind === "run"));
+  const seg = `<div class="seg" role="group" aria-label="Show">${[["all", "All"], ["decisions", "Decisions"], ["runs", "Runs"]].map(([k, t]) =>
+    `<button type="button" data-feed="${k}" aria-pressed="${state.feed === k}">${t}</button>`).join("")}</div>`;
+  let last = null;
+  const rows = items.map((it) => {
+    const head = it.day !== last ? `<li class="feed-day">${esc(new Date(it.day + "T12:00:00Z").toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }))}</li>` : "";
+    last = it.day;
+    return head + feedRow(it);
+  }).join("");
+  return `<div class="feed-head"><h1>Timeline</h1>${seg}</div><p class="muted">Decisions and runs, newest first. Decisions come from the Decisions page; runs from the ledger.</p><ol class="feed">${rows}</ol>`;
+}
+function wireTimeline() {
+  $("view").querySelectorAll("[data-feed]").forEach((b) => { b.onclick = () => { state.feed = b.dataset.feed; pageNotes("timeline"); }; });
+}
+
+function pageOverview() {
+  const d = SITE.direction;
+  if (!d) { $("view").innerHTML = pageHead({ title: "Overview" }) + `<p class="empty">No direction file. Add <code>docs/direction.toml</code>.</p>`; return; }
+  const p = d.project || {};
+  const head = `<div class="ov-head">
+    <p class="eyebrow">Research question</p>
+    <h1 class="ov-q">${esc(p.question)}</h1>
+    <dl class="ov-kv">
+      <div><dt>Working hypothesis</dt><dd>${esc(p.hypothesis)}</dd></div>
+      <div><dt>Current focus</dt><dd>${esc(p.focus)}</dd></div>
+      <div><dt>Next</dt><dd>${esc(p.next)}</dd></div>
+    </dl></div>`;
+  const cards = experiments().map((x) => {
+    const rs = runsOf(x);
+    const latest = rs.length ? dayOf(rs[0].name) : "";
+    const links = [findingHref(x) ? `<a href="${findingHref(x)}">Finding</a>` : "", rs.length ? `<a href="#/runs" data-exp="${esc(x.id)}">${rs.length} run${rs.length === 1 ? "" : "s"}</a>` : ""].filter(Boolean).join("");
+    return `<article class="exp exp-${esc(x.status)}"><header><h3>${esc(x.title)}</h3>${statusBadge(x.status)}</header>
+      <p class="exp-q">${esc(x.question)}</p><p class="exp-r">${esc(x.result)}</p>
+      <footer><span class="faint">${esc(latest)}</span><span class="exp-links">${links}</span></footer></article>`;
+  }).join("");
+  const open = openDecisions();
+  const decisions = open.length
+    ? `<ul class="plain">${open.map((q) => `<li><a href="#/notes/questions/${slugify(q.title)}">${esc(q.title)}</a><span class="muted small">${esc(q.needs)}</span></li>`).join("")}</ul>`
+    : `<p class="empty">Nothing waiting on a decision.</p>`;
+  const recent = feedItems().slice(0, 6).map(feedRow).join("");
+  $("view").innerHTML = head
+    + section("Experiments", `<div class="exps">${cards}</div>`, `<span>${experiments().length} threads</span><span>updated ${esc(p.updated || "")}</span>`)
+    + `<div class="grid2">${section(`Open decisions <span class="count">${open.length}</span>`, decisions)}${section("Recent", `<ol class="feed compact">${recent}</ol>`, `<a href="#/notes/timeline">Timeline</a>`)}</div>`;
+  $("view").querySelectorAll("[data-exp]").forEach((a) => { a.onclick = () => { state.runGroup = "experiment"; state.openExp = a.dataset.exp; }; });
+}
+
+
 
 /* ---------- Paper ---------- */
 
@@ -809,9 +924,9 @@ function pagePaper() {
 /* ---------- Router ---------- */
 
 function route() {
-  const hash = location.hash === "#runs" ? "#/" : location.hash || "#/";
+  const hash = location.hash === "#runs" ? "#/runs" : location.hash || "#/";
   const [, page = "", arg = ""] = hash.match(/^#\/([^/]*)\/?(.*)$/) || [];
-  const nav = { "": "runs", run: "runs", ablation: "runs", scenarios: "scenarios", data: "data", notes: "notes", paper: "paper" }[page] || "runs";
+  const nav = { "": "overview", runs: "runs", run: "runs", ablation: "runs", scenarios: "scenarios", data: "data", notes: "notes", paper: "paper" }[page] || "overview";
   clearInterval(paperTimer);
   document.querySelectorAll("[data-nav]").forEach((a) => a.toggleAttribute("aria-current", false));
   document.querySelector(`[data-nav="${nav}"]`)?.setAttribute("aria-current", "page");
@@ -826,7 +941,8 @@ function route() {
   else if (page === "data") pageData();
   else if (page === "notes") pageNotes(name);
   else if (page === "paper") pagePaper();
-  else pageRuns();
+  else if (page === "runs") pageRuns();
+  else pageOverview();
 }
 
 window.addEventListener("hashchange", () => { route(); window.scrollTo(0, 0); });
@@ -834,7 +950,7 @@ window.addEventListener("hashchange", () => { route(); window.scrollTo(0, 0); })
 fetch("data/site.json")
   .then((r) => { if (!r.ok) throw new Error(`site.json: HTTP ${r.status}`); return r.json(); })
   .then((site) => {
-    SITE = { builds: [], runs: [], ablations: [], ledger: [], notes: [], ...site };
+    SITE = { builds: [], runs: [], ablations: [], ledger: [], notes: [], decisions: [], direction: null, ...site };
     route();
   })
   .catch((err) => {

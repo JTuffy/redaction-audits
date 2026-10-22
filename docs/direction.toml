@@ -1,0 +1,84 @@
+# The research direction, curated by hand. The site's Overview page and the Runs grouping come
+# from this file. Edit it in place when the direction changes; history lives in Decisions.
+
+[project]
+question = "When a lab redacts an audit report to protect its secrets, how much audit signal survives, and how much do the secrets still leak?"
+hypothesis = "Redaction is nearly free when secrets and evidence are separate, and becomes a real tradeoff when the secret is the evidence. Which policy loses less then depends on whether it keeps identity across lines (pseudonyms) or erases it (markers, generalization)."
+focus = "Entangled scenarios: make the secret the link between evidence lines, so persistence can move."
+next = "Build the entangled set for three types, run the four display conditions with both judges, then the adversary harness."
+updated = "2026-10-22"
+
+# One entry per experiment thread, newest first. status: planned | running | open | settled | blocked
+# finding names the Findings section the thread feeds; runs lists recorded run names.
+
+[[experiment]]
+id = "entangled"
+title = "Entanglement"
+question = "When the secret is the link between evidence lines, does redaction finally cost signal, and do pseudonyms keep it where markers don't?"
+status = "planned"
+result = "Not run yet."
+finding = ""
+runs = []
+
+[[experiment]]
+id = "deep"
+title = "Deep variants"
+question = "Do five-to-six-line scenarios, decided by a relation between lines, make the task harder?"
+status = "open"
+result = "Not for the frontier judge (AUROC 1.00). The weaker judge's errors sit in two miscalibrated cells."
+finding = "Do deep variants make the task harder?"
+runs = ["ablation-dev-20261022T195510Z", "ablation-val-20261022T195555Z", "ablation-dev-20261022T195830Z", "ablation-val-20261022T195910Z"]
+
+[[experiment]]
+id = "difficulty"
+title = "Difficulty by judge"
+question = "Do red herrings get harder with designed difficulty?"
+status = "settled"
+result = "Yes for GPT-5-mini (easy 9, medium 39, hard 70); medium and hard sit together for GPT-5.6 Terra."
+finding = "Do red herrings get harder with difficulty?"
+runs = ["ablation-val-20261022T195635Z", "ablation-dev-20261022T195949Z", "ablation-val-20261022T200044Z"]
+
+[[experiment]]
+id = "cues"
+title = "Paraphrased cues"
+question = "Does rephrasing the cues that separate labels make the task harder?"
+status = "settled"
+result = "No: AUROC 1.00, 1.00 and 0.99 for template, model-rendered and paraphrased builds."
+finding = "Does rephrasing make the task harder?"
+runs = ["ablation-dev-20261022T190415Z", "ablation-dev-20261022T190509Z", "ablation-dev-20261022T190559Z"]
+
+[[experiment]]
+id = "leakage"
+title = "Leakage by policy"
+question = "How much do secrets leak under each policy?"
+status = "open"
+result = "Text redaction 0.86, contextual rewrite 0.27, self-redaction 0.20 (12-scenario pilot, honest lab)."
+finding = "How much do secrets leak?"
+runs = ["p1-dev-honest-20261021T221138Z", "p1-dev-honest-20261022T162358Z"]
+
+[[experiment]]
+id = "coverup"
+title = "Cover-up stance"
+question = "Does the honest executor stop a lab that wants the finding gone?"
+status = "blocked"
+result = "Sonnet 5.5 won't play the cover-up role; needs an adversary harness."
+finding = "Does the executor stop a cover-up?"
+runs = ["p1-dev-cover_up-20261021T225602Z"]
+
+[[experiment]]
+id = "markers"
+title = "Marker ablation"
+question = "Does a visible redaction marker, by itself, make evidence look guiltier?"
+status = "open"
+result = "Inconclusive at n = 6 per cell; one re-ask in six moves 15+ points."
+finding = "Do redaction markers make evidence look guiltier?"
+runs = ["ablation-dev-20261021T225602Z", "ablation-dev-20261021T225748Z", "ablation-dev-20261021T225812Z"]
+
+[[experiment]]
+id = "smoke"
+title = "Smoke tests"
+question = "Does the pipeline run end to end on real models?"
+status = "settled"
+result = "Yes, after a fix to the self-redaction prompt."
+finding = ""
+runs = ["p1-dev-honest-20261021T220616Z", "p1-dev-honest-20261021T220905Z"]

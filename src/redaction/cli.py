@@ -169,6 +169,7 @@ def site(
         ledger_dir=settings.ledger_dir,
         notes_dir=settings.notes_dir,
         paper_dir=settings.paper_dir,
+        direction_file=settings.direction_file,
     )
     typer.echo(str(out))
 
@@ -187,6 +188,9 @@ def run(
     mock: Annotated[bool, typer.Option(help="Use the scripted offline model.")] = False,
     analyze_after: Annotated[bool, typer.Option(help="Summarize the run when done.")] = True,
     purpose: Annotated[str, typer.Option(help="Why this run exists, for the run ledger.")] = "",
+    experiment: Annotated[
+        str, typer.Option(help="Experiment thread id from docs/direction.toml, for the site.")
+    ] = "",
 ) -> None:
     """Run Proposal 1 for one split and stance. Real runs are recorded in the run ledger."""
     settings = get_settings()
@@ -215,6 +219,7 @@ def run(
             name=log_dir.name,
             kind="p1",
             purpose=purpose,
+            experiment=experiment,
             config={
                 "split": split.value,
                 "policies": [p.value for p in (policy or list(Policy))],
@@ -242,6 +247,7 @@ def _refresh_site(settings: Settings) -> None:
             ledger_dir=settings.ledger_dir,
             notes_dir=settings.notes_dir,
             paper_dir=settings.paper_dir,
+            direction_file=settings.direction_file,
         )
     except OSError as error:  # the run is recorded either way; the site can be rebuilt by hand
         log.warning("site_refresh_failed", error=str(error))
@@ -270,6 +276,9 @@ def ablate(
     ] = None,
     mock: Annotated[bool, typer.Option(help="Use the scripted offline model.")] = False,
     purpose: Annotated[str, typer.Option(help="Why this run exists, for the run ledger.")] = "",
+    experiment: Annotated[
+        str, typer.Option(help="Experiment thread id from docs/direction.toml, for the site.")
+    ] = "",
 ) -> None:
     """Marker ablation: the "human" judge's suspicion when removed values are shown differently."""
     settings = get_settings()
@@ -298,6 +307,7 @@ def ablate(
             name=log_dir.name,
             kind="ablation",
             purpose=purpose,
+            experiment=experiment,
             config={
                 "split": split.value,
                 "conditions": [c.value for c in (condition or list(Condition))],

@@ -62,6 +62,7 @@ def record_run(
     config: dict[str, Any],
     results_dir: Path,
     ledger_dir: Path,
+    experiment: str = "",
 ) -> Path:
     """Write the run's ledger entry and copy its summary files. Returns the run's folder."""
     entry: dict[str, Any] = {
@@ -69,6 +70,7 @@ def record_run(
         "kind": kind,
         "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "purpose": purpose,
+        "experiment": experiment,
         "command": " ".join(["redaction", *sys.argv[1:]]),
         **git_state(),
         "config": config,

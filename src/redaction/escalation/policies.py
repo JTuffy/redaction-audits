@@ -57,7 +57,9 @@ def apply_text_redaction(
     With `tiers`, only secrets of those tiers are removed; by default every tier is.
     Longer values are replaced first so a value that contains another is not split.
     """
-    chosen = [s for s in scenario.secrets if tiers is None or spec_for(s.secret_type).tier in tiers]
+    chosen = [
+        s for s in scenario.redactable() if tiers is None or spec_for(s.secret_type).tier in tiers
+    ]
     secrets = sorted(chosen, key=lambda s: len(s.value), reverse=True)
 
     def transform(text: str) -> str:

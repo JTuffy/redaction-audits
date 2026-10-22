@@ -1,0 +1,39 @@
+{
+  "split": "val",
+  "version": "22abf35672",
+  "renderer": "template",
+  "reviewer": "anthropic/claude-sonnet-5-5",
+  "cues": "verbatim",
+  "depth": "entangled",
+  "built_at": "2026-10-22T20:30:26+00:00",
+  "background_jobs": 5000,
+  "stages": {
+    "planned": 20,
+    "rendered": 20,
+    "valid": 20,
+    "reviewed": 20,
+    "kept": 19
+  },
+  "issues": {},
+  "refusals": 0,
+  "rendered_by": {
+    "template": 19
+  },
+  "labels": {
+    "violation": 5,
+    "red_herring": 9,
+    "clean": 5
+  },
+  "lines": {
+    "min": 37,
+    "max": 62,
+    "mean": 51.1
+  },
+  "line_kinds": {
+    "evidence": 80,
+    "correlate": 68,
+    "secret_mention": 20,
+    "lab_noise": 80,
+    "background": 775
+  }
+}

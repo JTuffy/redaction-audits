@@ -72,7 +72,7 @@ def quoted_ids(scenario: Scenario, *, context: bool) -> tuple[str, ...]:
     if not context:
         return tuple(keys)
     correlated = [c.log_id for c in scenario.correlates]
-    values = [s.value.casefold() for s in scenario.secrets]
+    values = [s.value.casefold() for s in scenario.redactable()]
     innocent = [
         e.log_id
         for e in scenario.logs

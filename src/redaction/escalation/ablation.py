@@ -53,12 +53,41 @@ def _replace(text: str, needle: str, replacement: str) -> str:
     return re.sub(re.escape(needle), lambda _: replacement, text, flags=re.IGNORECASE)
 
 
-def _substitute(report: Report, scenario: Scenario, stand_in: dict[SecretType, str]) -> Report:
-    secrets = sorted(scenario.secrets, key=lambda s: len(s.value), reverse=True)
+def nth_pseudonym(secret_type: SecretType, k: int) -> str:
+    """The k-th distinct stand-in for a type: Customer A, Customer B; allocation C1, C2."""
+    base = PSEUDONYMS[secret_type]
+    if k == 0:
+        return base
+    if base[-1].isdigit():
+        return f"{base[:-1]}{int(base[-1]) + k}"
+    return f"{base[:-1]}{chr(ord(base[-1]) + k)}"
+
+
+def stand_ins(scenario: Scenario, *, consistent: bool) -> dict[str, str]:
+    """Replacement text per confidential value.
+
+    Consistent stand-ins give each distinct value of a type its own pseudonym, so two customers
+    stay two customers. Markers are not consistent: every value of a type gets the same marker.
+    """
+    seen: dict[SecretType, int] = {}
+    out: dict[str, str] = {}
+    for secret in scenario.redactable():
+        k = seen.get(secret.secret_type, 0)
+        seen[secret.secret_type] = k + 1
+        out[secret.value] = (
+            nth_pseudonym(secret.secret_type, k)
+            if consistent
+            else redaction_marker(secret.secret_type)
+        )
+    return out
+
+
+def _substitute(report: Report, replacements: dict[str, str]) -> Report:
+    values = sorted(replacements, key=len, reverse=True)
 
     def transform(text: str) -> str:
-        for secret in secrets:
-            text = _replace(text, secret.value, stand_in[secret.secret_type])
+        for value in values:
+            text = _replace(text, value, replacements[value])
         return text
 
     return report.with_text(transform)
@@ -66,7 +95,7 @@ def _substitute(report: Report, scenario: Scenario, stand_in: dict[SecretType, s
 
 def _append_markers(report: Report, scenario: Scenario) -> Report:
     def marked(quote: EvidenceQuote) -> EvidenceQuote:
-        held = [s for s in scenario.secrets if s.value.casefold() in quote.quote.casefold()]
+        held = [s for s in scenario.redactable() if s.value.casefold() in quote.quote.casefold()]
         if not held:
             return quote
         markers = " ".join(redaction_marker(s.secret_type) for s in held)
@@ -80,8 +109,7 @@ def variant(report: Report, scenario: Scenario, condition: Condition) -> Report:
     if condition is Condition.UNEDITED:
         return report
     if condition is Condition.MARKER:
-        markers = {t: redaction_marker(t) for t in SecretType}
-        return _substitute(report, scenario, markers)
+        return _substitute(report, stand_ins(scenario, consistent=False))
     if condition is Condition.PSEUDONYM:
-        return _substitute(report, scenario, PSEUDONYMS)
+        return _substitute(report, stand_ins(scenario, consistent=True))
     return _append_markers(report, scenario)

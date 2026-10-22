@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     background_sample: Path = Path("data/derived/philly_jobs.jsonl")
     site_dir: Path = Path("site/dist")
     ledger_dir: Path = Path("runs")  # committed run records; see infra/runs.py
+    direction_file: Path = Path("docs/direction.toml")  # question, focus, experiment threads
     paper_dir: Path = Path("paper")  # LaTeX sources; see paper/README.md
     notes_dir: Path = Path("docs/notes")  # Pipeline, Protocol, Findings, Decisions
 

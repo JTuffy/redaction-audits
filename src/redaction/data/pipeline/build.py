@@ -100,8 +100,10 @@ def _version(plans: tuple[ScenarioPlan, ...], settings: str) -> str:
     digest = hashlib.sha256(settings.encode())
     for plan in plans:
         # Shallow plans hash as they did before `depth` existed, so old versions stay valid.
-        exclude = {"depth"} if plan.depth == "shallow" else None
-        digest.update(plan.model_dump_json(exclude=exclude).encode())
+        exclude = {"depth"} if plan.depth == "shallow" else set()
+        if not plan.confidential:
+            exclude.add("confidential")
+        digest.update(plan.model_dump_json(exclude=exclude or None).encode())
     return digest.hexdigest()[:10]
 
 

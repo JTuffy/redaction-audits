@@ -38,7 +38,7 @@ def advocate_prompt(scenario: Scenario, report: Report, policy: Policy, stance: 
         lab_name=scenario.lab_name,
         categories=", ".join(spec.label for spec in REGISTRY.values()),
         secrets="\n".join(
-            f"- {spec_for(s.secret_type).label}: {s.value}" for s in scenario.secrets
+            f"- {spec_for(s.secret_type).label}: {s.value}" for s in scenario.redactable()
         ),
         process=process,
         stance=render(_STANCE_PROMPTS[stance]),

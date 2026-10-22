@@ -88,7 +88,8 @@ class ScenarioPlan(Frozen):
     separating_cues: tuple[str, ...]
     secret_cues: tuple[SecretType, ...]
     forbidden: tuple[str, ...]  # violation-only tokens a non-violation must not contain
-    depth: str = "shallow"  # which blueprint set: the original three-line one, or "deep"
+    depth: str = "shallow"  # which blueprint set: the original three-line one, "deep", "entangled"
+    confidential: tuple[PlantedSecret, ...] = ()  # second values, redacted but not scored
 
     def correlates_for(self, log_ids: tuple[str, ...]) -> tuple[Correlate, ...]:
         """Correlate records once lines have log IDs (log_ids in plan order)."""
@@ -138,6 +139,25 @@ def _forbidden(variant: Variant, violation: Variant, values: dict[str, str]) -> 
     return tuple(dict.fromkeys(t for t in theirs if t not in own))
 
 
+_FOOTPRINT: Final = re.compile(r"([\d,]+) GPUs for (\d+) days")
+
+
+def compute_thresholds(footprint: str | None) -> dict[str, str]:
+    """Reporting thresholds just below and above a footprint's GPU-hours, as round numbers.
+
+    The entangled compute variants decide the label by comparing the footprint (a secret) with
+    a threshold, so generalizing the footprint erases the comparison.
+    """
+    match = _FOOTPRINT.fullmatch(footprint or "")
+    if match is None:
+        return {}
+    hours = int(match.group(1).replace(",", "")) * int(match.group(2)) * 24
+    step = 100_000
+    below = max(step, (hours // 2) // step * step)
+    above = -(-(hours * 2) // step) * step
+    return {"threshold_below": f"{below:,}", "threshold_above": f"{above:,}"}
+
+
 def _interleave[T](rng: random.Random, planted: list[T], noise: list[T]) -> list[T]:
     """Scatter noise among planted lines, keeping planted order."""
     total = len(planted) + len(noise)
@@ -165,13 +185,22 @@ def plan_scenario(
         for t in (*blueprint.core_secrets, noise_type)
     )
     values = neutral_values(rng) | {SECRET_PLACEHOLDERS[s.secret_type]: s.value for s in secrets}
+    confidential = tuple(
+        PlantedSecret(
+            secret_type=t,
+            value=rng.choice([o for o in spec_for(t).options if o not in values.values()]),
+        )
+        for t in blueprint.extra_secrets
+    )
+    values |= {f"{SECRET_PLACEHOLDERS[c.secret_type]}2": c.value for c in confidential}
+    values |= compute_thresholds(values.get(SECRET_PLACEHOLDERS[SecretType.COMPUTE_FOOTPRINT]))
 
     planted = [
         PlannedLine(
             kind=LineKind.EVIDENCE,
             source=line.source,
             text=(text := line.template.format_map(values)),
-            required=_required(text, secrets),
+            required=_required(text, secrets + confidential),
             key_evidence=line.evidence,
         )
         for line in variant.lines
@@ -228,4 +257,5 @@ def plan_scenario(
         if slot.label is Label.VIOLATION
         else _forbidden(variant, blueprint.violation, values),
         depth=depth,
+        confidential=confidential,
     )

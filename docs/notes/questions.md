@@ -4,15 +4,13 @@ Open design questions, with the options and where the thinking currently leans. 
 
 ## Can the setup measure what P1 is about yet?
 
-Partly. Three mechanisms were switched off by design:
+Partly:
 
 | Measure | Status | Fix |
 |---|---|---|
-| Persistence | Still can't move: nothing has tried to remove the cues that separate violations from red herrings. | An adversarial advocate. |
+| Persistence | Can't move: the secrets never decide a label, so redacting them never costs signal. | Entangled scenarios, where the secret is the evidence. Then an adversary. |
 | Leakage | Measurable since 22 Oct, when reports started quoting correlates. Text redaction leaked 0.86. | Done. |
-| Executor robustness | Untested: Sonnet 5.5 won't play the cover-up stance. | A scripted adversary. |
-
-The unedited AUROC of 1.00 makes the task unrealistically easy, but it isn't what holds persistence at 1.00. Persistence can fall from 1.00 if editing removes cues; it hasn't, because nothing has tried.
+| Executor robustness | Untested: Sonnet 5.5 won't play the cover-up stance. | An adversary harness, with scripted attacks as bounds. |
 
 Needs a decision: none. This is the framing for the questions below.
 
