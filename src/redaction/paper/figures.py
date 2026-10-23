@@ -347,7 +347,7 @@ def adversary(runs_dir: Path, runs: list[str], theme: Theme) -> Figure:
                 color=theme.ink,
             )
     ax.set_yticks(range(len(runs)), labels, color=theme.ink, fontsize=8.5)
-    ax.invert_yaxis()
+    ax.set_ylim(len(runs) - 0.4, -0.6)  # inverted: first run on top; room for both rows
     ax.set_xlim(-0.3, 1.3)
     ax.axvline(1.0, color=theme.muted, lw=0.8, ls=":")
     ax.set_xlabel(
