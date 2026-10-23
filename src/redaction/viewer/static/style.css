@@ -339,7 +339,7 @@ details.thread table td:first-child { padding-left: 28px; }
 .feed-item p + p { margin-top: 3px; }
 .feed-kind { font-size: 13px; color: var(--muted); }
 .feed.compact { margin: 0; }
-.feed-item.decision p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed-item.decision p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 ul.settled { list-style: none; margin: 0; padding: 0; }
 ul.settled li { display: grid; grid-template-columns: 180px minmax(0, 1fr) auto; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
 .s-result { color: var(--muted); font-size: 14px; }
@@ -393,7 +393,7 @@ ol.headlines li p { margin: 0 0 2px; line-height: 1.55; }
   details.thread > summary { grid-template-columns: auto auto 1fr; }
   .t-result { grid-column: 1 / -1; white-space: normal; }
   .feed-item, .feed.compact .feed-item { grid-template-columns: minmax(0, 1fr); gap: 2px; }
-  .feed-item.decision p { white-space: normal; }
+  .feed-item.decision p { -webkit-line-clamp: 4; }
   ul.settled li { grid-template-columns: minmax(0, 1fr) auto; }
   .s-result { grid-column: 1 / -1; }
   .ov-q { font-size: 20px; }

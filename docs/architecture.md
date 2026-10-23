@@ -11,6 +11,8 @@ Two checks keep the layers honest. `tests/unit/test_architecture.py` fails if a 
 | `infra` | `core` |
 | `escalation` (P1) | `core`, `data`, `infra` |
 | `detective` (P2) | `core`, `data`, `infra` |
+| `viewer` (the site) | `core`, `infra` |
+| `paper` | `core`, `infra` |
 
 A ruff rule (`TID251`) also bans `inspect_ai` everywhere except `infra/`, `cli.py` and the escalation modules that drive Inspect (`calls`, `trial`, `task`, `runner`, `analysis`, `mock`, `ablation_task`) and `viewer/build.py`. Everything else, including P1's policies and metrics, is pure and testable without Inspect.
 
@@ -18,18 +20,24 @@ A ruff rule (`TID251`) also bans `inspect_ai` everywhere except `infra/`, `cli.p
 src/redaction/
   core/          shared foundations, pure
     models.py      value types: Scenario, Report, RedactionRequest, Ruling, SecretGuess
-    registry.py    the 12 secret types, their tiers, weights and four options each
-    roles.py       model roles and the advocate's stance
+    registry.py    the 12 secret types, their tiers, weights and eight options each
+    roles.py       model roles and the advocate's stance (honest, red team, scripted attacks)
     metrics.py     AUROC, persistence, leakage, error rates, bootstrap intervals
     parsing.py     extracts and validates JSON from a model reply
   data/          scenario data shared by both proposals
-    blueprints.py  the log lines behind each violation type and its red herrings
-    generator.py   splits built from blueprints, seeded per scenario
+    blueprints.py  the evidence lines behind each violation type and its red herrings, per set
+                   (disjoint, entangled; deep archived)
+    correlates.py  details that reveal a secret without stating it
+    background.py  the Philly job sample (sizes, durations, outcomes)
+    lab_background.py  background lines in the evidence's own style, built from that sample
+    generator.py   split composition and neutral values, seeded per scenario
     reports.py     templated audit reports for the P1 MVP
     frozen.py      reads the latest frozen build of a split; runs use it, v1 generator as fallback
-    pipeline/      v2: plan, render, validate, freeze (see docs/notes/pipeline.md)
+    pipeline/      plan, render, validate (+ surface.py), freeze (see docs/notes/pipeline.md)
   escalation/    Proposal 1, Redaction Under Escalation
-    policies.py    the three policies and the rules every policy enforces
+    policies.py    the five policies and the rules every policy enforces
+    pseudonyms.py  consistent stand-ins for redacted values
+    adversary.py   the scripted attacks' requests
     views.py       what each role is allowed to see
     scoring.py     one trial: TrialRecord -> SampleResult
     summary.py     many samples: SampleResult -> PolicySummary, and the markdown table
@@ -47,9 +55,17 @@ src/redaction/
   detective/     Proposal 2, Redaction Detective (not built yet)
   infra/         settings (pydantic-settings), structured logging (structlog), file output,
                  and the run ledger (runs.py)
-  cli.py         redaction data generate | redaction p1 run | analyze | ablate | redaction site
+  viewer/        the static site
+    build.py       site.json from builds, runs, notes, the direction file and the paper
+    results.py     running findings: per-run rows and measures pooled across runs
+    public.py      the public profile: scrub, lint, publish (Pages or Firebase Hosting)
+    static/        the page itself (app.js, style.css, index.html)
+  paper/         generated tables and macros, figures from runs, Tectonic compile
+  cli.py         redaction data build | p1 run | analyze | ablate | paper … | site | publish | deploy
 runs/            the committed run ledger: one record per real run (see runs/README.md)
-docs/notes/      Pipeline, Protocol, Findings, Decisions: edited in place, shown on the site's Notes page
+docs/notes/      Pipeline, Protocol, Findings, Questions, Decisions: edited in place, shown on the site's Notes page
+docs/direction.toml  the question, hypotheses with their measures, experiment threads: the site's Overview and Runs grouping
+docs/publishing.md   the public build and how it gets deployed
 scripts/
   botec.py            reproduces the compute budget
   fetch_sources.py    downloads real source data (MALT, Philly) into data/raw/

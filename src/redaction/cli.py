@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
@@ -38,7 +39,7 @@ from redaction.infra.storage import write_jsonl
 from redaction.paper.build import compile_paper, publish, watch, write_generated
 from redaction.paper.figures import build_figures
 from redaction.viewer.build import build_site
-from redaction.viewer.public import lint_site
+from redaction.viewer.public import deploy_firebase, lint_site
 from redaction.viewer.public import publish as publish_public
 
 app = typer.Typer(no_args_is_help=True, help=__doc__)
@@ -193,7 +194,7 @@ def _build_viewer(*, public: bool, bundle_logs: bool = True) -> Path:
     return build_site(
         built_dir=settings.built_dir,
         results_dir=settings.results_dir,
-        log_dir=settings.inspect_log_dir if bundle_logs and not public else None,
+        log_dir=settings.inspect_log_dir if bundle_logs else None,  # public: read, not bundled
         out_dir=settings.public_site_dir if public else settings.site_dir,
         ledger_dir=settings.ledger_dir,
         notes_dir=settings.notes_dir,
@@ -207,28 +208,71 @@ def _build_viewer(*, public: bool, bundle_logs: bool = True) -> Path:
 @app.command("publish")
 def publish_site(
     push: Annotated[
-        bool, typer.Option(help="Commit and push to REDACTION_PUBLIC_REPO. Off: a dry run.")
+        bool, typer.Option(help="Actually push to the public target. Off: a dry run.")
     ] = False,
 ) -> None:
-    """Build the public site, lint it, and (with --push) push it to the Pages repo."""
+    """Build the public site, lint it, and (with --push) send it to the public target."""
+    if not _publish_public(get_settings(), push=push):
+        raise typer.Exit(code=1)
+
+
+@app.command("deploy")
+def deploy(
+    push: Annotated[
+        bool | None,
+        typer.Option(help="Push the public build. Default: REDACTION_PUBLISH_ON_UPDATE."),
+    ] = None,
+    paper: Annotated[bool, typer.Option(help="Redraw figures and recompile the paper.")] = True,
+) -> None:
+    """The whole update: figures and paper, the private site, then the public build.
+
+    The public build is always made and linted, so a lint failure shows up on the day it is
+    introduced; it is pushed only with --push or REDACTION_PUBLISH_ON_UPDATE=true.
+    """
     settings = get_settings()
+    if paper:
+        build_figures(settings.paper_dir, settings.ledger_dir)
+        write_generated(
+            settings.paper_dir, built_dir=settings.built_dir, ledger_dir=settings.ledger_dir
+        )
+        status = compile_paper(settings.paper_dir)
+        if not status["ok"]:
+            typer.echo("\n".join(status["errors"]))
+    typer.echo(str(_build_viewer(public=False)))
+    if settings.paper_dir.exists():
+        publish(settings.paper_dir, settings.site_dir)
+    if not _publish_public(settings, push=settings.publish_on_update if push is None else push):
+        raise typer.Exit(code=1)
+
+
+def _publish_public(settings: Settings, *, push: bool) -> bool:
+    """Build and lint the public profile; push it when asked. False when it must not go out."""
     out = _build_viewer(public=True)
     issues = lint_site(out)
     for issue in issues:
         typer.echo(issue)
     if issues:
-        typer.echo(f"not publishing: {len(issues)} lint issue(s); fix the sources")
-        raise typer.Exit(code=1)
-    if push and not settings.public_repo:
-        typer.echo("REDACTION_PUBLIC_REPO is not set; see docs/publishing.md")
-        raise typer.Exit(code=1)
-    steps = publish_public(
-        out,
-        settings.public_repo or "<REDACTION_PUBLIC_REPO>",
-        push=push,
-        work_dir=settings.public_site_dir.parent / "public-checkout",
+        typer.echo(f"public build not publishable: {len(issues)} lint issue(s); fix the sources")
+        return False
+    if settings.public_target == "firebase":
+        if push and not settings.firebase_project:
+            typer.echo("REDACTION_FIREBASE_PROJECT is not set; see docs/publishing.md")
+            return False
+        steps = deploy_firebase(out, settings.firebase_project or "<project>", push=push)
+    else:
+        if push and not settings.public_repo:
+            typer.echo("REDACTION_PUBLIC_REPO is not set; see docs/publishing.md")
+            return False
+        steps = publish_public(
+            out,
+            settings.public_repo or "<REDACTION_PUBLIC_REPO>",
+            push=push,
+            work_dir=settings.public_site_dir.parent / "public-checkout",
+        )
+    typer.echo(
+        ("pushed:\n" if push else "public build ok; dry run, would run:\n") + "\n".join(steps)
     )
-    typer.echo(("pushed:\n" if push else "dry run, would run:\n") + "\n".join(steps))
+    return True
 
 
 @p1_app.command("run")
@@ -294,20 +338,13 @@ def run(
 
 
 def _refresh_site(settings: Settings) -> None:
-    """Rebuild the viewer so a recorded run shows up without a manual `redaction site`."""
+    """Rebuild the private site, and the public build when publishing is on, after a run."""
     try:
-        build_site(
-            built_dir=settings.built_dir,
-            results_dir=settings.results_dir,
-            log_dir=settings.inspect_log_dir,
-            out_dir=settings.site_dir,
-            ledger_dir=settings.ledger_dir,
-            notes_dir=settings.notes_dir,
-            paper_dir=settings.paper_dir,
-            direction_file=settings.direction_file,
-            blueprints=catalog(),
-        )
-    except OSError as error:  # the run is recorded either way; the site can be rebuilt by hand
+        _build_viewer(public=False)
+        if settings.paper_dir.exists():
+            publish(settings.paper_dir, settings.site_dir)
+        _publish_public(settings, push=settings.publish_on_update)
+    except (OSError, subprocess.CalledProcessError) as error:  # the run is recorded either way
         log.warning("site_refresh_failed", error=str(error))
 
 

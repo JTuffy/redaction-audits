@@ -345,7 +345,16 @@ def build_site(
         "paper": _paper(paper_dir, out_dir),
         "figures": _figures(paper_dir, out_dir),
         "direction": (direction := _direction(direction_file)),
-        "questions": questions(direction, ledger_dir or results_dir, built_dir),
+        "questions": questions(
+            direction,
+            ledger_dir or results_dir,
+            built_dir,
+            {
+                (r["name"], x["scenario_id"], x["policy"]): x["rulings"]
+                for r in runs
+                for x in r["samples"]
+            },
+        ),
         "blueprints": blueprints or [],
         "registry": _registry(),
         "decisions": _decisions(notes_dir),
