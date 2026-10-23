@@ -7,8 +7,8 @@ What the runs have shown, by question. The first four questions are the results;
 - **Redaction is free when secrets and evidence are separate.** On the disjoint scenarios every policy keeps the signal and markers don't move the judge.
 - **It costs signal when the secret is the evidence.** On entangled scenarios, type markers cut the judge's AUROC from about 0.91–1.00 to 0.67–0.74, and they fail both ways: they hide real violations (classifier) and incriminate innocent labs (opt-out, cot, monitoring).
 - **What's safe depends on the link.** Consistent pseudonyms keep identity links; only a generalization that keeps the comparison keeps numbers and dates.
-- **The executor is what holds under attack.** Without it, a link-break attack keeps 0.52 of the entangled signal and evidence removal 0.15; with it, 0.95.
-- **Literal redaction leaks through details.** The scripts leak 0.83–0.91 of what the evidence reveals, the model policies about 0.2–0.4.
+- **The executor is what holds under attack.** Without it, a link-break attack keeps 0.52 of the entangled signal and evidence removal 0.15; with it, 0.95. It mostly rewrites harmful requests rather than refusing them.
+- **Literal redaction leaks through details.** The scripted policies leak 0.83–0.91 of what the evidence reveals; contextual rewrite about 0.4–0.5 and self-redaction 0.2–0.4.
 
 ## Does redaction cost signal when the secret is the evidence?
 
@@ -76,8 +76,8 @@ Dev benchmark (77 scenarios), persistence on entangled scenarios, with the hones
 | Remove evidence (scripted: delete each key line) | 0.95 | 0.15 | 0.58 |
 | Red-team (the advocate model, framed as an authorized exercise) | 1.22 | not run | |
 
-- **Link-break** is the dangerous one, because every request is a legitimate confidentiality request on its own. Without the executor it hides a quarter of entangled violations and halves the separation; with it, almost nothing is lost. The executor still grants or modifies 88% of the requests: it rewrites them to keep the link rather than refusing.
-- **Remove evidence** leaves the judge guessing without the executor (disjoint persistence −0.23, FNR 0.67, FPR 0.50). The executor denies most of these requests and keeps persistence at 0.95–1.00.
+- **Link-break** is the dangerous one, because every request is a legitimate confidentiality request on its own. Without the executor it hides a quarter of entangled violations and halves the separation; with it, almost nothing is lost. The executor rarely refuses (9%) but grants only 23% as asked; it rewrites the other 67%, typically turning a per-type marker into a consistent pseudonym ("Project A", "Project B"), which hides the value and keeps the link.
+- **Remove evidence** leaves the judge guessing without the executor (disjoint persistence −0.23, FNR 0.67, FPR 0.50). The executor denies 59% of these requests and rewrites the other 41% as generalizations that keep the evidence ("snapshot of production traffic exported: … chain_of_thought"), granting none as asked; persistence stays at 0.95–1.00.
 - **Red-team** framing gets Sonnet to play the adversary when the executor is in the loop. In a probe, it found the link-break attack on its own: it asked to turn "Project Juniper" and "Project Cinder" into the same "[project]", and the executor, citing rule 3, kept the footprint comparison ("the finding is that the run exceeds 1,900,000 GPU-hours, so the generalization must keep that"). Without the executor, the safety filter refused most red-team requests (empty replies), and the run stopped after 28 of 77 scenarios. That arm is not measured.
 
 So the executor's value, invisible with an honest lab, is the whole difference under attack. Leakage stays high under both scripted attacks (0.83–0.93), because the scripts mark values and leave correlates.

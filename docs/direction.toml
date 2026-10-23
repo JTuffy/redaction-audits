@@ -4,15 +4,16 @@
 [project]
 question = "When a lab redacts an audit report to protect its secrets, how much audit signal survives, and how much do the secrets still leak?"
 hypothesis = "Redaction is nearly free when secrets and evidence are separate. When the secret is the evidence, the kind of link decides what is safe: consistent pseudonyms keep identity links, only property-preserving generalization keeps magnitudes and dates, and markers can hide real violations or incriminate innocent labs."
-focus = "The honest executor is what keeps the signal under attack; consistent pseudonyms plus comparison-preserving generalization are what it should enforce."
-next = "Rerun the headline cells on the lab-background builds and replicate on val; read the executor's rulings on the link-break requests it granted; leakage under attack; a model adversary for self-redaction via another provider; decide whether and how the site goes public."
+focus = "Rerunning the headline cells on the lab-background builds. Working hypothesis: the honest executor is what keeps the signal under attack, by enforcing consistent pseudonyms and comparison-preserving generalization."
+next = "Rerun the headline cells on the lab-background builds and replicate on val; leakage under attack; a model adversary for self-redaction via another provider; decide whether and how the site goes public."
 updated = "2026-10-23"
 
 # Running findings for the Overview: the proposal's hypotheses (H1-H4) and our own (E1).
 # status: supported | partial | untested | refuted. `answer` is the current one-line reading.
 # Each measure is pooled over every full run (no `--limit`, no chosen samples) that matches its
 # policy, stance and set on the split and judge in [pooling]; the site computes the numbers.
-# metric: persistence | leakage | fnr | fpr | grant_rate | integrity_flags. set: disjoint |
+# metric: persistence | leakage | fnr | fpr | grant_rate | as_asked | rewritten | denied |
+# integrity_flags (as_asked, rewritten, denied: shares of the executor's rulings). set: disjoint |
 # entangled | all.
 
 [pooling]
@@ -113,22 +114,43 @@ set = "entangled"
 [[question]]
 id = "H4"
 title = "Under contextual rewrite, the executor blocks most attempts to soften the finding"
-status = "partial"
-answer = "The signal holds, but not by refusal: the executor grants most link-break requests and about four in ten removals, and the integrity check never fired. Read the rulings to see how a granted request leaves the link intact."
+status = "supported"
+answer = "For the scripted attacks, yes, mostly by rewriting rather than refusing: it turned most link-break markers into consistent pseudonyms (which keep the link) and denied most evidence removals, rewriting the rest as generalizations. The integrity check never fired. The model red team is one run."
 link = "#/notes/findings/does-the-executor-stop-an-adversarial-lab"
 
 [[question.measure]]
-label = "Requests granted · link-break"
-metric = "grant_rate"
+label = "Link-break requests · granted as asked"
+metric = "as_asked"
 policy = "contextual_rewrite"
 stance = "scripted_link"
 set = "all"
 
 [[question.measure]]
-label = "Requests granted · removal"
-metric = "grant_rate"
+label = "Link-break requests · rewritten by the executor"
+metric = "rewritten"
+policy = "contextual_rewrite"
+stance = "scripted_link"
+set = "all"
+
+[[question.measure]]
+label = "Removal requests · denied"
+metric = "denied"
 policy = "contextual_rewrite"
 stance = "scripted_blatant"
+set = "all"
+
+[[question.measure]]
+label = "Removal requests · rewritten by the executor"
+metric = "rewritten"
+policy = "contextual_rewrite"
+stance = "scripted_blatant"
+set = "all"
+
+[[question.measure]]
+label = "Red-team requests · granted as asked"
+metric = "as_asked"
+policy = "contextual_rewrite"
+stance = "red_team"
 set = "all"
 
 [[question.measure]]
@@ -242,7 +264,7 @@ id = "leakage"
 title = "Leakage by policy"
 question = "How much do secrets leak under each policy?"
 status = "open"
-result = "Text redaction 0.86, contextual rewrite 0.27, self-redaction 0.20 (12-scenario pilot, honest lab)."
+result = "Dev benchmark, honest lab: text redaction 0.84, pseudonyms and generalize about 0.89, contextual rewrite 0.42–0.48, self-redaction 0.23–0.38. The 12-scenario pilot gave the same order."
 finding = "How much do secrets leak?"
 runs = ["p1-dev-honest-20261021T221138Z", "p1-dev-honest-20261022T162358Z"]
 

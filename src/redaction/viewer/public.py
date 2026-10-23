@@ -110,3 +110,36 @@ def publish(out_dir: Path, repo: str, *, push: bool, work_dir: Path) -> list[str
     git("commit", "-m", "Publish site", "--allow-empty", cwd=work_dir)
     git("push", cwd=work_dir)
     return steps
+
+
+def deploy_firebase(out_dir: Path, project: str, *, push: bool) -> list[str]:
+    """Deploy a linted public build to Firebase Hosting (Google); needs `firebase login` once.
+
+    Writes a minimal `firebase.json` beside the build and runs the Firebase CLI through npx, so
+    nothing is installed into the repo. A Google Site can then embed the Hosting URL.
+    """
+    import json  # noqa: PLC0415
+    import shutil  # noqa: PLC0415
+    import subprocess  # noqa: PLC0415
+
+    config = out_dir.parent / "firebase.json"
+    command = [
+        "npx",
+        "--yes",
+        "firebase-tools",
+        "deploy",
+        "--only",
+        "hosting",
+        "--project",
+        project,
+    ]
+    steps = [f"write {config} (hosting.public = {out_dir.name})", " ".join(command)]
+    if not push:
+        return steps
+    config.write_text(
+        json.dumps({"hosting": {"public": out_dir.name, "cleanUrls": True}}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    npx = shutil.which("npx") or "npx"
+    subprocess.run([npx, *command[1:]], cwd=out_dir.parent, check=True)  # noqa: S603
+    return steps

@@ -97,3 +97,14 @@ def test_questions_use_pooling_defaults(tmp_path: Path) -> None:
         "question": [{"id": "Q", "measure": [{"metric": "fnr", "policy": "text_redaction"}]}],
     }
     assert questions(direction, tmp_path)[0]["measure"][0]["n"] == 0
+
+
+def test_ruling_shares() -> None:
+    samples = [
+        {"rulings": [{"decision": "grant"}, {"decision": "modify"}]},
+        {"rulings": [{"decision": "modify"}, {"decision": "deny"}]},
+    ]
+    assert metric("as_asked", samples) == 0.25
+    assert metric("rewritten", samples) == 0.5
+    assert metric("denied", samples) == 0.25
+    assert metric("denied", [{"rulings": []}]) is None

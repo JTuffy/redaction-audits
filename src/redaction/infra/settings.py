@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     site_dir: Path = Path("site/dist")
     public_site_dir: Path = Path("site/public")  # the public profile; see docs/publishing.md
     public_repo: str | None = None  # HTTPS URL of the Pages repo that holds the public build
+    public_target: str = "pages"  # "pages" (git push to public_repo) or "firebase" (Hosting)
+    firebase_project: str | None = None  # Firebase project id, for public_target "firebase"
+    publish_on_update: bool = False  # push the public build after every recorded run / deploy
     ledger_dir: Path = Path("runs")  # committed run records; see infra/runs.py
     direction_file: Path = Path("docs/direction.toml")  # question, focus, experiment threads
     paper_dir: Path = Path("paper")  # LaTeX sources; see paper/README.md

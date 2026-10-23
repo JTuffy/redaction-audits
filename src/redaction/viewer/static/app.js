@@ -287,7 +287,8 @@ function protocolGrid(e) {
   const c = e?.config || {};
   const models = c.models || {};
   const reasoning = c.reasoning || {};
-  const roles = ROLES.filter((r) => models[r]).map((r) =>
+  const used = e?.kind === "ablation" ? ["judge"] : ROLES; // an ablation only asks the judge
+  const roles = used.filter((r) => models[r]).map((r) =>
     `<div><dt>${term(r, ROLE[r])}</dt><dd>${esc(models[r].split("/").pop())} <span class="faint">${esc(reasoning[r] || "")}</span></dd></div>`);
   const tokens = Object.entries(c.tokens || {}).map(([m, t]) =>
     `<div><dt>Tokens · ${esc(m.split("/").pop())}</dt><dd>${kTokens((t.input_tokens || 0) + (t.output_tokens || 0))} <span class="faint">${kTokens(t.input_tokens || 0)} in · ${kTokens(t.output_tokens || 0)} out</span></dd></div>`);
@@ -970,7 +971,8 @@ function wireTimeline() {
 }
 
 const Q_STATUS = { supported: "pass", partial: "warn", untested: "", refuted: "fail" };
-const METRIC_FMT = { grant_rate: (v) => `${Math.round(v * 100)}%`, integrity_flags: (v) => `${Math.round(v * 100)}%`, fnr: f2, fpr: f2, leakage: f2, persistence: f2 };
+const pct = (v) => `${Math.round(v * 100)}%`;
+const METRIC_FMT = { grant_rate: pct, as_asked: pct, rewritten: pct, denied: pct, integrity_flags: pct, fnr: f2, fpr: f2, leakage: f2, persistence: f2 };
 function spark(trend) {
   const pts = trend.filter((t) => t.value != null);
   if (!pts.length) return "";
