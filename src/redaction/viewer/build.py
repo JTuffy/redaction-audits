@@ -14,13 +14,15 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 
 from inspect_ai.log import EvalSample, read_eval_log
 
 from redaction.core.metrics import leakage
 from redaction.core.registry import REGISTRY
 from redaction.infra.log_setup import get_logger
+from redaction.viewer.public import PUBLIC_NOTES, scrub
+from redaction.viewer.results import questions
 
 log = get_logger(__name__)
 STATIC = Path(__file__).parent / "static"
@@ -226,12 +228,14 @@ def _decisions(notes_dir: Path | None) -> list[dict[str, str]]:
     return rows
 
 
-def _notes(notes_dir: Path | None) -> list[dict[str, str]]:
+def _notes(
+    notes_dir: Path | None, pages_shown: tuple[str, ...] = NOTES_PAGES
+) -> list[dict[str, str]]:
     """The notes pages that exist, as slug, title (the file's H1) and markdown."""
     if notes_dir is None:
         return []
     pages = []
-    for slug in NOTES_PAGES:
+    for slug in pages_shown:
         path = notes_dir / f"{slug}.md"
         if path.exists():
             text = path.read_text(encoding="utf-8")
@@ -318,27 +322,37 @@ def build_site(
     paper_dir: Path | None = None,
     direction_file: Path | None = None,
     blueprints: list[dict[str, Any]] | None = None,
+    public: bool = False,
 ) -> Path:
-    """Write the viewer into `out_dir`, replacing what was there."""
+    """Write the viewer into `out_dir`, replacing what was there.
+
+    `public` builds the profile that may leave the tailnet (see `viewer.public`): no Questions
+    page, no Inspect transcripts, private lines dropped and names replaced by roles. Lint the
+    result with `public.lint_site` before publishing it.
+    """
     if out_dir.exists():
         shutil.rmtree(out_dir)
     shutil.copytree(STATIC, out_dir)
-    has_viewer = log_dir is not None and _bundle_inspect(log_dir, out_dir / "viewer")
+    has_viewer = not public and log_dir is not None and _bundle_inspect(log_dir, out_dir / "viewer")
     builds, runs = _builds(built_dir), _runs(results_dir, log_dir)
     payload = {
         "builds": builds,
         "runs": runs,
         "ablations": _ablations(results_dir),
         "ledger": _ledger(ledger_dir),
-        "notes": _notes(notes_dir),
+        "notes": _notes(notes_dir, PUBLIC_NOTES if public else NOTES_PAGES),
         "inspect_viewer": has_viewer,
         "paper": _paper(paper_dir, out_dir),
         "figures": _figures(paper_dir, out_dir),
-        "direction": _direction(direction_file),
+        "direction": (direction := _direction(direction_file)),
+        "questions": questions(direction, ledger_dir or results_dir, built_dir),
         "blueprints": blueprints or [],
         "registry": _registry(),
         "decisions": _decisions(notes_dir),
+        "public": public,
     }
+    if public:
+        payload = cast("dict[str, Any]", scrub(payload))
     (out_dir / "data").mkdir(exist_ok=True)
     (out_dir / "data" / "site.json").write_text(json.dumps(payload), encoding="utf-8")
     log.info(

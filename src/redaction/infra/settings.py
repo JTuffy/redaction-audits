@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     philly_raw: Path = Path("data/raw/philly/trace-data/cluster_job_log")
     background_sample: Path = Path("data/derived/philly_jobs.jsonl")
     site_dir: Path = Path("site/dist")
+    public_site_dir: Path = Path("site/public")  # the public profile; see docs/publishing.md
+    public_repo: str | None = None  # HTTPS URL of the Pages repo that holds the public build
     ledger_dir: Path = Path("runs")  # committed run records; see infra/runs.py
     direction_file: Path = Path("docs/direction.toml")  # question, focus, experiment threads
     paper_dir: Path = Path("paper")  # LaTeX sources; see paper/README.md

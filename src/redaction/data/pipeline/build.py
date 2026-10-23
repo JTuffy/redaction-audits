@@ -26,6 +26,7 @@ from redaction.data.blueprints import BENCHMARK_SETS, blueprints_for
 from redaction.data.generator import DEFAULT_SEEDS, SPLIT_SIZES, slots
 from redaction.data.pipeline.plan import LineKind, ScenarioPlan, plan_scenario
 from redaction.data.pipeline.render import Renderer, Rendering, assemble
+from redaction.data.pipeline.surface import surface_auroc
 from redaction.data.pipeline.validate import Issue, validate
 
 
@@ -86,6 +87,7 @@ class BuildResult(Frozen):
     reviewer: str | None
     cues: str = "verbatim"  # whether evidence cues had to survive rendering word for word
     depth: str = "shallow"  # which blueprint set the plans use
+    background: str = "philly"  # "lab" (evidence-like lines) or "philly" (scheduler records)
     plans: tuple[ScenarioPlan, ...]
     scenarios: tuple[Scenario, ...]
     records: tuple[ScenarioRecord, ...]
@@ -162,6 +164,7 @@ async def build_split_v2(
     paraphrase: bool = False,
     concurrency: int = 8,
     depth: str = "shallow",
+    background: str = "lab",
 ) -> BuildResult:
     """Plan, render, validate and (optionally) review every scenario in a split.
 
@@ -176,7 +179,15 @@ async def build_split_v2(
         if slot.violation_type in blueprints_for(one_set)
     ][:limit]
     plans = tuple(
-        plan_scenario(slot, split=split, index=i, seed=split_seed, jobs=jobs, depth=one_set)
+        plan_scenario(
+            slot,
+            split=split,
+            index=i,
+            seed=split_seed,
+            jobs=jobs,
+            depth=one_set,
+            background=background,
+        )
         for i, slot, one_set in planned
     )
     attempts = 1 if renderer.name == "template" else max_attempts  # templates are deterministic
@@ -194,6 +205,7 @@ async def build_split_v2(
         version=_version(plans, f"{renderer.name}|{reviewer_name}|{cues}"),
         cues=cues,
         depth=depth,
+        background=background,
         renderer=renderer.name,
         reviewer=reviewer.name if reviewer else None,
         plans=plans,
@@ -215,6 +227,8 @@ def manifest(result: BuildResult, *, background_jobs: int) -> dict[str, object]:
         "reviewer": result.reviewer,
         "cues": result.cues,
         "depth": result.depth,
+        "background": result.background,
+        "surface_auroc": None if (a := surface_auroc(result.plans)) is None else round(a, 3),
         "built_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "background_jobs": background_jobs,
         "stages": {

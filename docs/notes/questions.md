@@ -33,7 +33,7 @@ Needs a decision: which, and whether the cost is acceptable (a few dollars per a
 Josh's concern from the pipeline review. Scenarios are 36–68 single-line log records; the evidence is three lines (disjoint) or four to six (entangled). Still missing:
 
 - **Shape.** No multi-line events, stack traces, configs or diffs.
-- **Length.** The auditor quotes exactly the relevant lines, so the judge never has to search.
+- **Length.** The auditor quotes exactly the relevant lines, so the judge never has to search. Background is now lab-style and hard to filter by surface (Findings, "Can background be dropped without reading it?"), but it only matters once a model auditor searches the logs.
 - **Variety.** The template text is terse and uniform; model rendering adds variety but not depth.
 
 The entangled set answers part of this for P1's purposes: what matters is whether the evidence turns on a secret, not how long it is. A transcript scenario type (v3) is the planned answer to shape.
@@ -47,3 +47,14 @@ Decided on 22 Oct: lead with the leakage contrast. Since then the stronger resul
 Leaning: lead with entanglement and the executor, with leakage as the third point.
 
 Needs a decision: Josh's.
+
+## Should the site be public, and in what form?
+
+`redaction publish` builds a public profile (no Questions page, no transcripts, no test split, names replaced by roles, a lint for private details) and can push it to a Pages repo that a Google Site embeds (docs/publishing.md). Nothing is published yet. Two things stand in the way:
+
+1. Most of the notes and the question summaries are written by Claude; Cath asked that AI-written text not go to other people.
+2. The repo was to stay private until the paper; the public site shows prompts, blueprints and scenarios.
+
+Options: publish data, runs and figures only (no notes); rewrite the notes and answers by hand, then publish all; or wait for the paper.
+
+Needs a decision: Josh's, after asking Cath.

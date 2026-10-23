@@ -37,10 +37,12 @@ from redaction.data.blueprints import (
 )
 from redaction.data.correlates import correlate_lines
 from redaction.data.generator import LAB_NAMES, ScenarioSpec, neutral_values
+from redaction.data.lab_background import lab_background
 
 # A key=value token such as `consent_basis=none_recorded`: the cues renderers must keep.
 TOKEN_PATTERN: Final = re.compile(r"[A-Za-z_][\w.-]*=[^\s,;]+")
-BACKGROUND_RANGE: Final = (24, 56)  # real-cluster lines per scenario
+BACKGROUND_RANGE: Final = (24, 56)  # background lines per scenario
+BACKGROUND_STYLES: Final = ("lab", "philly")  # lab: evidence-like lines; philly: scheduler records
 LAB_NOISE_LINES: Final = 4  # lab-flavoured filler, so not all noise is scheduler output
 
 
@@ -51,7 +53,7 @@ class LineKind(StrEnum):
     CORRELATE = "correlate"  # reveals a secret without its value
     SECRET_MENTION = "secret_mention"  # noqa: S105  the noise secret, mentioned in passing
     LAB_NOISE = "lab_noise"  # generic lab chatter
-    BACKGROUND = "background"  # real Philly scheduler records
+    BACKGROUND = "background"  # lab-style background (or, in old builds, Philly scheduler records)
 
 
 class PlannedLine(Frozen):
@@ -195,8 +197,13 @@ def plan_scenario(
     seed: int,
     jobs: tuple[PhillyJob, ...],
     depth: str = "shallow",
+    background: str = "lab",
 ) -> ScenarioPlan:
-    """Fix every fact for one scenario. The same arguments always give the same plan."""
+    """Fix every fact for one scenario. The same arguments always give the same plan.
+
+    `background="philly"` reproduces the earlier builds: Philly scheduler records plus a few
+    fixed lab sentences. `"lab"` draws background in the evidence's own sources and format.
+    """
     rng = random.Random(f"plan:{seed}:{index}")
     blueprint = blueprints_for(depth)[slot.violation_type]
     variant = variant_for(blueprint, slot.label, slot.difficulty)
@@ -252,13 +259,30 @@ def plan_scenario(
                     correlate_rationale=c.rationale,
                 )
             )
-    extras += [
-        PlannedLine(kind=LineKind.LAB_NOISE, source=n.source, text=n.template, required=())
-        for n in rng.sample(NEUTRAL_LINES, LAB_NOISE_LINES)
-    ]
+    forbidden = (
+        () if slot.label is Label.VIOLATION else _forbidden(variant, blueprint.violation, values)
+    )
+    if background == "philly":
+        extras += [
+            PlannedLine(kind=LineKind.LAB_NOISE, source=n.source, text=n.template, required=())
+            for n in rng.sample(NEUTRAL_LINES, LAB_NOISE_LINES)
+        ]
+        drawn = background_lines(jobs, rng, rng.randint(*BACKGROUND_RANGE))
+    else:
+        violation_text = [line.template.format_map(values) for line in blueprint.violation.lines]
+        avoid = {
+            *(o for t in SecretType for o in spec_for(t).options),
+            *(tok for p in planted for tok in TOKEN_PATTERN.findall(p.text)),
+            *(tok for text in violation_text for tok in TOKEN_PATTERN.findall(text)),
+            *forbidden,
+            *(e.text for e in extras),
+        }
+        drawn = lab_background(
+            rng, rng.randint(*BACKGROUND_RANGE), values=values, jobs=jobs, avoid=avoid
+        )
     extras += [
         PlannedLine(kind=LineKind.BACKGROUND, source=source, text=text, required=(text,))
-        for source, text in background_lines(jobs, rng, rng.randint(*BACKGROUND_RANGE))
+        for source, text in drawn
     ]
     rng.shuffle(extras)
     prefix = SET_PREFIX[depth]
@@ -276,9 +300,7 @@ def plan_scenario(
         lines=tuple(_interleave(rng, planted, extras)),
         separating_cues=blueprint.separating_cues,
         secret_cues=blueprint.secret_cues,
-        forbidden=()
-        if slot.label is Label.VIOLATION
-        else _forbidden(variant, blueprint.violation, values),
+        forbidden=forbidden,
         depth=depth,
         confidential=confidential,
     )

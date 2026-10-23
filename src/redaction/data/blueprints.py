@@ -268,6 +268,7 @@ _CLASSIFIER = Blueprint(
         ),
         _variant(
             "Classifier replaced by a newer version under an approved migration",
+            Line("sre", "change request CR-{ticket} approved: classifier migration v4 to v5"),
             Line(
                 "deploy",
                 "deploy {ticket}: {codename} endpoint for {customer} set "
@@ -278,7 +279,6 @@ _CLASSIFIER = Blueprint(
                 "classifier status for {codename} production: classifier-v4 "
                 "replaced by classifier-v5 in the same deploy, coverage continuous",
             ),
-            Line("sre", "change request CR-{ticket} approved: classifier migration v4 to v5"),
         ),
     ),
     clean=_variant(
@@ -341,14 +341,14 @@ _OPT_OUT = Blueprint(
             "Customer re-consented through a later amendment",
             Line("legal", "customer {customer} opt-out of training use recorded on {date}"),
             Line(
-                "data-eng",
-                "training run {run} with data mix {mix} includes raw records from "
-                "{customer} ingested after {date}",
-            ),
-            Line(
                 "legal",
                 "legal review: {customer} signed amendment A-{ticket} after the "
                 "opt-out, re-consenting to training use",
+            ),
+            Line(
+                "data-eng",
+                "training run {run} with data mix {mix} includes raw records from "
+                "{customer} ingested after {date}",
             ),
         ),
     ),
