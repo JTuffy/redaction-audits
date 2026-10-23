@@ -20,4 +20,11 @@ id = "tradeoff"
 kind = "tradeoff"
 title = "Signal against leakage, by policy"
 caption = "Persistence (share of unedited separation kept) against leakage (share of what the unedited evidence reveals about each secret), honest lab, dev benchmark. Hollow: disjoint scenarios; filled: entangled."
-runs = ["p1-dev-honest-20261022T211458Z"]
+runs = ["p1-dev-honest-20261022T211458Z", "p1-dev-honest-20261023T015855Z"]
+
+[[figure]]
+id = "adversary"
+kind = "adversary"
+title = "The executor stops edits that hide the finding"
+caption = "Persistence on entangled scenarios, dev benchmark, per advocate stance, with the honest executor (contextual rewrite) and without it (self-redaction). The red-team self-redaction run stopped after repeated model refusals."
+runs = ["p1-dev-honest-20261022T211458Z", "p1-dev-scripted_link-20261023T014809Z", "p1-dev-scripted_blatant-20261023T015055Z", "p1-dev-red_team-20261023T015538Z"]

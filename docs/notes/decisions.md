@@ -4,6 +4,7 @@ One line per decision, newest first, with the reason. Change a line only to mark
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-10-23 | Adversary harness: scripted link-break and remove-evidence stances (no model), and a red-team framing for the advocate model. New policy text generalize. Result figures drawn from recorded runs (`redaction paper figures`). | Josh: "let's do that". The scripted stances give bounds that don't depend on a model agreeing to cheat. |
 | 2026-10-22 | The benchmark is one build per split: the disjoint (original) set plus the entangled set for all six types; `data build` defaults to it and it is LATEST. Scenario IDs carry the set (`dev-e012-…`). The deep draft is archived. | Josh asked why there was "dev" and "dev deep". Entanglement is the variable, so both sets belong in one build. |
 | 2026-10-22 | New policy: text pseudonyms (consistent pseudonyms by script). | Tests the first protocol option directly. It restores identity links, not magnitudes. |
 | 2026-10-22 | Removed val build `633ff46daf`; older builds stay because recorded runs used them. The site shows only LATEST. | Clean-up. |

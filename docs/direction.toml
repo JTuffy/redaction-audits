@@ -4,8 +4,8 @@
 [project]
 question = "When a lab redacts an audit report to protect its secrets, how much audit signal survives, and how much do the secrets still leak?"
 hypothesis = "Redaction is nearly free when secrets and evidence are separate. When the secret is the evidence, the kind of link decides what is safe: consistent pseudonyms keep identity links, only property-preserving generalization keeps magnitudes and dates, and markers can hide real violations or incriminate innocent labs."
-focus = "Benchmark (disjoint + entangled, all six types) is built and measured with an honest lab. Next the lab stops being honest."
-next = "Adversary harness (scripted bounds plus a model adversary); a scripted generalize policy for magnitudes; fix the skipped_eval claim and rebuild."
+focus = "The honest executor is what keeps the signal under attack; consistent pseudonyms plus comparison-preserving generalization are what it should enforce."
+next = "Replicate on val; leakage under attack (scripts leave correlates); a model adversary for self-redaction via another provider; rebuild with the reworded skipped_eval claim; write it up for Cath."
 updated = "2026-10-22"
 
 # One entry per experiment thread, newest first. status: planned | running | open | settled | blocked
@@ -15,9 +15,9 @@ updated = "2026-10-22"
 id = "adversary"
 title = "Adversarial lab"
 question = "Does the honest executor stop a lab that asks for edits which hide the finding: removing evidence outright, or markers that break the link a finding turns on?"
-status = "running"
-result = "Harness built: scripted blatant and link-break attacks, and a red-team framing for the model advocate."
-finding = ""
+status = "open"
+result = "Yes: without the executor, link-break keeps 0.63 of entangled signal and evidence removal none; with it, 0.97. Red-team self-redaction not measured (model refused)."
+finding = "Does the executor stop an adversarial lab?"
 runs = []
 
 [[experiment]]
@@ -69,9 +69,9 @@ runs = ["p1-dev-honest-20261021T221138Z", "p1-dev-honest-20261022T162358Z"]
 id = "coverup"
 title = "Cover-up stance"
 question = "Does the honest executor stop a lab that wants the finding gone?"
-status = "blocked"
-result = "Sonnet 5.5 won't play the cover-up role; needs an adversary harness."
-finding = "Does the executor stop a cover-up?"
+status = "settled"
+result = "Superseded by the adversary harness: Sonnet refuses the cover-up role, but plays it as a red-team exercise when the executor is in the loop."
+finding = "Does the executor stop an adversarial lab?"
 runs = ["p1-dev-cover_up-20261021T225602Z"]
 
 [[experiment]]

@@ -1,0 +1,45 @@
+{
+  "name": "p1-dev-honest-20261023T015855Z",
+  "kind": "p1",
+  "recorded_at": "2026-10-23T01:59:32+00:00",
+  "purpose": "Text generalize (pseudonyms plus comparisons kept for numbers and dates) on the dev benchmark, honest lab: does it keep magnitude links that pseudonyms break?",
+  "experiment": "entangled",
+  "command": "redaction p1 run --split dev --policy text_generalize --experiment entangled --purpose Text generalize (pseudonyms plus comparisons kept for numbers and dates) on the dev benchmark, honest lab: does it keep magnitude links that pseudonyms break?",
+  "commit": "b4e3917303c73e841a788c58a07111365c2e6448",
+  "dirty": false,
+  "config": {
+    "split": "dev",
+    "policies": [
+      "text_generalize"
+    ],
+    "stance": "honest",
+    "data": "built:8840a8ae5f",
+    "limit": null,
+    "sample_ids": null,
+    "models": {
+      "advocate": "anthropic/claude-sonnet-5-5",
+      "executor": "anthropic/claude-sonnet-5-5",
+      "judge": "openai/gpt-5.6-terra",
+      "integrity_check": "anthropic/claude-haiku-5-5"
+    },
+    "reasoning": {
+      "advocate": "low",
+      "executor": "low",
+      "judge": "low",
+      "integrity_check": "none"
+    },
+    "report_context": true,
+    "judge_samples": 3,
+    "cache_replies": true,
+    "log_dir": "logs\\inspect",
+    "tokens": {
+      "openai/gpt-5.6-terra": {
+        "input_tokens": 29139,
+        "output_tokens": 17847,
+        "reasoning_tokens": 6554,
+        "input_tokens_cache_read": 0,
+        "input_tokens_cache_write": 0
+      }
+    }
+  }
+}

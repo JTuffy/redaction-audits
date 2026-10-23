@@ -36,7 +36,9 @@ On entangled classifier scenarios, standard `[REDACTED: label]` markers made rea
 
 Evidence from the benchmark (Findings): consistent pseudonyms restore identity links fully and do nothing for magnitudes and dates; the model policies already do 1 on their own and keep magnitudes too.
 
-Leaning: require 1 for every redacted entity and 2 for every number or date that a finding compares, and add a scripted "generalize" policy to measure 2 the way text pseudonyms measured 1.
+Measured since: text generalize (1 plus 2, by script) removes the magnitude misses that pseudonyms leave (entangled FNR 0.17 to 0.00), and the honest executor enforces both against a link-break attack.
+
+Leaning: require 1 for every redacted entity and 2 for every number or date that a finding compares, and require an executor (or equivalent check) to enforce them, since the attack that breaks them is made of individually legitimate requests.
 
 Needs a decision: whether that pair is the recommendation, and whether 3 is worth testing.
 

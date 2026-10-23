@@ -294,10 +294,79 @@ def tradeoff(runs_dir: Path, runs: list[str], theme: Theme) -> Figure:
     return fig
 
 
+STANCE_NAMES: Final = {
+    "honest": "Honest lab",
+    "scripted_link": "Link-break (scripted)",
+    "scripted_blatant": "Remove evidence (scripted)",
+    "red_team": "Red-team (model)",
+}
+MODEL_POLICIES: Final = (("contextual_rewrite", "With executor"), ("self_redaction", "No executor"))
+
+
+def adversary(runs_dir: Path, runs: list[str], theme: Theme) -> Figure:
+    """Persistence on entangled scenarios per adversary stance, with and without the executor."""
+    fig = _figure(theme, (6.4, 2.9))
+    ax = fig.add_subplot(1, 1, 1)
+    _style(ax, theme)
+    labels = []
+    for row, name in enumerate(runs):
+        stance = json.loads((runs_dir / name / "run.json").read_text(encoding="utf-8"))
+        stance_name = stance["config"].get("stance", "honest")
+        labels.append(STANCE_NAMES.get(stance_name, stance_name))
+        points = tradeoff_points([s for s in _samples(runs_dir, name) if entangled(s)])
+        for k, (policy, policy_name) in enumerate(MODEL_POLICIES):
+            y = row + (k - 0.5) * 0.3
+            point = points.get((policy, True))
+            if point is None:
+                ax.annotate(
+                    f"{policy_name}: not run (model refused)",
+                    (0.02, y),
+                    fontsize=8,
+                    color=theme.muted,
+                    va="center",
+                )
+                continue
+            x = max(point[1], -0.25)
+            ax.scatter(
+                [x],
+                [y],
+                s=60,
+                color=theme.series[k],
+                marker="os"[k],
+                edgecolors=theme.surface,
+                lw=1.5,
+                zorder=3,
+            )
+            ax.annotate(
+                f"{point[1]:.2f}",
+                (x, y),
+                xytext=(8, 0),
+                textcoords="offset points",
+                va="center",
+                fontsize=8.5,
+                color=theme.ink,
+            )
+    ax.set_yticks(range(len(runs)), labels, color=theme.ink, fontsize=8.5)
+    ax.invert_yaxis()
+    ax.set_xlim(-0.3, 1.3)
+    ax.axvline(1.0, color=theme.muted, lw=0.8, ls=":")
+    ax.set_xlabel(
+        "persistence on entangled scenarios (1 = all signal kept)", color=theme.muted, fontsize=9
+    )
+    handles = [
+        Line2D([], [], ls="", marker="os"[k], color=theme.series[k], markersize=7, label=name)
+        for k, (_, name) in enumerate(MODEL_POLICIES)
+    ]
+    ax.legend(handles=handles, frameon=False, fontsize=8.5, labelcolor=theme.ink, loc="lower left")
+    fig.tight_layout()
+    return fig
+
+
 KINDS: Final = {
     "auroc_by_condition": auroc_by_condition,
     "link_types": link_types,
     "tradeoff": tradeoff,
+    "adversary": adversary,
 }
 
 

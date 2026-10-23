@@ -64,15 +64,21 @@ def test_every_kind_renders(tmp_path: Path) -> None:
     ]
     (runs / "abl" / "samples.jsonl").write_text("\n".join(json.dumps(r) for r in ablation))
     (runs / "p1" / "samples.jsonl").write_text("\n".join(json.dumps(r) for r in _p1_rows()))
+    (runs / "p1" / "run.json").write_text(json.dumps({"config": {"stance": "scripted_link"}}))
     paper.mkdir()
     (paper / "figures.toml").write_text(
         "\n".join(
             f'[[figure]]\nid = "{k}"\nkind = "{k}"\ntitle = "t"\ncaption = "c"\nruns = ["{r}"]\n'
-            for k, r in (("auroc_by_condition", "abl"), ("link_types", "abl"), ("tradeoff", "p1"))
+            for k, r in (
+                ("auroc_by_condition", "abl"),
+                ("link_types", "abl"),
+                ("tradeoff", "p1"),
+                ("adversary", "p1"),
+            )
         )
     )
     made = build_figures(paper, runs)
-    assert [m["id"] for m in made] == ["auroc_by_condition", "link_types", "tradeoff"]
+    assert [m["id"] for m in made] == ["auroc_by_condition", "link_types", "tradeoff", "adversary"]
     for m in made:
         assert (paper / "figures" / f"{m['id']}.pdf").is_file()
         assert (paper / "figures" / f"{m['id']}-dark.svg").is_file()

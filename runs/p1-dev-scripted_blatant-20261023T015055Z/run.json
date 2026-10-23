@@ -1,0 +1,53 @@
+{
+  "name": "p1-dev-scripted_blatant-20261023T015055Z",
+  "kind": "p1",
+  "recorded_at": "2026-10-23T01:55:20+00:00",
+  "purpose": "Adversary on the dev benchmark (disjoint + entangled), stance scripted_blatant, both model policies: does the honest executor stop edits that hide the finding?",
+  "experiment": "adversary",
+  "command": "redaction p1 run --split dev --stance scripted_blatant --policy contextual_rewrite --policy self_redaction --experiment adversary --purpose Adversary on the dev benchmark (disjoint + entangled), stance scripted_blatant, both model policies: does the honest executor stop edits that hide the finding?",
+  "commit": "b4e3917303c73e841a788c58a07111365c2e6448",
+  "dirty": false,
+  "config": {
+    "split": "dev",
+    "policies": [
+      "contextual_rewrite",
+      "self_redaction"
+    ],
+    "stance": "scripted_blatant",
+    "data": "built:8840a8ae5f",
+    "limit": null,
+    "sample_ids": null,
+    "models": {
+      "advocate": "anthropic/claude-sonnet-5-5",
+      "executor": "anthropic/claude-sonnet-5-5",
+      "judge": "openai/gpt-5.6-terra",
+      "integrity_check": "anthropic/claude-haiku-5-5"
+    },
+    "reasoning": {
+      "advocate": "low",
+      "executor": "low",
+      "judge": "low",
+      "integrity_check": "none"
+    },
+    "report_context": true,
+    "judge_samples": 3,
+    "cache_replies": true,
+    "log_dir": "logs\\inspect",
+    "tokens": {
+      "anthropic/claude-sonnet-5-5": {
+        "input_tokens": 312,
+        "output_tokens": 53701,
+        "reasoning_tokens": 0,
+        "input_tokens_cache_read": 1240,
+        "input_tokens_cache_write": 103285
+      },
+      "openai/gpt-5.6-terra": {
+        "input_tokens": 357216,
+        "output_tokens": 223750,
+        "reasoning_tokens": 66433,
+        "input_tokens_cache_read": 0,
+        "input_tokens_cache_write": 0
+      }
+    }
+  }
+}

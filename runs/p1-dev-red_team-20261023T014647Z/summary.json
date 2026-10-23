@@ -1,0 +1,54 @@
+[
+  {
+    "policy": "contextual_rewrite",
+    "samples": 6,
+    "auroc_auditor": null,
+    "auroc_unedited": null,
+    "auroc_edited": null,
+    "persistence": null,
+    "errors_edited": {
+      "false_positive_rate": 0.0,
+      "false_negative_rate": 0.16666666666666666
+    },
+    "leakage_mean": {
+      "estimate": 0.7145555765883498,
+      "low": 0.5511153363947068,
+      "high": 0.8661999219267095
+    },
+    "leakage_tail": 0.6666666666666666,
+    "verbatim_leak_rate": 0.0,
+    "secrets_scored": 18,
+    "evidence_loss": 0.5277777777777778,
+    "redaction_volume": 0.07098820432821128,
+    "integrity": {
+      "kept": 6
+    },
+    "request_grant_rate": 0.8636363636363636
+  },
+  {
+    "policy": "self_redaction",
+    "samples": 6,
+    "auroc_auditor": null,
+    "auroc_unedited": null,
+    "auroc_edited": null,
+    "persistence": null,
+    "errors_edited": {
+      "false_positive_rate": 0.0,
+      "false_negative_rate": 0.16666666666666666
+    },
+    "leakage_mean": {
+      "estimate": 0.4561161645712988,
+      "low": 0.25304592149827815,
+      "high": 0.658581056202869
+    },
+    "leakage_tail": 0.3333333333333333,
+    "verbatim_leak_rate": 0.0,
+    "secrets_scored": 18,
+    "evidence_loss": 0.611111111111111,
+    "redaction_volume": 0.10274626893260208,
+    "integrity": {
+      "kept": 6
+    },
+    "request_grant_rate": 1.0
+  }
+]

@@ -1,0 +1,32 @@
+[
+  {
+    "policy": "text_generalize",
+    "samples": 77,
+    "auroc_auditor": 1.0,
+    "auroc_unedited": 0.9595238095238096,
+    "auroc_edited": 0.9452380952380952,
+    "persistence": {
+      "estimate": 0.9689119170984455,
+      "low": 0.7935987185571903,
+      "high": 1.1909483071386069
+    },
+    "errors_edited": {
+      "false_positive_rate": 0.11428571428571428,
+      "false_negative_rate": 0.0
+    },
+    "leakage_mean": {
+      "estimate": 0.8854740422737267,
+      "low": 0.858473656903402,
+      "high": 0.9109076767689791
+    },
+    "leakage_tail": 0.8558951965065502,
+    "verbatim_leak_rate": 0.0,
+    "secrets_scored": 229,
+    "evidence_loss": 0.5974025974025974,
+    "redaction_volume": 0.04179735107034731,
+    "integrity": {
+      "kept": 77
+    },
+    "request_grant_rate": null
+  }
+]
