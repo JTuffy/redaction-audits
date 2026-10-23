@@ -8,7 +8,7 @@ const CONDITIONS = ["unedited", "marker", "pseudonym", "marker_only"];
 const CONDITION = { unedited: "Unedited", marker: "Marker", pseudonym: "Pseudonym", marker_only: "Marker only" };
 const LABELS = { violation: "Violation", red_herring: "Red herring", clean: "Clean" };
 const LABEL_ORDER = ["violation", "red_herring", "clean"];
-const SETS = { shallow: "Disjoint", entangled: "Entangled", deep: "Deep (archived)" };
+const SETS = { shallow: "Disjoint", entangled: "Entangled", deep: "Deep (archived)", sim: "Simulated" };
 const setOf = (s) => s.depth || "shallow";
 const DIFFICULTY = ["easy", "medium", "hard"];
 const STANCE = { honest: "Honest", cover_up: "Cover-up", red_team: "Red team", scripted_blatant: "Scripted: blatant", scripted_link: "Scripted: link-break" };
@@ -735,7 +735,7 @@ function scenarioDetail(s) {
     </div>`;
 }
 
-const DATA_TABS = [["scenarios", "Scenarios"], ["composition", "Composition"], ["checks", "Checks"], ["blueprints", "Blueprints"], ["secrets", "Secrets"]];
+const DATA_TABS = [["scenarios", "Scenarios"], ["composition", "Composition"], ["checks", "Checks"], ["blueprints", "Blueprints"], ["secrets", "Secrets"], ["simulator", "Simulator"]];
 
 function dataHead(build, tab) {
   const m = build.manifest;
@@ -753,11 +753,12 @@ function pageData(tab = "scenarios", arg = "") {
   const build = currentBuild();
   if (!build) { $("view").innerHTML = pageHead({ title: "Data" }) + `<p class="empty">No builds. Run <code>uv run redaction data build</code>.</p>`; return; }
   if (!DATA_TABS.some(([k]) => k === tab)) tab = "scenarios";
-  const body = { scenarios: dataScenarios, composition: dataComposition, checks: dataChecks, blueprints: dataBlueprints, secrets: dataSecrets }[tab](build, arg);
+  const body = { scenarios: dataScenarios, composition: dataComposition, checks: dataChecks, blueprints: dataBlueprints, secrets: dataSecrets, simulator: dataSimulator }[tab](build, arg);
   $("view").innerHTML = dataHead(build, tab) + body;
   $("view").querySelectorAll("[data-split]").forEach((b) => { b.onclick = () => { state.split = b.dataset.split; pageData(tab, tab === "scenarios" ? "" : arg); }; });
   if (tab === "scenarios") wireScenarios(arg);
   if (tab === "blueprints") wireBlueprints();
+  if (tab === "simulator") wireSimulator(arg);
 }
 
 function dataScenarios(build, id) {
@@ -781,6 +782,55 @@ function wireScenarios(id) {
   if ($("f-set")) $("f-set").onchange = (e) => { state.scSet = e.target.value; pageData("scenarios"); };
   const bg = $("show-bg");
   if (bg) bg.onchange = (e) => { state.showBackground = e.target.checked; pageData("scenarios", id); };
+}
+
+const SIM_ATTRS = [["decisive_facts", "Decisive facts"], ["entanglement", "Secret links"], ["endpoints", "Endpoints"], ["events", "World events"], ["background", "Background lines"]];
+function simBuild() { const xs = SITE.sim || []; return xs.find((b) => b.key === state.simKey) || xs[0] || null; }
+function dataSimulator(_build, id) {
+  const b = simBuild();
+  if (!b) return section("Simulator", `<p class="empty">No simulated build yet. Run <code>uv run redaction data simulate</code>.</p>`);
+  const attrs = Object.fromEntries((b.attributes || []).map((a) => [a.scenario_id, a]));
+  const recs = Object.fromEntries(b.records.map((r) => [r.scenario_id, r]));
+  const planned = b.records.length, kept = b.scenarios.length;
+  const disagree = b.records.filter((r) => r.status === "review_disagrees").length;
+  const invalid = b.records.filter((r) => r.status === "invalid").length;
+  const count = (k) => { const c = {}; (b.attributes || []).forEach((a) => { const v = Array.isArray(a[k]) ? a[k].length : a[k]; c[v] = (c[v] || 0) + 1; }); return Object.entries(c).sort((x, y) => (+x[0]) - (+y[0])).map(([v, n]) => `${esc(v)}: ${n}`).join(" · "); };
+  const labels = LABEL_ORDER.map((l) => `${LABELS[l]} ${(b.attributes || []).filter((a) => a.label === l).length}`).join(" · ");
+  const seg = (SITE.sim || []).length > 1 ? `<div class="seg" role="group" aria-label="Rendering">${SITE.sim.map((x) => `<button type="button" data-sim="${esc(x.key)}" aria-pressed="${x === b}">${x.key === "template" ? "Template text" : "Model text"}</button>`).join("")}</div>` : "";
+  const about = b.about || {};
+  const dist = about.distributions ? `<details class="sim-dist"><summary>Distributions the worlds are drawn from</summary><dl class="kv">${Object.entries(about.distributions).map(([k, v]) => `<div><dt>${esc(human(k))}</dt><dd>${esc(Array.isArray(v) ? v.join("–") : v)}</dd></div>`).join("")}</dl></details>` : "";
+  const how = `<div class="panel pad sim-how">
+    <p><b>How these are made.</b> Code draws a lab's world (endpoints, deploys, change requests, migrations, rollbacks) from the distributions below, decides the label by checking the claim against those events, and only then writes each event as a log line${b.key === "model" ? ", phrased by a model and checked against the facts" : ""}. Nothing here was written for its label.</p>
+    ${about.check ? `<p class="muted"><b>The check.</b> ${esc(about.check)}</p>` : ""}
+    <dl class="kv">
+      <div><dt>Kept</dt><dd>${kept} of ${planned}</dd></div>
+      <div><dt>Blind reviewer disagreed</dt><dd>${disagree}${invalid ? ` <span class="faint">· ${invalid} failed checks</span>` : ""}</dd></div>
+      <div><dt>Labels</dt><dd class="text">${labels}</dd></div>
+      <div><dt>Secret links</dt><dd class="text">${count("entanglement")}</dd></div>
+      <div><dt>Decisive facts</dt><dd class="text">${count("decisive_facts")}</dd></div>
+    </dl>${dist}</div>`;
+  const list = b.scenarios.filter((s) => !state.scLabel || s.label === state.scLabel);
+  const pool = [...b.scenarios, ...b.records.filter((r) => r.status !== "kept").map((r) => ({ scenario_id: r.scenario_id, label: r.label, difficulty: r.difficulty, dropped: true }))];
+  const selected = b.scenarios.find((s) => s.scenario_id === id) || list[0] || null;
+  const items = list.map((s) => { const a = attrs[s.scenario_id] || {};
+    return `<li tabindex="0" data-id="${esc(s.scenario_id)}" aria-selected="${s === selected}"><b>${esc(short(s.scenario_id))}</b><span class="label-${s.label}">${labelText(s)} · ${a.decisive_facts ?? "?"} facts · ${a.entanglement ?? 0} secret link${a.entanglement === 1 ? "" : "s"}</span></li>`; }).join("");
+  const dropped = pool.filter((x) => x.dropped);
+  const a = selected ? attrs[selected.scenario_id] || {} : {};
+  const r = selected ? recs[selected.scenario_id] : null;
+  const attrPanel = selected ? `<dl class="kv">${SIM_ATTRS.map(([k, t]) => `<div><dt>${t}</dt><dd>${esc(a[k] ?? "—")}</dd></div>`).join("")}
+      <div><dt>Excused by</dt><dd class="text">${esc((a.excuses || []).join(", ") || "—")}</dd></div>
+      <div><dt>Distractors</dt><dd class="text">${esc((a.decoys || []).join(", ") || "—")}</dd></div>
+      <div><dt>Blind reviewer</dt><dd class="text">${r?.review ? `${esc(human(r.review.verdict))}` : "not run"}</dd></div></dl>` : "";
+  const filter = `${seg}<select id="f-label" aria-label="Label"><option value="">All labels</option>${LABEL_ORDER.map((l) => `<option value="${l}" ${state.scLabel === l ? "selected" : ""}>${LABELS[l]}</option>`).join("")}</select>`;
+  const droppedNote = dropped.length ? `<p class="muted small">Dropped: ${dropped.map((d) => { const rr = recs[d.scenario_id]; return `<b>${esc(short(d.scenario_id))}</b> (${esc(rr.status === "review_disagrees" ? `reviewer read ${human(rr.review?.verdict || "")}: ${rr.review?.reason || ""}` : (rr.issues || []).map((i) => i.check).join(", "))})`; }).join("; ")}</p>` : "";
+  return section("Simulator demo · classifier off", how, `<span>build ${esc(b.manifest.version)}</span>`)
+    + section(`Scenarios <span class="count">${list.length} of ${kept}</span>`, `${droppedNote}<div class="browser"><ol class="list panel">${items}</ol><article class="detail">${attrPanel}${scenarioDetail(selected)}</article></div>`, filter);
+}
+function wireSimulator(id) {
+  $("view").querySelectorAll(".list li[data-id]").forEach((li) => onKey(li, () => { location.hash = `#/data/simulator/${li.dataset.id}`; }));
+  $("view").querySelectorAll("[data-sim]").forEach((x) => { x.onclick = () => { state.simKey = x.dataset.sim; pageData("simulator"); }; });
+  const f = $("f-label"); if (f) f.onchange = (e) => { state.scLabel = e.target.value; pageData("simulator"); };
+  const bg = $("show-bg"); if (bg) bg.onchange = (e) => { state.showBackground = e.target.checked; pageData("simulator", id); };
 }
 
 function dataComposition(build) {

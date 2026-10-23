@@ -66,6 +66,10 @@ These are the first lab-background builds (surface AUROC 0.62 dev, 0.65 val). Va
 
 No runs use these builds yet. The benchmark results on the Findings page used the earlier Philly-background builds: dev `8840a8ae5f` and val `b8806c377a` for most runs, and dev `6df2f41adb`, val `6e44523e30` after the skipped_eval claim was reworded. Older builds stay in `data/built/` because recorded runs used them; the site shows only LATEST.
 
+## Simulator (demo)
+
+`redaction data simulate --n 30 [--renderer <model>]` builds classifier-off scenarios a different way (`src/redaction/data/sim/`). Code draws a lab's world (endpoints, deploys, change requests, migrations, rollbacks, restores) from the distributions in `classifier.Distributions`; `classifier.check` decides the label by evaluating the claim against those events; only then is each event written as a log line, by template or by a model. Every scenario records its attributes (decisive facts, how many links between them only a secret joins, endpoints, distractors). Builds go to `data/built/sim-template/` and `data/built/sim-model/` and show on Data → Simulator. It is a demo: no run uses these scenarios yet, and only classifier off is simulated.
+
 ## Rules for writing variants
 
 The reviewer has caught about twenty blueprint bugs. They fit two patterns, so new variants should be checked against both:

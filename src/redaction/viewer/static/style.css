@@ -437,3 +437,9 @@ details.archive > .threads { margin-top: 6px; opacity: 0.85; }
 .fu-list li { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 12px; align-items: baseline; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
 .fu-list li .badge { justify-self: start; }
 .fu-list p { margin: 0; }
+
+/* Data: simulator demo */
+.sim-how { display: grid; gap: 10px; }
+.sim-how p { margin: 0; max-width: 80ch; }
+.sim-dist summary { cursor: pointer; color: var(--muted); font-size: 13.5px; }
+.sim-dist .kv { margin-top: 10px; }

@@ -68,6 +68,28 @@ def _builds(built_dir: Path) -> list[dict[str, Any]]:
     return builds
 
 
+def _sim_builds(built_dir: Path) -> list[dict[str, Any]]:
+    """The latest simulated builds (template- and model-rendered), with their attributes."""
+    out = []
+    for key in ("template", "model"):
+        latest = built_dir / f"sim-{key}" / "dev" / "LATEST"
+        if not latest.exists():
+            continue
+        directory = latest.parent / latest.read_text(encoding="utf-8").strip()
+        if not (directory / "manifest.json").exists():
+            continue
+        about = directory / "simulator.json"
+        out.append(
+            {
+                "key": key,
+                **_build_payload(directory),
+                "attributes": _jsonl(directory / "attributes.jsonl"),
+                "about": json.loads(about.read_text(encoding="utf-8")) if about.exists() else {},
+            }
+        )
+    return out
+
+
 def _eval_logs(log_dir: Path | None, run: str) -> list[Path]:
     return sorted((log_dir / run).glob("*.eval")) if log_dir is not None else []
 
@@ -357,6 +379,7 @@ def build_site(
         ),
         "blueprints": blueprints or [],
         "registry": _registry(),
+        "sim": _sim_builds(built_dir),
         "decisions": _decisions(notes_dir),
         "public": public,
     }
