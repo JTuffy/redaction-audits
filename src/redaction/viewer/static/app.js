@@ -20,12 +20,12 @@ const KINDS = [
   ["correlate", "Correlates"],
   ["secret_mention", "Secret mentions"],
   ["lab_noise", "Lab chatter"],
-  ["background", "Real cluster records"],
+  ["background", "Background"],
 ];
 const STAGES = [["planned", "Planned"], ["rendered", "Rendered"], ["valid", "Valid"], ["reviewed", "Reviewed"], ["kept", "Kept"]];
 const CHECKS = {
   shape: "One rendered line per planned line",
-  background_intact: "Real records unchanged",
+  background_intact: "Background unchanged",
   required_kept: "Secret values and cue tokens kept",
   correlate_kept: "Correlate details kept",
   no_verbatim_in_correlate: "Correlates do not state the value",
@@ -125,7 +125,8 @@ const TIPS = {
   identifying: ["An informed reader can recover the exact value from this detail."],
   narrowing: ["Rules out some options, or needs another detail to pin the value down."],
   key_evidence: ["The lines that decide whether the claim was broken."],
-  background: ["Real scheduler records from Microsoft's Philly GPU trace, mixed in as noise."],
+  background: ["Lines that don't bear on the claim, written in the same sources and style as the evidence (job sizes and outcomes from a real GPU-cluster trace). Builds before 2026-10-23 used raw scheduler records instead."],
+  surface: ["A small classifier sees only each line's source, first word, length, key=value count and ID shapes, trains on half the violation types and tries to pick out planted lines in the other half. AUROC 0.5: the surface gives nothing away; 1.0: background can be dropped without reading it."],
   evidence: ["Lines that show the violation, or imitate it in a red herring."],
   secret_mention: ["A secret value stated outright in passing."],
   lab_noise: ["Routine lab log lines unrelated to the claim."],
@@ -336,16 +337,21 @@ function pageRuns() {
     .map((t) => `<span>${t}</span>`).join("");
   const group = `<div class="seg" role="group" aria-label="Group">${[["experiment", "By experiment"], ["date", "By date"]].map(([k, t]) =>
     `<button type="button" data-g="${k}" aria-pressed="${state.runGroup === k}">${t}</button>`).join("")}</div>`;
-  const grouped = () => {
-    const threads = [...experiments(), null].map((x) => ({ x, rs: rows.filter((e) => experimentOf(e) === x) })).filter((g) => g.rs.length);
-    return threads.map(({ x, rs }) => {
-      const open = state.openExp ? x?.id === state.openExp : false;
-      const table = `<div class="scroll"><table class="left"><tbody>${rs.map((e) => `<tr class="link" tabindex="0" data-href="${hrefOf(e)}">
+  const latest = (rs) => Math.max(...rs.map((e) => stampDate(e.name)?.getTime() ?? 0));
+  const thread = ({ x, rs }) => {
+    const open = state.openExp ? x?.id === state.openExp : false;
+    const table = `<div class="scroll"><table class="left"><tbody>${rs.map((e) => `<tr class="link" tabindex="0" data-href="${hrefOf(e)}">
         <td class="nowrap">${esc(dayOf(e.name).split(",")[0])} ${timeOf(e.name)}</td><td>${kindOf(e)}</td><td>${esc(setup(e))}</td><td class="num">${n(e)}</td>
         <td class="ellipsis" ${e.purpose ? dataTip(esc(e.purpose)) : ""}>${esc(e.purpose || "")}</td></tr>`).join("")}</tbody></table></div>`;
       return `<details class="thread panel" ${open ? "open" : ""}><summary><span class="t-title">${x ? esc(x.title) : "Not filed"}</span>${x ? statusBadge(x.status) : ""}
         <span class="t-result">${x ? esc(x.result) : "Runs not assigned to an experiment."}</span><span class="t-n">${rs.length}</span></summary>${table}</details>`;
-    }).join("");
+  };
+  const grouped = () => {
+    const threads = [...experiments(), null].map((x) => ({ x, rs: rows.filter((e) => experimentOf(e) === x) })).filter((g) => g.rs.length)
+      .sort((a, b) => latest(b.rs) - latest(a.rs));
+    const done = (g) => g.x && ["settled", "superseded"].includes(g.x.status);
+    const active = threads.filter((g) => !done(g)), archived = threads.filter(done);
+    return active.map(thread).join("") + (archived.length ? `<details class="archive"><summary>Archive · ${archived.length} settled or superseded experiment${archived.length > 1 ? "s" : ""}</summary><div class="threads">${archived.map(thread).join("")}</div></details>` : "");
   };
   const content = state.runGroup === "experiment" && experiments().length ? `<div class="threads">${grouped()}</div>` : body;
   $("view").innerHTML = pageHead({ title: "Runs", sub }) + section("History", content, `${group}${filter}`);
@@ -562,10 +568,10 @@ function pageRun(name, tab = "") {
     const legend = `<span class="legend-mark"><i class="before"></i>Unedited</span><span class="legend-mark"><i class="after"></i>Edited</span><span class="legend-mark"><i class="bad"></i>${term("wrong_way", `Moved ${SHIFT}+ the wrong way`)}</span>`;
     const counts = hasSamples ? secretCounts(r) : null;
     const toggle = counts ? `<span>${counts.leakedRows} of ${counts.scored} leaked</span><button type="button" class="link-btn" id="all-secrets">${state.allSecrets ? "Show leaked only" : "Show all"}</button>` : "";
-    body = section("Setup", setupGrid(e))
-      + section("Results", resultsTable(r))
+    body = `<div class="io io-in">${section("Inputs", setupGrid(e), `<span>fixed before the run: data build, protocol, models</span>`)}</div>`
+      + `<div class="io io-out">${section("Results", resultsTable(r), `<span>what came out</span>`)}`
       + (hasSamples ? bySetSection(r) : "")
-      + (hasSamples ? section(term("judge_score", "Judge score"), dumbbells(r), legend) + section(term("leakage", "Secret leakage"), secretsTable(r), toggle) : "");
+      + (hasSamples ? section(term("judge_score", "Judge score"), dumbbells(r), legend) + section(term("leakage", "Secret leakage"), secretsTable(r), toggle) : "") + `</div>`;
   }
   $("view").innerHTML = `<div>${head}${tabs}</div>${body}`;
   const open = (id, p) => { state.runSample = id; if (p) state.runPolicy = p; location.hash = `${base}/samples`; };
@@ -652,9 +658,9 @@ function pageAblation(name) {
     <tbody>${matrix}</tbody></table></div></div>`;
 
   $("view").innerHTML = head
-    + section("Setup", setupGrid(e))
-    + section("Mean judge score", table, reask ? `<span>shift vs ${esc(baseRun?.name || "—")}</span>` : `<span>shift vs unedited</span>`)
-    + section("By scenario", matrixTable, `<span>shaded by shift from unedited</span>`);
+    + `<div class="io io-in">${section("Inputs", setupGrid(e), `<span>fixed before the run: data build, conditions, judge</span>`)}</div>`
+    + `<div class="io io-out">${section("Results · mean judge score", table, reask ? `<span>shift vs ${esc(baseRun?.name || "—")}</span>` : `<span>shift vs unedited</span>`)}`
+    + section("By scenario", matrixTable, `<span>shaded by shift from unedited</span>`) + `</div>`;
 }
 
 /* ---------- Page: scenarios ---------- */
@@ -779,7 +785,7 @@ function dataComposition(build) {
   const kinds = `<div class="panel pad"><div class="kind-bar" role="img" aria-label="Share of lines by kind">${KINDS.map(([k]) =>
       `<i class="k-${k}" style="width:${(100 * (m.line_kinds[k] || 0) / total).toFixed(2)}%"></i>`).join("")}</div>
     <div class="legend">${KINDS.map(([k, name]) => `<div><i class="k-${k}"></i><span>${term(k === "correlate" ? "correlate" : k, name)}</span><span>${(100 * (m.line_kinds[k] || 0) / total).toFixed(0)}%</span></div>`).join("")}</div>
-    <div class="sub" style="margin-top:14px"><span>${m.lines.min}–${m.lines.max} lines per scenario</span><span>mean ${m.lines.mean}</span>${m.background_jobs ? `<span>${m.background_jobs.toLocaleString()} real jobs sampled</span>` : ""}</div></div>`;
+    <div class="sub" style="margin-top:14px"><span>${m.lines.min}–${m.lines.max} lines per scenario</span><span>mean ${m.lines.mean}</span><span>${esc(m.background === "lab" ? "lab-style background" : "Philly scheduler background")}</span>${m.background_jobs ? `<span>job sizes and outcomes from ${m.background_jobs.toLocaleString()} real cluster jobs</span>` : ""}</div></div>`;
   return section("Pipeline", stages, splitSeg(build))
     + `<div class="grid2">${section("Kept scenarios by cell", composition)}${section("Lines by kind", kinds)}</div>`;
 }
@@ -790,7 +796,7 @@ function dataChecks(build) {
   const checks = `<div class="panel"><div class="scroll"><table><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>${Object.entries(CHECKS).map(([k, name]) => {
     const n = counts[k] || 0;
     return `<tr><td>${name}</td><td><span class="badge ${n ? "fail" : "pass"}">${n ? n + " failed" : "pass"}</span></td></tr>`;
-  }).join("")}<tr><td>Blind label review</td><td>${m.reviewer ? `<span class="badge ${build.records.some((r) => r.status === "review_disagrees") ? "fail" : "pass"}">${esc(m.reviewer)}</span>` : '<span class="badge">not run</span>'}</td></tr></tbody></table></div></div>`;
+  }).join("")}<tr><td>${term("surface", "Background not filterable by surface")}</td><td>${m.surface_auroc == null ? '<span class="badge">not measured</span>' : `<span class="badge ${m.surface_auroc > 0.75 ? "fail" : "pass"}">AUROC ${f2(m.surface_auroc)}</span> <span class="faint">${esc(m.background || "philly")} background; 0.5 is unfilterable</span>`}</td></tr><tr><td>Blind label review</td><td>${m.reviewer ? `<span class="badge ${build.records.some((r) => r.status === "review_disagrees") ? "fail" : "pass"}">${esc(m.reviewer)}</span>` : '<span class="badge">not run</span>'}</td></tr></tbody></table></div></div>`;
   const dropped = build.records.filter((r) => r.status !== "kept");
   const droppedTable = dropped.length ? `<div class="panel"><div class="scroll"><table class="left"><thead><tr><th>Scenario</th><th>Planned as</th><th>Why it was dropped</th></tr></thead><tbody>${dropped.map((r) => `<tr>
       <td class="mono-cell nowrap">${esc(r.scenario_id)}</td><td class="nowrap">${labelText(r)}</td>
@@ -963,29 +969,56 @@ function wireTimeline() {
   $("view").querySelectorAll("[data-feed]").forEach((b) => { b.onclick = () => { state.feed = b.dataset.feed; pageNotes("timeline"); }; });
 }
 
+const Q_STATUS = { supported: "pass", partial: "warn", untested: "", refuted: "fail" };
+const METRIC_FMT = { grant_rate: (v) => `${Math.round(v * 100)}%`, integrity_flags: (v) => `${Math.round(v * 100)}%`, fnr: f2, fpr: f2, leakage: f2, persistence: f2 };
+function spark(trend) {
+  const pts = trend.filter((t) => t.value != null);
+  if (!pts.length) return "";
+  const w = 72, h = 20, top = Math.max(1.2, ...pts.map((t) => t.value)), bot = Math.min(0, ...pts.map((t) => t.value));
+  const x = (i) => (pts.length === 1 ? w / 2 : 4 + (i * (w - 8)) / (pts.length - 1));
+  const y = (v) => h - 3 - ((v - bot) / (top - bot || 1)) * (h - 6);
+  const line = pts.length > 1 ? `<polyline points="${pts.map((t, i) => `${x(i).toFixed(1)},${y(t.value).toFixed(1)}`).join(" ")}" />` : "";
+  const tip = pts.map((t) => `${dayOf(t.run).split(",")[0]} ${f2(t.value)} (n ${t.n}, build ${t.build || "?"})`).join("<br>");
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="per-run values" ${dataTip(tip)} tabindex="0">${line}${pts.map((t, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(t.value).toFixed(1)}" r="2.2" />`).join("")}</svg>`;
+}
+function measureRow(m) {
+  const fmt = METRIC_FMT[m.metric] || f2;
+  const value = m.value == null ? "—" : fmt(m.value);
+  const ci = m.low != null ? `<span class="faint">${fmt(m.low)}–${fmt(m.high)}</span>` : "";
+  const last = m.runs?.[m.runs.length - 1];
+  const runs = m.runs?.length ? `<a href="#/run/${encodeURIComponent(last)}" ${dataTip(m.runs.map(esc).join("<br>"))}>${m.runs.length} run${m.runs.length > 1 ? "s" : ""}</a>` : `<span class="faint">no runs</span>`;
+  return `<tr><td>${esc(m.label)}</td><td class="num"><b>${value}</b></td><td class="num">${ci}</td><td class="num">${m.n || "—"}</td><td>${runs}</td><td>${spark(m.trend || [])}</td></tr>`;
+}
+function questionCard(q) {
+  const rows = (q.measure || []).map(measureRow).join("");
+  return `<article class="q-card panel"><header><span class="q-id">${esc(q.id)}</span><h3>${esc(q.title)}</h3><span class="badge ${Q_STATUS[q.status] ?? ""}">${esc(q.status)}</span></header>
+    <p class="q-answer">${esc(q.answer || "")}${q.link ? ` <a class="small" href="${esc(q.link)}">Details</a>` : ""}</p>
+    ${rows ? `<div class="scroll"><table class="q-table"><thead><tr><th>Measure</th><th class="num">Pooled</th><th class="num">95% CI</th><th class="num">n</th><th>Runs</th><th>Per run</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</article>`;
+}
+
 function pageOverview() {
   const d = SITE.direction;
   if (!d) { $("view").innerHTML = pageHead({ title: "Overview" }) + `<p class="empty">No direction file. Add <code>docs/direction.toml</code>.</p>`; return; }
   const p = d.project || {};
-  const heads = d.headline || [];
+  const qs = SITE.questions || [];
   const open = openDecisions();
   const figs = SITE.figures || [];
   const fig = figs.find((f) => f.id === state.fig) || figs[0];
+  const pool = d.pooling || {};
   const head = `<div class="ov-head"><p class="eyebrow">Research question</p><h1 class="ov-q">${esc(p.question)}</h1>
     <p class="ov-hyp">${esc(p.hypothesis)}</p></div>`;
-  const headlines = heads.length ? section("What we've found", `<ol class="headlines">${heads.map((h) =>
-    `<li><p>${esc(h.text)}</p>${h.link ? `<a class="small" href="${esc(h.link)}">Details</a>` : ""}</li>`).join("")}</ol>`, `<span>updated ${esc(p.updated || "")}</span>`) : "";
+  const cards = qs.length ? section("Where the questions stand", `<p class="muted small q-note">Each number pools every full run that matches the measure (${esc(pool.split || "any split")}, judge ${esc(String(pool.judge || "any").split("/").pop())}), so it moves as runs accumulate. The dots are the runs one by one; a step usually means a rebuild or a protocol change.</p><div class="q-grid">${qs.map(questionCard).join("")}</div>`, `<span>status updated ${esc(p.updated || "")}</span>`) : "";
   const figSeg = figs.length > 1 ? `<div class="seg" role="group" aria-label="Figure">${figs.map((f, i) =>
     `<button type="button" data-fig="${esc(f.id)}" aria-pressed="${f === fig}">${i + 1}</button>`).join("")}</div>` : "";
-  const figure = fig ? section("Results", `<figure class="result-fig solo"><figcaption><b>${esc(fig.title)}</b></figcaption>
-    <picture><source media="(prefers-color-scheme: dark)" srcset="figures/${esc(fig.id)}-dark.svg"><img src="figures/${esc(fig.id)}-light.svg" alt="${esc(fig.title)}. ${esc(fig.caption)}"></picture>
+  const figure = fig ? section("Figures", `<figure class="result-fig solo"><figcaption><b>${esc(fig.title)}</b></figcaption>
+    <img src="figures/${esc(fig.id)}-${themeNow()}.svg" alt="${esc(fig.title)}. ${esc(fig.caption)}">
     <p class="muted small">${esc(fig.caption)}</p></figure>`, figSeg) : "";
   const status = `<div class="ov-status">
     <div><h3>Now</h3><p>${esc(p.focus)}</p></div>
     <div><h3>Next</h3><p>${esc(p.next)}</p></div>
-    <div><h3>Waiting on a decision</h3>${open.length ? `<ul class="plain">${open.map((q) => `<li><a href="#/notes/questions/${slugify(q.title)}">${esc(q.title)}</a></li>`).join("")}</ul>` : `<p class="muted">Nothing.</p>`}</div>
+    ${SITE.public ? "" : `<div><h3>Waiting on a decision</h3>${open.length ? `<ul class="plain">${open.map((q) => `<li><a href="#/notes/questions/${slugify(q.title)}">${esc(q.title)}</a></li>`).join("")}</ul>` : `<p class="muted">Nothing.</p>`}</div>`}
   </div>`;
-  $("view").innerHTML = head + headlines + figure + section("Status", status, `<a href="#/runs">All experiments</a><a href="#/notes/timeline">Timeline</a>`);
+  $("view").innerHTML = head + cards + section("Status", status, `<a href="#/runs">All experiments</a><a href="#/notes/timeline">Timeline</a>`) + figure;
   $("view").querySelectorAll("[data-fig]").forEach((b) => { b.onclick = () => { state.fig = b.dataset.fig; pageOverview(); }; });
 }
 
@@ -1085,6 +1118,27 @@ function pagePaper() {
 }
 
 /* ---------- Router ---------- */
+
+/* ---------- Theme ---------- */
+
+const THEMES = ["auto", "light", "dark"];
+const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
+function themeChoice() { try { return localStorage.getItem("theme") || "auto"; } catch (e) { return "auto"; } }
+function themeNow() { const t = document.documentElement.dataset.theme; return t || (systemDark.matches ? "dark" : "light"); }
+function applyTheme(choice) {
+  if (choice === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = choice;
+  try { if (choice === "auto") localStorage.removeItem("theme"); else localStorage.setItem("theme", choice); } catch (e) { /* private window */ }
+  const b = $("theme-btn");
+  if (b) b.textContent = `Theme: ${choice}`;
+}
+function wireTheme() {
+  const b = $("theme-btn");
+  if (!b) return;
+  applyTheme(themeChoice());
+  b.onclick = () => { applyTheme(THEMES[(THEMES.indexOf(themeChoice()) + 1) % THEMES.length]); if (SITE) route(); };
+  systemDark.addEventListener("change", () => { if (themeChoice() === "auto" && SITE) route(); });
+}
+wireTheme();
 
 function route() {
   const hash = location.hash === "#runs" ? "#/runs" : location.hash || "#/";

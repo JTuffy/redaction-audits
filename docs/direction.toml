@@ -5,33 +5,192 @@
 question = "When a lab redacts an audit report to protect its secrets, how much audit signal survives, and how much do the secrets still leak?"
 hypothesis = "Redaction is nearly free when secrets and evidence are separate. When the secret is the evidence, the kind of link decides what is safe: consistent pseudonyms keep identity links, only property-preserving generalization keeps magnitudes and dates, and markers can hide real violations or incriminate innocent labs."
 focus = "The honest executor is what keeps the signal under attack; consistent pseudonyms plus comparison-preserving generalization are what it should enforce."
-next = "Replicate on val; leakage under attack (scripts leave correlates); a model adversary for self-redaction via another provider; rebuild with the reworded skipped_eval claim; write it up for Cath."
+next = "Rerun the headline cells on the lab-background builds and replicate on val; read the executor's rulings on the link-break requests it granted; leakage under attack; a model adversary for self-redaction via another provider; decide whether and how the site goes public."
 updated = "2026-10-23"
 
-# Headline findings for the Overview, most important first. Keep each to one sentence.
+# Running findings for the Overview: the proposal's hypotheses (H1-H4) and our own (E1).
+# status: supported | partial | untested | refuted. `answer` is the current one-line reading.
+# Each measure is pooled over every full run (no `--limit`, no chosen samples) that matches its
+# policy, stance and set on the split and judge in [pooling]; the site computes the numbers.
+# metric: persistence | leakage | fnr | fpr | grant_rate | integrity_flags. set: disjoint |
+# entangled | all.
 
-[[headline]]
-text = "Redaction is free when secrets and evidence are separate: every policy keeps the signal on the disjoint scenarios."
-link = "#/notes/findings/does-editing-preserve-the-audit-signal"
+[pooling]
+split = "dev"
+judge = "openai/gpt-5.6-terra"
 
-[[headline]]
-text = "When the secret is the evidence, type markers cut the judge's separation by about a third and fail both ways: they hide real violations and make innocent labs look guilty."
-link = "#/notes/findings/does-redaction-cost-signal-when-the-secret-is-the-evidence"
+[[question]]
+id = "H1"
+title = "Text redaction keeps the most signal but leaks the most"
+status = "partial"
+answer = "It leaks the most. It keeps the signal only when secrets and evidence are separate; when they overlap it keeps the least."
+link = "#/notes/findings/how-much-do-secrets-leak"
 
-[[headline]]
-text = "Consistent pseudonyms keep identity links; only a generalization that keeps the comparison keeps numbers and dates."
-link = "#/notes/findings/does-redaction-cost-signal-when-the-secret-is-the-evidence"
+[[question.measure]]
+label = "Leakage · text redaction"
+metric = "leakage"
+policy = "text_redaction"
+stance = "honest"
+set = "all"
 
-[[headline]]
-text = "The honest executor is what holds under attack: a link-break attack keeps 0.52 of the entangled signal without it and 0.95 with it."
+[[question.measure]]
+label = "Leakage · contextual rewrite"
+metric = "leakage"
+policy = "contextual_rewrite"
+stance = "honest"
+set = "all"
+
+[[question.measure]]
+label = "Persistence · text redaction, entangled"
+metric = "persistence"
+policy = "text_redaction"
+stance = "honest"
+set = "entangled"
+
+[[question.measure]]
+label = "Persistence · contextual rewrite, entangled"
+metric = "persistence"
+policy = "contextual_rewrite"
+stance = "honest"
+set = "entangled"
+
+[[question]]
+id = "H2"
+title = "An adversarial advocate obscures the signal, most under contextual rewrite"
+status = "untested"
+answer = "Not answered: the model refused the cover-up role. As a red team it found a real attack, but with the executor the signal held."
 link = "#/notes/findings/does-the-executor-stop-an-adversarial-lab"
 
-[[headline]]
-text = "Literal redaction leaks through details around the value: about 0.85 of what the evidence reveals, against 0.2–0.4 for the model policies."
-link = "#/notes/findings/how-much-do-secrets-leak"
+[[question.measure]]
+label = "Persistence · contextual rewrite, red team, entangled"
+metric = "persistence"
+policy = "contextual_rewrite"
+stance = "red_team"
+set = "entangled"
+
+[[question.measure]]
+label = "Persistence · contextual rewrite, honest, entangled"
+metric = "persistence"
+policy = "contextual_rewrite"
+stance = "honest"
+set = "entangled"
+
+[[question]]
+id = "H3"
+title = "Without an honest executor, an adversarial lab cuts the signal sharply"
+status = "supported"
+answer = "Yes, as bounds from scripted attacks: link-break and evidence removal hurt only without the executor. A model adversary without one is unmeasured."
+link = "#/notes/findings/does-the-executor-stop-an-adversarial-lab"
+
+[[question.measure]]
+label = "Persistence · self-redaction, link-break, entangled"
+metric = "persistence"
+policy = "self_redaction"
+stance = "scripted_link"
+set = "entangled"
+
+[[question.measure]]
+label = "Persistence · contextual rewrite, link-break, entangled"
+metric = "persistence"
+policy = "contextual_rewrite"
+stance = "scripted_link"
+set = "entangled"
+
+[[question.measure]]
+label = "Persistence · self-redaction, removal, entangled"
+metric = "persistence"
+policy = "self_redaction"
+stance = "scripted_blatant"
+set = "entangled"
+
+[[question.measure]]
+label = "Persistence · contextual rewrite, removal, entangled"
+metric = "persistence"
+policy = "contextual_rewrite"
+stance = "scripted_blatant"
+set = "entangled"
+
+[[question]]
+id = "H4"
+title = "Under contextual rewrite, the executor blocks most attempts to soften the finding"
+status = "partial"
+answer = "The signal holds, but not by refusal: the executor grants most link-break requests and about four in ten removals, and the integrity check never fired. Read the rulings to see how a granted request leaves the link intact."
+link = "#/notes/findings/does-the-executor-stop-an-adversarial-lab"
+
+[[question.measure]]
+label = "Requests granted · link-break"
+metric = "grant_rate"
+policy = "contextual_rewrite"
+stance = "scripted_link"
+set = "all"
+
+[[question.measure]]
+label = "Requests granted · removal"
+metric = "grant_rate"
+policy = "contextual_rewrite"
+stance = "scripted_blatant"
+set = "all"
+
+[[question.measure]]
+label = "Integrity check flags · red team"
+metric = "integrity_flags"
+policy = "contextual_rewrite"
+stance = "red_team"
+set = "all"
+
+[[question]]
+id = "E1"
+title = "When the secret is the evidence, the kind of link decides what redaction is safe"
+status = "supported"
+answer = "Markers break both identity and magnitude links; consistent pseudonyms restore identity links; only comparison-preserving generalization restores numbers and dates."
+link = "#/notes/findings/does-redaction-cost-signal-when-the-secret-is-the-evidence"
+
+[[question.measure]]
+label = "Persistence · text redaction, disjoint"
+metric = "persistence"
+policy = "text_redaction"
+stance = "honest"
+set = "disjoint"
+
+[[question.measure]]
+label = "Persistence · text redaction, entangled"
+metric = "persistence"
+policy = "text_redaction"
+stance = "honest"
+set = "entangled"
+
+[[question.measure]]
+label = "Persistence · pseudonyms, entangled"
+metric = "persistence"
+policy = "text_pseudonym"
+stance = "honest"
+set = "entangled"
+
+[[question.measure]]
+label = "Persistence · generalize, entangled"
+metric = "persistence"
+policy = "text_generalize"
+stance = "honest"
+set = "entangled"
+
+[[question.measure]]
+label = "Missed violations · pseudonyms, entangled"
+metric = "fnr"
+policy = "text_pseudonym"
+stance = "honest"
+set = "entangled"
 
 # One entry per experiment thread, newest first. status: planned | running | open | settled | blocked
 # finding names the Findings section the thread feeds; runs lists recorded run names.
+
+[[experiment]]
+id = "background"
+title = "Background that can't be filtered"
+question = "Can planted lines be told from background by surface alone (source, format, length), without reading them?"
+status = "open"
+result = "Philly scheduler lines: surface AUROC 0.997. Lab-style background: about 0.62. Runs on the new builds pending."
+finding = "Can background be dropped without reading it?"
+runs = []
 
 [[experiment]]
 id = "adversary"

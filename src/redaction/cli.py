@@ -18,7 +18,9 @@ from redaction.data.blueprints import DEPTHS, catalog
 from redaction.data.generator import build_split
 from redaction.data.pipeline.build import build_split_v2, manifest, write_build
 from redaction.data.pipeline.model_render import ModelRenderer, ModelReviewer
+from redaction.data.pipeline.plan import BACKGROUND_STYLES
 from redaction.data.pipeline.render import Renderer, TemplateRenderer
+from redaction.data.pipeline.surface import SURFACE_AUROC_MAX
 from redaction.data.reports import templated_report
 from redaction.escalation.ablation import Condition
 from redaction.escalation.ablation_task import analyze_ablation, run_ablation
@@ -36,6 +38,8 @@ from redaction.infra.storage import write_jsonl
 from redaction.paper.build import compile_paper, publish, watch, write_generated
 from redaction.paper.figures import build_figures
 from redaction.viewer.build import build_site
+from redaction.viewer.public import lint_site
+from redaction.viewer.public import publish as publish_public
 
 app = typer.Typer(no_args_is_help=True, help=__doc__)
 data_app = typer.Typer(no_args_is_help=True, help="Scenario data shared by both proposals.")
@@ -113,6 +117,10 @@ def build(
     latest: Annotated[
         bool, typer.Option(help="Point LATEST at this build (runs read LATEST).")
     ] = True,
+    background: Annotated[
+        str,
+        typer.Option(help="'lab' (lines in the evidence's own style) or 'philly' (old builds)."),
+    ] = "lab",
     fallback: Annotated[
         str | None,
         typer.Option(help="Model that renders an attempt the main renderer refuses."),
@@ -124,6 +132,8 @@ def build(
     settings = get_settings()
     if depth not in (*DEPTHS, "benchmark"):
         raise typer.BadParameter(f"depth must be one of {(*DEPTHS, 'benchmark')}")
+    if background not in BACKGROUND_STYLES:
+        raise typer.BadParameter(f"background must be one of {BACKGROUND_STYLES}")
     if cues not in {"verbatim", "paraphrase"}:
         raise typer.BadParameter("cues must be 'verbatim' or 'paraphrase'")
     paraphrase = cues == "paraphrase"
@@ -148,11 +158,15 @@ def build(
             max_attempts=attempts,
             paraphrase=paraphrase,
             depth=depth,
+            background=background,
         )
     )
     directory = write_build(result, settings.built_dir, background_jobs=len(jobs), latest=latest)
     summary = manifest(result, background_jobs=len(jobs))
     typer.echo(f"{directory}\n{summary['stages']}\nissues: {summary['issues']}")
+    surface = summary["surface_auroc"]
+    if isinstance(surface, float) and surface > SURFACE_AUROC_MAX:
+        log.warning("background_filterable", surface_auroc=surface, limit=SURFACE_AUROC_MAX)
 
 
 @app.command("site")
@@ -160,21 +174,61 @@ def site(
     bundle_logs: Annotated[
         bool, typer.Option(help="Bundle Inspect logs into the site's Runs tab.")
     ] = True,
+    public: Annotated[
+        bool, typer.Option(help="Build the public profile into REDACTION_PUBLIC_SITE_DIR.")
+    ] = False,
 ) -> None:
     """Build the static viewer (data pipeline and runs) into REDACTION_SITE_DIR."""
+    out = _build_viewer(public=public, bundle_logs=bundle_logs)
+    typer.echo(str(out))
+    if public:
+        issues = lint_site(out)
+        for issue in issues:
+            typer.echo(issue)
+        typer.echo(f"public lint: {len(issues)} issue(s)")
+
+
+def _build_viewer(*, public: bool, bundle_logs: bool = True) -> Path:
     settings = get_settings()
-    out = build_site(
+    return build_site(
         built_dir=settings.built_dir,
         results_dir=settings.results_dir,
-        log_dir=settings.inspect_log_dir if bundle_logs else None,
-        out_dir=settings.site_dir,
+        log_dir=settings.inspect_log_dir if bundle_logs and not public else None,
+        out_dir=settings.public_site_dir if public else settings.site_dir,
         ledger_dir=settings.ledger_dir,
         notes_dir=settings.notes_dir,
         paper_dir=settings.paper_dir,
         direction_file=settings.direction_file,
         blueprints=catalog(),
+        public=public,
     )
-    typer.echo(str(out))
+
+
+@app.command("publish")
+def publish_site(
+    push: Annotated[
+        bool, typer.Option(help="Commit and push to REDACTION_PUBLIC_REPO. Off: a dry run.")
+    ] = False,
+) -> None:
+    """Build the public site, lint it, and (with --push) push it to the Pages repo."""
+    settings = get_settings()
+    out = _build_viewer(public=True)
+    issues = lint_site(out)
+    for issue in issues:
+        typer.echo(issue)
+    if issues:
+        typer.echo(f"not publishing: {len(issues)} lint issue(s); fix the sources")
+        raise typer.Exit(code=1)
+    if push and not settings.public_repo:
+        typer.echo("REDACTION_PUBLIC_REPO is not set; see docs/publishing.md")
+        raise typer.Exit(code=1)
+    steps = publish_public(
+        out,
+        settings.public_repo or "<REDACTION_PUBLIC_REPO>",
+        push=push,
+        work_dir=settings.public_site_dir.parent / "public-checkout",
+    )
+    typer.echo(("pushed:\n" if push else "dry run, would run:\n") + "\n".join(steps))
 
 
 @p1_app.command("run")

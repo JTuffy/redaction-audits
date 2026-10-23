@@ -2,51 +2,58 @@
 
 One line per decision, newest first, with the reason. Change a line only to mark a decision as reversed, and say why.
 
+"Planning session" rows came from a question-and-answer session in which Claude asked the questions a mentor would and Josh answered; they are the project's decisions, not the mentor's.
+
 | Date | Decision | Why |
 |---|---|---|
+| 2026-10-23 | Benchmark rebuilt with lab-style background: dev `df752f7876` 80/80, val `2c18bc99df` 78/80. Two blueprint variants reordered so an approval precedes the change it covers (classifier migration, opt-out re-consent). | The blind reviewer flagged them on the rebuild. |
+| 2026-10-23 | Background lines are lab-style: the evidence's own sources and `key=value` style, job sizes and outcomes from the Philly sample, and a few harmless near-misses that name the scenario's own run or team. Each build reports how well surface features alone separate planted lines from background (`surface_auroc`; Philly 0.997, lab 0.62). | The Philly `job app-…` lines could be dropped by source and format without reading them. |
+| 2026-10-23 | The Overview shows running findings: each proposal hypothesis with its measures pooled over every full matching run (same split and judge), a bootstrap interval and per-run values. Runs pages separate Inputs from Results; settled experiments fold into an Archive. | One run is not a result; the Overview should show where the evidence stands. |
+| 2026-10-23 | A public build profile (`redaction site --public`): no Questions page, no Inspect transcripts, no test split, and a lint that fails on names, money, local paths and hostnames. Publishing waits on the mentor's go-ahead. | The private site is a working space; a public page needs a deliberate boundary. |
+| 2026-10-23 | Decision reasons no longer quote conversations; rows from the simulated mentor session are labelled "Planning session". | They read as the mentor's decisions, and quotes from chats don't belong in project notes. |
 | 2026-10-23 | AUROC and persistence are always computed over violations against red herrings, as in the spec, in the figures and the site's by-set tables too. | Some recomputations had counted clean cases as negatives, which understated the effects (for example text redaction's entangled persistence 0.63 instead of 0.52). Findings now uses the spec definition throughout. |
 | 2026-10-23 | Benchmark rebuilt with the reworded skipped_eval claim: dev `6df2f41adb`, val `6e44523e30`, 80/80 kept. | The previous claim read as approval timing and the reviewer dropped two cells per split. |
-| 2026-10-23 | Site reorganized: Data holds every input (scenarios, composition, checks, blueprints, secret registry); run pages show their setup first; the Overview shows headline findings, one figure at a time and status. | Josh: separate inputs from results; Overview too busy. |
-| 2026-10-23 | Notes reviewed: Findings opens with a summary; Pipeline describes the current pipeline with an archive; Protocol covers all policies and stances; Questions keeps only open questions. | Josh asked to review and brush up all notes. |
-| 2026-10-23 | Adversary harness: scripted link-break and remove-evidence stances (no model), and a red-team framing for the advocate model. New policy text generalize. Result figures drawn from recorded runs (`redaction paper figures`). | Josh: "let's do that". The scripted stances give bounds that don't depend on a model agreeing to cheat. |
-| 2026-10-22 | The benchmark is one build per split: the disjoint (original) set plus the entangled set for all six types; `data build` defaults to it and it is LATEST. Scenario IDs carry the set (`dev-e012-…`). The deep draft is archived. | Josh asked why there was "dev" and "dev deep". Entanglement is the variable, so both sets belong in one build. |
+| 2026-10-23 | Site reorganized: Data holds every input (scenarios, composition, checks, blueprints, secret registry); run pages show their setup first; the Overview shows headline findings, one figure at a time and status. | Review of the site: inputs and results were mixed, and the Overview was too busy. |
+| 2026-10-23 | Notes reviewed: Findings opens with a summary; Pipeline describes the current pipeline with an archive; Protocol covers all policies and stances; Questions keeps only open questions. | Notes review. |
+| 2026-10-23 | Adversary harness: scripted link-break and remove-evidence stances (no model), and a red-team framing for the advocate model. New policy text generalize. Result figures drawn from recorded runs (`redaction paper figures`). | The next step after the entanglement results. The scripted stances give bounds that don't depend on a model agreeing to cheat. |
+| 2026-10-22 | The benchmark is one build per split: the disjoint (original) set plus the entangled set for all six types; `data build` defaults to it and it is LATEST. Scenario IDs carry the set (`dev-e012-…`). The deep draft is archived. | Two dev builds side by side were confusing. Entanglement is the variable, so both sets belong in one build. |
 | 2026-10-22 | New policy: text pseudonyms (consistent pseudonyms by script). | Tests the first protocol option directly. It restores identity links, not magnitudes. |
 | 2026-10-22 | Removed val build `633ff46daf`; older builds stay because recorded runs used them. The site shows only LATEST. | Clean-up. |
 | 2026-10-22 | Entangled draft (`--depth entangled`) for opted_out_data, classifier_off and unreported_compute. Scenarios carry `confidential` values: a second customer or codename, redacted like a secret but not scored. Pseudonyms are consistent per value (Customer A, Customer B); markers are per type. | Persistence can only move when the secret is the evidence (Findings). |
 | 2026-10-22 | Unedited-only judge runs are labelled "Judge only"; "Re-ask" is kept for cache-off noise runs, and runs now record `cache_replies`. | The site was showing build comparisons as noise re-asks, compared against an older build. |
-| 2026-10-22 | `docs/direction.toml` holds the question, hypothesis, focus and experiment threads; the Overview page and run grouping come from it; runs take `--experiment`. | Josh asked for visibility into the direction without being overwhelmed. |
-| 2026-10-22 | Deep variants drafted for three types (cot_in_training, opted_out_data, classifier_off): five or six evidence lines per scenario, one shared skeleton per type, label decided by a relation between lines. Built with `--depth deep`, alongside the original set. | Josh, mentor grill: the scenarios lack "sufficient logs or depth"; scale-up waits on better scenarios. |
-| 2026-10-22 | Model families: the template build stays the headline; the second label reviewer is GPT-5.6; a third-family reviewer and fallback renderer when a key is available. | Josh delegated this. The judge (GPT-5.6 Terra) is OpenAI and the executor Anthropic. A second reviewer from either family shares blind spots with one role, so the third family is the clean fix, and is noted as open. |
-| 2026-10-22 | Lead the MVP with the leakage contrast (text redaction 0.86 vs 0.27 and 0.20). | Mentor grill. |
-| 2026-10-22 | Add a summary policy: the executor writes a summary of the evidence instead of editing it. | Mentor grill: puts a second rung of the brief's access ladder on the curve. |
-| 2026-10-22 | Paper target: NeurIPS Datasets & Benchmarks track. | Mentor grill. |
-| 2026-10-22 | Report the honest and the adversarial lab separately: leakage leads the first, persistence the second. | Mentor grill. |
-| 2026-10-22 | Scope stated plainly: P1 measures whether a finding survives redaction, not whether it is found. Model auditor after the adversaries. | Mentor grill. |
-| 2026-10-22 | Variants and adversaries in parallel. The adversary gets a better harness (a model that will play the role), with scripted attacks as bounds. | Mentor grill; Josh: "we can work around this, maybe with better harness". |
-| 2026-10-22 | Second label reviewer from another model family, no human pass yet. | Mentor grill. |
-| 2026-10-22 | Full dev and val runs wait for the deeper scenarios. | Mentor grill (Josh's note). |
-| 2026-10-22 | Self-redaction is the no-executor baseline: the executor's value is the gap to contextual rewrite. | Mentor grill. |
-| 2026-10-22 | Separate the redaction-display choices in the ablation: marker alone, marker with rationale, pseudonym. | Mentor grill (Josh: see these choices separated). |
-| 2026-10-22 | FOIA redaction benchmarks: related work only. ZK proofs and TEEs: out of scope. Realism: internal validity only, stated in limitations. | Mentor grill. |
-| 2026-10-22 | Repo goes public at paper time; test split released as a sealed eval. No weekly update this week. | Mentor grill. |
-| 2026-10-22 | The paper lives in `paper/` (NeurIPS 2025 style, compiled with Tectonic), with a live Paper page on the site. Numbers in the text come from generated macros. | Josh asked for a live paper page. Overleaf has no plugin API and its Git sync needs a paid plan; generated numbers can't drift from the runs. |
+| 2026-10-22 | `docs/direction.toml` holds the question, hypothesis, focus and experiment threads; the Overview page and run grouping come from it; runs take `--experiment`. | The direction should be visible on the site without overwhelming it. |
+| 2026-10-22 | Deep variants drafted for three types (cot_in_training, opted_out_data, classifier_off): five or six evidence lines per scenario, one shared skeleton per type, label decided by a relation between lines. Built with `--depth deep`, alongside the original set. | Planning session: the scenarios lacked logs and depth; scale-up waits on better scenarios. |
+| 2026-10-22 | Model families: the template build stays the headline; the second label reviewer is GPT-5.6; a third-family reviewer and fallback renderer when a key is available. | Delegated to Claude. The judge (GPT-5.6 Terra) is OpenAI and the executor Anthropic. A second reviewer from either family shares blind spots with one role, so the third family is the clean fix, and is noted as open. |
+| 2026-10-22 | Lead the MVP with the leakage contrast (text redaction 0.86 vs 0.27 and 0.20). | Planning session. |
+| 2026-10-22 | Add a summary policy: the executor writes a summary of the evidence instead of editing it. | Planning session: puts a second rung of the brief's access ladder on the curve. |
+| 2026-10-22 | Paper target: NeurIPS Datasets & Benchmarks track. | Planning session. |
+| 2026-10-22 | Report the honest and the adversarial lab separately: leakage leads the first, persistence the second. | Planning session. |
+| 2026-10-22 | Scope stated plainly: P1 measures whether a finding survives redaction, not whether it is found. Model auditor after the adversaries. | Planning session. |
+| 2026-10-22 | Variants and adversaries in parallel. The adversary gets a better harness (a model that will play the role), with scripted attacks as bounds. | Planning session: work around the refusals with a better harness rather than drop the adversary. |
+| 2026-10-22 | Second label reviewer from another model family, no human pass yet. | Planning session. |
+| 2026-10-22 | Full dev and val runs wait for the deeper scenarios. | Planning session. |
+| 2026-10-22 | Self-redaction is the no-executor baseline: the executor's value is the gap to contextual rewrite. | Planning session. |
+| 2026-10-22 | Separate the redaction-display choices in the ablation: marker alone, marker with rationale, pseudonym. | Planning session: the display choices should be measured separately. |
+| 2026-10-22 | FOIA redaction benchmarks: related work only. ZK proofs and TEEs: out of scope. Realism: internal validity only, stated in limitations. | Planning session. |
+| 2026-10-22 | Repo goes public at paper time; test split released as a sealed eval. | Planning session. |
+| 2026-10-22 | The paper lives in `paper/` (NeurIPS 2025 style, compiled with Tectonic), with a live Paper page on the site. Numbers in the text come from generated macros. | A live paper page was wanted. Overleaf has no plugin API and its Git sync needs a paid plan; generated numbers can't drift from the runs. |
 | 2026-10-22 | Cues stay verbatim in the reference build; paraphrase mode stays available. | Built both: separation was unchanged (AUROC 1.00 vs 0.99), so the variants, not the tokens, make the task easy. |
 | 2026-10-22 | Dev `LATEST` is the template build; the model-rendered builds are kept beside it. | Rephrasing didn't change difficulty, and the template build has no renderer-family confound. |
 | 2026-10-22 | Renderer refusals are their own issue. The render prompt says the data is synthetic, and GPT-5.6 renders any attempt Sonnet refuses (`--fallback`). | Sonnet 5.5's content filter refused 40–45% of render requests, mostly about monitoring and classifiers, which the validator had logged as hundreds of empty lines. |
 | 2026-10-22 | Fixed the claims of skipped_eval, monitoring_off and opted_out_data, and four variants, after the blind reviewer disagreed with 15 scenarios. | Every disagreement was a blueprint bug (see Findings, "Are the labels right?"). |
-| 2026-10-22 | The scenarios are a controlled benchmark, and the scenario set is itself a deliverable: versioned, documented, labels validated, test split held out. | Pipeline review. Cath named a redaction benchmark as the workstream's main output. |
+| 2026-10-22 | The scenarios are a controlled benchmark, and the scenario set is itself a deliverable: versioned, documented, labels validated, test split held out. | Pipeline review. A redaction benchmark is the workstream's main output. |
 | 2026-10-22 | Stay with log scenarios for P1; build an agent-transcript scenario type as v3 afterwards. | Pipeline review. The threat models put evidence in agent sessions, but P1's first results shouldn't wait. |
-| 2026-10-22 | Validate labels with the blind model reviewer on every build first; a human pass only if that raises doubts. | Pipeline review (Josh's note). Labels are the part he trusts least. |
+| 2026-10-22 | Validate labels with the blind model reviewer on every build first; a human pass only if that raises doubts. | Pipeline review. Labels are the least trusted part of the pipeline. |
 | 2026-10-22 | Widen the registry to 8–12 options per secret. | Pipeline review. Recovering one of four is too easy. |
 | 2026-10-22 | Judge both ways: a frontier judge (upper bound) and a weaker one (realistic reader). | Pipeline review. |
 | 2026-10-22 | Model auditor only after the adversaries are measured. | Pipeline review. |
 | 2026-10-22 | Leakage: exact-value leakage stays the headline, with entropy reduction alongside; also reported by correlate strength. | Pipeline review (delegated, then chosen). Exact value misses narrowing. |
 | 2026-10-22 | Difficulty: the MVP gate stays on designed difficulty, with empirical bins (judge's unedited score) as a second view. | Pipeline review (delegated). |
-| 2026-10-22 | A hard red herring closely matches a violation and takes careful cross-analysis to clear. | Josh's definition. One decisive token can't produce this, so the blueprints need redesigning. |
-| 2026-10-22 | Hand-write 2–3 variants per label per violation type; Claude drafts, Josh reviews. Keep the six types. | Pipeline review. One template per cell risks measuring the template. |
+| 2026-10-22 | A hard red herring closely matches a violation and takes careful cross-analysis to clear. | Definition agreed in the pipeline review. One decisive token can't produce this, so the blueprints need redesigning. |
+| 2026-10-22 | Hand-write 2–3 variants per label per violation type; Claude drafts, a person reviews. Keep the six types. | Pipeline review. One template per cell risks measuring the template. |
 | 2026-10-22 | Test split: keep its composition; report AUROC on violations vs red herrings and FPR on clean separately. | Pipeline review (delegated). Clean-heavy test gives realistic base rates for false positives. |
-| 2026-10-22 | Keep real Philly background lines and the noise secret. More correlates: a model proposes, code checks each recovers its value alone. | Pipeline review. |
-| 2026-10-22 | Redwood transcripts: later, as a held-out eval that Cath runs. | Pipeline review. They can't be shared. |
+| 2026-10-22 | Keep real Philly background lines and the noise secret (superseded 2026-10-23: background is now lab-style). More correlates: a model proposes, code checks each recovers its value alone. | Pipeline review. |
+| 2026-10-22 | Third-party agent transcripts: later, as a held-out eval run by whoever holds them. | Pipeline review. They can't be shared. |
 | 2026-10-22 | Commit the dev and val builds; make a model-rendered build now. | Pipeline review. |
 | 2026-10-22 | The CLI loads the repo `.env` with override. | A user-level `OPENAI_API_KEY` on the PC silently replaced the experiment key and every judge call failed with 401. |
 | 2026-10-22 | Added a Questions page for open design questions. | One place to review and decide; decided questions move here. |
@@ -59,5 +66,5 @@ One line per decision, newest first, with the reason. Change a line only to mark
 | 2026-10-21 | Each recorded run rebuilds the viewer. | The site had gone stale and was down without anyone noticing. |
 | 2026-10-21 | Judge reasoning effort `low`. | GPT-5.6 Terra rejects `minimal`; this is only a proof of concept, so `low` was fine. |
 | 2026-10-21 | Reworded the self-redaction prompt about log IDs. | The advocate read “spans that contain a log ID are never changed” as “log lines can't be edited” and requested nothing. |
-| 2026-10-21 | API keys live only in the repo's `.env`, funded with $40 per provider. | Josh: keep these keys specific to these experiments. |
+| 2026-10-21 | API keys live only in the repo's git-ignored `.env`, on a small budget per provider. | The keys are scoped to these experiments only. |
 | 2026-10-21 | Start small: 3 scenarios, then a 12-scenario mixed subset, before full splits. | Find protocol bugs cheaply. |

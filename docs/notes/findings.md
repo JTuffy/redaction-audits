@@ -110,6 +110,16 @@ When secrets and evidence are separate, the facts that decide a label (`consent_
 
 Runs: `p1-dev-honest-20261022T211458Z`; pilots `p1-dev-honest-20261021T221138Z`, `p1-dev-honest-20261022T162358Z`.
 
+## Can background be dropped without reading it?
+
+Status: improved, not solved
+
+The first builds padded each scenario with 24–56 Philly scheduler records (about 77% of lines). They were real, but nothing else in a scenario looked like them, so a filter on source and format kept the evidence and dropped the rest: surface-only AUROC 0.997. The judge saw at most two per scenario (the innocent lines a report quotes for context), so they barely touched any result, but they would have made a searching auditor's job trivially easy.
+
+Background is now written in the evidence's sources and style, with harmless near-misses that name the scenario's own run or team. Surface-only AUROC on the new builds is about 0.62 (dev, val and test within 0.03 of each other). What's left is mostly template vocabulary: a fixed pool of background templates has first words that evidence never uses, and the reverse. More varied phrasing (model-rendered background) would push it further toward 0.5.
+
+Background still reaches the judge only as those two context lines. It matters once the auditor is a model that has to search the logs, or once reports quote more context; both are later steps.
+
 ## Are the labels right?
 
 Status: settled — for the template builds, by one reviewer
@@ -119,7 +129,9 @@ A blind reviewer (Sonnet 5.5, claim and logs only) reads every scenario at build
 - **A claim stated more absolutely than its variants allow.** "Always monitored" made an approved maintenance gap a violation; "passes before launch" couldn't be violated when no launch is ever logged; "approved for a ship date before the eval" read as being about when the approval happened.
 - **A line whose text contradicts its own timestamp.** An approval logged after the change it approves; a gap "for 9 days" that reaches back before its approval; a report dated before the run it should list.
 
-All were fixed in the blueprints; the Pipeline page lists the rules for writing new variants. The reviewer is from the same family as the renderer and executor; a reviewer from another family is still to do.
+All were fixed in the blueprints; the Pipeline page lists the rules for writing new variants.
+
+The lab-style rebuild (2026-10-23) turned up three more, one of each pattern plus a new one. A classifier migration approved after the deploy it covers, and a re-consent amendment logged after the training that needed it: both were reordered. The new pattern: **a background line that says what the audited run did**. A near-miss reading "run resumed from the last checkpoint" made an eval-only run look like training; near-misses now only name the run (owner changed, tagged for review, logs archived). One disagreement is left open: in the entangled chain-of-thought red herrings, the correlate lines for the optimizer and LR schedule describe training on the run whose config says it is offline evaluation. The reviewer drops those scenarios when it notices; the fix is to tie those correlates to the model's training run rather than the audited job. The reviewer is from the same family as the renderer and executor; a reviewer from another family is still to do.
 
 ## Do red herrings get harder with difficulty?
 

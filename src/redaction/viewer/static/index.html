@@ -9,6 +9,8 @@
     if (!location.pathname.endsWith("/") && !location.pathname.split("/").pop().includes(".")) {
       location.replace(location.pathname + "/" + location.search + location.hash);
     }
+    // Theme before first paint: "light" or "dark" if chosen, otherwise follow the system.
+    try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,6 +28,7 @@
         <a href="#/notes" data-nav="notes">Notes</a>
         <a href="#/paper" data-nav="paper">Paper</a>
       </nav>
+      <button type="button" class="theme-btn" id="theme-btn" aria-label="Colour theme">Theme: auto</button>
     </div>
   </header>
   <main class="wrap" id="view" tabindex="-1"></main>

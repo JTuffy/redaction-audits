@@ -44,9 +44,9 @@ Within a set, each split has 30% violations, 45% red herrings and 25% clean (tes
 
 `redaction data build --split <split>` runs four stages (`data/pipeline/`). Code fixes every fact before any text is written, so ground truth never depends on what a model chose to write.
 
-1. **Plan** fixes the label, the evidence lines, the secret values and every other line: the evidence (three lines disjoint, four to six entangled), one or two correlate lines per secret, one line naming the noise secret, four lines of lab chatter, and 24–56 real scheduler records from Microsoft's Philly GPU trace.
-2. **Render** turns the plan into log text. The template renderer copies it; a model renderer (`--renderer`) rephrases every line except the real records and must keep secret values and cues exactly (or, with `--cues paraphrase`, state cues in plain words).
-3. **Validate** runs eight code checks (one line per planned line, real records unchanged, values and cues kept, correlates kept and not stating the value, no other option of a secret, no violation-only token in a non-violation, no repeated lines), then a blind model reviewer that sees only the claim and the logs and must read the label correctly.
+1. **Plan** fixes the label, the evidence lines, the secret values and every other line: the evidence (three lines disjoint, four to six entangled), one or two correlate lines per secret, one line naming the noise secret, and 24–56 background lines. Background is written in the evidence's own sources and `key=value` style (training jobs, dataset manifests, governance checks, deploys, incidents, legal and finance records), with job sizes, durations and failures taken from Microsoft's Philly GPU trace, and three harmless lines that name the scenario's own run or team. A background line is dropped if it contains any secret option, any cue token or any violation-only token, so it can't move a label or leak a secret. Builds before 2026-10-23 used raw Philly scheduler lines (`job app-…`) and four fixed sentences instead (`--background philly` reproduces them).
+2. **Render** turns the plan into log text. The template renderer copies it; a model renderer (`--renderer`) rephrases every line except the background and must keep secret values and cues exactly (or, with `--cues paraphrase`, state cues in plain words).
+3. **Validate** measures whether background can be dropped without reading it (`surface_auroc`: a small classifier sees only each line's source, first word, length, `key=value` count and ID shapes, trains on half the violation types and scores the other half; 0.5 means the surface gives nothing away), then runs eight code checks (one line per planned line, background unchanged, values and cues kept, correlates kept and not stating the value, no other option of a secret, no violation-only token in a non-violation, no repeated lines), then a blind model reviewer that sees only the claim and the logs and must read the label correctly.
 4. **Freeze** writes the kept scenarios, plans, per-scenario records and a manifest to `data/built/<split>/<version>/`. The version is a hash of the plans and every setting that changes the output; `LATEST` names the current build, and runs read it.
 
 Correlates are details that reveal a secret without stating it: a 140 GB bf16 checkpoint gives away 70B parameters, a handle like `m.ellery` gives away Marcus Ellery. They are identifying (enough to recover the value) or narrowing (rule some values out).
@@ -59,10 +59,12 @@ The auditor is templated. Its report quotes every key-evidence line, every corre
 
 | Split | Build | Kept |
 |---|---|---|
-| dev | `6df2f41adb` (LATEST) | 80/80 |
-| val | `6e44523e30` (LATEST) | 80/80 |
+| dev | `df752f7876` (LATEST) | 80/80 |
+| val | `2c18bc99df` (LATEST) | 78/80 |
 
-The benchmark results on the Findings page used the previous benchmark builds (dev `8840a8ae5f`, val `b8806c377a`), identical except that two skipped_eval cells per split were dropped there: the claim read as being about when the approval happened, and the reviewer rejected them. Older builds stay in `data/built/` because recorded runs used them; the site shows only LATEST.
+These are the first lab-background builds (surface AUROC 0.62 dev, 0.65 val). Val drops two red herrings at review: an entangled chain-of-thought one (an open blueprint issue, see Findings, "Are the labels right?") and an entangled skipped_eval one whose review reply didn't parse.
+
+No runs use these builds yet. The benchmark results on the Findings page used the earlier Philly-background builds: dev `8840a8ae5f` and val `b8806c377a` for most runs, and dev `6df2f41adb`, val `6e44523e30` after the skipped_eval claim was reworded. Older builds stay in `data/built/` because recorded runs used them; the site shows only LATEST.
 
 ## Rules for writing variants
 
