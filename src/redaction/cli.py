@@ -23,6 +23,7 @@ from redaction.data.pipeline.plan import BACKGROUND_STYLES
 from redaction.data.pipeline.render import Renderer, TemplateRenderer
 from redaction.data.pipeline.surface import SURFACE_AUROC_MAX
 from redaction.data.reports import templated_report
+from redaction.data.sim.build import build_sim, write_sim
 from redaction.escalation.ablation import Condition
 from redaction.escalation.ablation_task import analyze_ablation, run_ablation
 from redaction.escalation.analysis import analyze_run
@@ -168,6 +169,30 @@ def build(
     surface = summary["surface_auroc"]
     if isinstance(surface, float) and surface > SURFACE_AUROC_MAX:
         log.warning("background_filterable", surface_auroc=surface, limit=SURFACE_AUROC_MAX)
+
+
+@data_app.command("simulate")
+def simulate_cmd(
+    n: Annotated[int, typer.Option(help="How many scenarios to simulate.")] = 20,
+    renderer: Annotated[
+        str, typer.Option(help="'template', or a model that phrases the lines.")
+    ] = "template",
+    review: Annotated[bool, typer.Option(help="Run the blind label check.")] = True,
+    fallback: Annotated[
+        str | None, typer.Option(help="Model that renders an attempt the main renderer refuses.")
+    ] = None,
+) -> None:
+    """Simulate classifier-off scenarios (world, computed label, text) into data/built/sim-*."""
+    settings = get_settings()
+    chosen: Renderer = (
+        TemplateRenderer() if renderer == "template" else ModelRenderer(renderer, fallback=fallback)
+    )
+    reviewer = ModelReviewer(settings.reviewer_model) if review else None
+    result, attributes = asyncio.run(build_sim(n, chosen, reviewer=reviewer))
+    key = "template" if renderer == "template" else "model"
+    directory = write_sim(result, attributes, settings.built_dir / f"sim-{key}")
+    summary = manifest(result, background_jobs=0)
+    typer.echo(f"{directory}\n{summary['stages']}\nissues: {summary['issues']}")
 
 
 @app.command("site")
