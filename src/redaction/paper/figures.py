@@ -305,7 +305,7 @@ MODEL_POLICIES: Final = (("contextual_rewrite", "With executor"), ("self_redacti
 
 def adversary(runs_dir: Path, runs: list[str], theme: Theme) -> Figure:
     """Persistence on entangled scenarios per adversary stance, with and without the executor."""
-    fig = _figure(theme, (6.4, 2.9))
+    fig = _figure(theme, (6.4, 3.2))
     ax = fig.add_subplot(1, 1, 1)
     _style(ax, theme)
     labels = []
@@ -320,7 +320,7 @@ def adversary(runs_dir: Path, runs: list[str], theme: Theme) -> Figure:
             if point is None:
                 ax.annotate(
                     f"{policy_name}: not run (model refused)",
-                    (0.02, y),
+                    (-0.27, y),
                     fontsize=8,
                     color=theme.muted,
                     va="center",
@@ -357,8 +357,15 @@ def adversary(runs_dir: Path, runs: list[str], theme: Theme) -> Figure:
         Line2D([], [], ls="", marker="os"[k], color=theme.series[k], markersize=7, label=name)
         for k, (_, name) in enumerate(MODEL_POLICIES)
     ]
-    ax.legend(handles=handles, frameon=False, fontsize=8.5, labelcolor=theme.ink, loc="lower left")
-    fig.tight_layout()
+    fig.legend(
+        handles=handles,
+        loc="lower center",
+        ncol=2,
+        frameon=False,
+        fontsize=8.5,
+        labelcolor=theme.ink,
+    )
+    fig.tight_layout(rect=(0, 0.07, 1, 1))
     return fig
 
 
