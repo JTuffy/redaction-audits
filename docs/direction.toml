@@ -4,8 +4,8 @@
 [project]
 question = "When a lab redacts an audit report to protect its secrets, how much audit signal survives, and how much do the secrets still leak?"
 hypothesis = "Redaction is nearly free when secrets and evidence are separate. When the secret is the evidence, the kind of link decides what is safe: consistent pseudonyms keep identity links, only property-preserving generalization keeps magnitudes and dates, and markers can hide real violations or incriminate innocent labs."
-focus = "Rerunning the headline cells on the lab-background builds. Working hypothesis: the honest executor is what keeps the signal under attack, by enforcing consistent pseudonyms and comparison-preserving generalization."
-next = "Rerun the headline cells on the lab-background builds and replicate on val; leakage under attack; a model adversary for self-redaction via another provider; embed the public site in a Google Site."
+focus = "Scaling the benchmark: honest intervals on v2 first (clustered by evidence skeleton, per type), then a small simulator demo that draws scenario attributes from distributions instead of fixed rules."
+next = "Simulator demo for one violation type; then v3 at about 5x scale with model rendering, a structural test hold-out and a 60-scenario human label check; rerun the headline cells; realism tier on MALT transcripts after."
 updated = "2026-10-23"
 
 # Running findings for the Overview: the proposal's hypotheses (H1-H4) and our own (E1).
@@ -201,6 +201,69 @@ metric = "fnr"
 policy = "text_pseudonym"
 stance = "honest"
 set = "entangled"
+
+# Follow-up questions: each tweaks one thing on the same dataset and harness, so the paper can
+# answer many questions with one vetted benchmark. status: idea | planned | running | done.
+
+[[followup]]
+id = "ceiling"
+question = "Do the results hold when the judge isn't at ceiling on unedited evidence?"
+tweak = "An easy and a hard tier, or a mix tuned so the frontier judge sits near 0.8 unedited; report absolute AUROC drop beside persistence."
+status = "idea"
+
+[[followup]]
+id = "lexical"
+question = "How much of the signal rests on one explicit token rather than on reading lines together?"
+tweak = "Measure single-line decidability and label-exclusive tokens per build; report, don't gate."
+status = "idea"
+
+[[followup]]
+id = "entanglement-dose"
+question = "How does persistence fall as more of the finding's links run through secrets?"
+tweak = "Entanglement as a measured attribute (0 to 3+ secret links), analysed as a covariate, not a category."
+status = "planned"
+
+[[followup]]
+id = "org-secrets"
+question = "Does redaction behave differently when the secret is organizational structure rather than a value?"
+tweak = "New secret and violation families away from obvious answers: who reports to whom, which team owns a model, who approved what."
+status = "idea"
+
+[[followup]]
+id = "judge-strength"
+question = "Does a weaker reader lose more signal from the same redactions?"
+tweak = "Same edits judged by GPT-5-mini and GPT-5.6 Terra (and a third family)."
+status = "idea"
+
+[[followup]]
+id = "attack-leakage"
+question = "How much leaks when the lab is adversarial?"
+tweak = "Leakage under the scripted and red-team stances, by correlate strength."
+status = "planned"
+
+[[followup]]
+id = "model-adversary"
+question = "How much does a model adversary cut the signal without an executor?"
+tweak = "An advocate from another provider for both arms."
+status = "planned"
+
+[[followup]]
+id = "display"
+question = "Does the redaction display (marker, marker with reason, pseudonym) move the judge by itself?"
+tweak = "The marker ablation at v3 scale."
+status = "idea"
+
+[[followup]]
+id = "model-auditor"
+question = "Do the results transfer when an auditor must find the evidence itself?"
+tweak = "Model auditor on the realism tier (evidence planted in MALT transcripts)."
+status = "planned"
+
+[[followup]]
+id = "aggregation"
+question = "Does leakage add up across several redacted reports about the same lab?"
+tweak = "Multiple reports per lab, scored jointly; the bridge to P2."
+status = "idea"
 
 # One entry per experiment thread, newest first. status: planned | running | open | settled | blocked
 # finding names the Findings section the thread feeds; runs lists recorded run names.

@@ -112,19 +112,50 @@ def metric(name: str, samples: Sequence[dict[str, Any]]) -> float | None:
 
 
 def _interval(name: str, samples: Sequence[dict[str, Any]]) -> tuple[float, float] | None:
-    """A percentile bootstrap over scenarios (deterministic), or None if too few."""
+    """A percentile cluster bootstrap (deterministic), or None if too few.
+
+    Samples that share a `cluster` (the same set, type, label, difficulty and hand-written
+    variant, so the same evidence skeleton with other values) are resampled together: they
+    aren't independent, and resampling them one by one makes intervals look tighter than they
+    are. Samples without a cluster count as their own.
+    """
     if len(samples) < 8:  # noqa: PLR2004
         return None
-    rng = random.Random(f"{name}:{len(samples)}")
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for s in samples:
+        groups.setdefault(str(s.get("cluster") or s["scenario_id"]), []).append(s)
+    clusters = [groups[k] for k in sorted(groups)]
+    rng = random.Random(f"{name}:{len(samples)}:{len(clusters)}")
     draws = []
     for _ in range(BOOTSTRAP):
-        value = metric(name, [rng.choice(samples) for _ in samples])
+        picked = [s for _ in clusters for s in rng.choice(clusters)]
+        value = metric(name, picked)
         if value is not None:
             draws.append(value)
     if len(draws) < BOOTSTRAP // 2:
         return None
     draws.sort()
     return draws[int(0.025 * len(draws))], draws[int(0.975 * len(draws)) - 1]
+
+
+def _variants(built_dir: Path | None, split: str, build: str) -> dict[str, str]:
+    """scenario_id -> the hand-written variant it was built from, read from the build's plans."""
+    plans = built_dir / split / build / "plans.jsonl" if built_dir and build else None
+    if plans is None or not plans.is_file():
+        return {}
+    out = {}
+    with plans.open(encoding="utf-8") as handle:
+        for line in handle:
+            if line.strip():
+                plan = json.loads(line)
+                out[plan["scenario_id"]] = str(plan.get("variant", ""))
+    return out
+
+
+def cluster_of(row: dict[str, Any], variant: str) -> str:
+    """The evidence skeleton a sample shares with others: set, type, label, difficulty, variant."""
+    parts = (row["set"], row.get("violation_type"), row["label"], row.get("difficulty"), variant)
+    return "|".join(str(p) for p in parts)
 
 
 def _build_depth(built_dir: Path | None, split: str, build: str) -> str:
@@ -154,8 +185,10 @@ def load_runs(
         meta = json.loads(record.read_text(encoding="utf-8"))
         base = _key(meta)
         depth = _build_depth(built_dir, base["split"], base["build"])
+        variants = _variants(built_dir, base["split"], base["build"])
         for row in rows:
             row["set"] = set_of(row["scenario_id"], depth)
+            row["cluster"] = cluster_of(row, variants.get(row["scenario_id"], row["scenario_id"]))
             if rulings is not None:
                 row["rulings"] = rulings.get((base["run"], row["scenario_id"], row["policy"]), [])
         runs.append({"record": meta, "samples": rows})
@@ -237,6 +270,7 @@ def measure_value(measure: dict[str, Any], runs: Sequence[dict[str, Any]]) -> di
         "low": interval[0] if interval else None,
         "high": interval[1] if interval else None,
         "n": len(pooled),
+        "clusters": len({s.get("cluster") for s in pooled}),
         "runs": [t["run"] for t in trend],
         "builds": sorted({t["build"] for t in trend}),
         "trend": trend,
