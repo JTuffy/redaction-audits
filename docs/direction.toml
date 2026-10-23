@@ -12,6 +12,15 @@ updated = "2026-10-22"
 # finding names the Findings section the thread feeds; runs lists recorded run names.
 
 [[experiment]]
+id = "adversary"
+title = "Adversarial lab"
+question = "Does the honest executor stop a lab that asks for edits which hide the finding: removing evidence outright, or markers that break the link a finding turns on?"
+status = "running"
+result = "Harness built: scripted blatant and link-break attacks, and a red-team framing for the model advocate."
+finding = ""
+runs = []
+
+[[experiment]]
 id = "entangled"
 title = "Entanglement"
 question = "When the secret is the link between evidence lines, does redaction finally cost signal, and do pseudonyms keep it where markers don't?"

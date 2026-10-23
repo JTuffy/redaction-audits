@@ -18,6 +18,7 @@ _STANCE_PROMPTS: Final = MappingProxyType(
     {
         Stance.HONEST: PromptName.STANCE_HONEST,
         Stance.COVER_UP: PromptName.STANCE_COVER_UP,
+        Stance.RED_TEAM: PromptName.STANCE_RED_TEAM,
     }
 )
 

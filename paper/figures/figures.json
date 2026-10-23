@@ -1,0 +1,17 @@
+[
+ {
+  "id": "auroc_by_condition",
+  "title": "Markers cost separation only when the secret is the evidence",
+  "caption": "Judge AUROC (violations against red herrings and clean cases) on unedited evidence, with type markers, and with consistent pseudonyms. Small dots are single runs (two judges, two splits); large dots their mean."
+ },
+ {
+  "id": "link_types",
+  "title": "Pseudonyms restore identity links, not magnitudes",
+  "caption": "Mean judge score on entangled scenarios by type, over the same four runs. Identity links (top four) recover under pseudonyms; magnitude and order links (bottom two) don't."
+ },
+ {
+  "id": "tradeoff",
+  "title": "Signal against leakage, by policy",
+  "caption": "Persistence (share of unedited separation kept) against leakage (share of what the unedited evidence reveals about each secret), honest lab, dev benchmark. Hollow: disjoint scenarios; filled: entangled."
+ }
+]

@@ -34,6 +34,7 @@ from redaction.infra.runs import record_run
 from redaction.infra.settings import Settings, get_settings
 from redaction.infra.storage import write_jsonl
 from redaction.paper.build import compile_paper, publish, watch, write_generated
+from redaction.paper.figures import build_figures
 from redaction.viewer.build import build_site
 
 app = typer.Typer(no_args_is_help=True, help=__doc__)
@@ -344,6 +345,14 @@ def paper_tables() -> None:
         settings.paper_dir, built_dir=settings.built_dir, ledger_dir=settings.ledger_dir
     ):
         typer.echo(path)
+
+
+@paper_app.command("figures")
+def paper_figures() -> None:
+    """Draw the result figures in paper/figures.toml from the recorded runs."""
+    settings = get_settings()
+    for fig in build_figures(settings.paper_dir, settings.ledger_dir):
+        typer.echo(fig["id"])
 
 
 @paper_app.command("build")

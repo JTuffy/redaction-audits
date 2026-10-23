@@ -256,6 +256,20 @@ def _paper(paper_dir: Path | None, out_dir: Path) -> dict[str, Any] | None:
     return status
 
 
+def _figures(paper_dir: Path | None, out_dir: Path) -> list[dict[str, str]]:
+    """Copy the drawn result figures (light and dark SVGs) and list them for the Overview."""
+    folder = paper_dir / "figures" if paper_dir else None
+    listing = folder / "figures.json" if folder else None
+    if folder is None or listing is None or not listing.is_file():
+        return []
+    target = out_dir / "figures"
+    target.mkdir(parents=True, exist_ok=True)
+    for svg in folder.glob("*.svg"):
+        shutil.copyfile(svg, target / svg.name)
+    figures: list[dict[str, str]] = json.loads(listing.read_text(encoding="utf-8"))
+    return figures
+
+
 def _bundle_inspect(log_dir: Path, out: Path) -> bool:
     """Bundle Inspect View with the logs; False if there are no logs or the CLI fails."""
     if not log_dir.exists() or not any(log_dir.rglob("*.eval")):
@@ -303,6 +317,7 @@ def build_site(
         "notes": _notes(notes_dir),
         "inspect_viewer": has_viewer,
         "paper": _paper(paper_dir, out_dir),
+        "figures": _figures(paper_dir, out_dir),
         "direction": _direction(direction_file),
         "decisions": _decisions(notes_dir),
     }

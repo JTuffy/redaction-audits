@@ -2,8 +2,8 @@
 
 /* ---------- Constants ---------- */
 
-const POLICIES = ["text_redaction", "text_pseudonym", "contextual_rewrite", "self_redaction"];
-const POLICY = { text_redaction: "Text redaction", text_pseudonym: "Text pseudonyms", contextual_rewrite: "Contextual rewrite", self_redaction: "Self-redaction" };
+const POLICIES = ["text_redaction", "text_pseudonym", "text_generalize", "contextual_rewrite", "self_redaction"];
+const POLICY = { text_redaction: "Text redaction", text_pseudonym: "Text pseudonyms", text_generalize: "Text generalize", contextual_rewrite: "Contextual rewrite", self_redaction: "Self-redaction" };
 const CONDITIONS = ["unedited", "marker", "pseudonym", "marker_only"];
 const CONDITION = { unedited: "Unedited", marker: "Marker", pseudonym: "Pseudonym", marker_only: "Marker only" };
 const LABELS = { violation: "Violation", red_herring: "Red herring", clean: "Clean" };
@@ -11,7 +11,7 @@ const LABEL_ORDER = ["violation", "red_herring", "clean"];
 const SETS = { shallow: "Disjoint", entangled: "Entangled", deep: "Deep (archived)" };
 const setOf = (s) => s.depth || "shallow";
 const DIFFICULTY = ["easy", "medium", "hard"];
-const STANCE = { honest: "Honest", cover_up: "Cover-up" };
+const STANCE = { honest: "Honest", cover_up: "Cover-up", red_team: "Red team", scripted_blatant: "Scripted: blatant", scripted_link: "Scripted: link-break" };
 const ROLES = ["advocate", "executor", "judge", "integrity_check"];
 const ROLE = { advocate: "Advocate", executor: "Executor", judge: "Judge", integrity_check: "Integrity check" };
 const SHIFT = 15; // judge-score change worth flagging, in points
@@ -88,6 +88,7 @@ const TIPS = {
   p_edited: ["The judge's probability on the true value given the edited evidence."],
   // Policies
   text_redaction: ["A script removes every planted secret value. No model is involved."],
+  text_generalize: ["A script replaces confidential values with consistent pseudonyms, and numbers or dates that a quoted threshold or deadline is compared with by that comparison (\"above the reporting threshold\"). An oracle version of executor rule 3."],
   text_pseudonym: ["A script replaces every confidential value with a consistent pseudonym (Customer A, Customer B), so redacted entities stay distinguishable. No model is involved."],
   contextual_rewrite: ["The advocate requests edits and the honest executor grants, modifies or denies each one. Always-redact values are removed regardless."],
   self_redaction: ["The advocate's requests are applied as written, with no review. The control."],
@@ -865,6 +866,15 @@ function wireTimeline() {
   $("view").querySelectorAll("[data-feed]").forEach((b) => { b.onclick = () => { state.feed = b.dataset.feed; pageNotes("timeline"); }; });
 }
 
+function figuresSection() {
+  const figs = SITE.figures || [];
+  if (!figs.length) return "";
+  const body = figs.map((f) => `<figure class="result-fig"><figcaption><b>${esc(f.title)}</b></figcaption>
+    <picture><source media="(prefers-color-scheme: dark)" srcset="figures/${esc(f.id)}-dark.svg"><img src="figures/${esc(f.id)}-light.svg" alt="${esc(f.title)}. ${esc(f.caption)}" loading="lazy"></picture>
+    <p class="muted small">${esc(f.caption)} Numbers are on the <a href="#/notes/findings">Findings</a> page.</p></figure>`).join("");
+  return section("Results", `<div class="figs">${body}</div>`);
+}
+
 function pageOverview() {
   const d = SITE.direction;
   if (!d) { $("view").innerHTML = pageHead({ title: "Overview" }) + `<p class="empty">No direction file. Add <code>docs/direction.toml</code>.</p>`; return; }
@@ -899,6 +909,7 @@ function pageOverview() {
   const recent = feedItems().slice(0, 6).map(feedRow).join("");
   $("view").innerHTML = head
     + section("Experiments", `<div class="exps">${cards}</div>`, `<span>${active.length} active</span><span>updated ${esc(p.updated || "")}</span>`)
+    + figuresSection()
     + (settled.length ? section("Settled", settledList) : "")
     + `<div class="grid2">${section(`Open decisions <span class="count">${open.length}</span>`, decisions)}${section("Recent", `<ol class="feed compact">${recent}</ol>`, `<a href="#/notes/timeline">Timeline</a>`)}</div>`;
   $("view").querySelectorAll("[data-exp]").forEach((a) => { a.onclick = () => { state.runGroup = "experiment"; state.openExp = a.dataset.exp; }; });
@@ -976,7 +987,7 @@ window.addEventListener("hashchange", () => { route(); window.scrollTo(0, 0); })
 fetch("data/site.json")
   .then((r) => { if (!r.ok) throw new Error(`site.json: HTTP ${r.status}`); return r.json(); })
   .then((site) => {
-    SITE = { builds: [], runs: [], ablations: [], ledger: [], notes: [], decisions: [], direction: null, ...site };
+    SITE = { builds: [], runs: [], ablations: [], ledger: [], notes: [], decisions: [], direction: null, figures: [], ...site };
     route();
   })
   .catch((err) => {

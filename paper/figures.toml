@@ -1,0 +1,23 @@
+# Which recorded runs each paper figure is drawn from. `redaction paper figures` writes
+# paper/figures/<id>.pdf (for LaTeX) and <id>-light.svg / <id>-dark.svg (for the site).
+
+[[figure]]
+id = "auroc_by_condition"
+kind = "auroc_by_condition"
+title = "Markers cost separation only when the secret is the evidence"
+caption = "Judge AUROC (violations against red herrings and clean cases) on unedited evidence, with type markers, and with consistent pseudonyms. Small dots are single runs (two judges, two splits); large dots their mean."
+runs = ["ablation-dev-20261022T205837Z", "ablation-val-20261022T210223Z", "ablation-dev-20261022T210613Z", "ablation-val-20261022T211036Z"]
+
+[[figure]]
+id = "link_types"
+kind = "link_types"
+title = "Pseudonyms restore identity links, not magnitudes"
+caption = "Mean judge score on entangled scenarios by type, over the same four runs. Identity links (top four) recover under pseudonyms; magnitude and order links (bottom two) don't."
+runs = ["ablation-dev-20261022T205837Z", "ablation-val-20261022T210223Z", "ablation-dev-20261022T210613Z", "ablation-val-20261022T211036Z"]
+
+[[figure]]
+id = "tradeoff"
+kind = "tradeoff"
+title = "Signal against leakage, by policy"
+caption = "Persistence (share of unedited separation kept) against leakage (share of what the unedited evidence reveals about each secret), honest lab, dev benchmark. Hollow: disjoint scenarios; filled: entangled."
+runs = ["p1-dev-honest-20261022T211458Z"]

@@ -18,6 +18,7 @@ class PromptName(StrEnum):
     ADVOCATE = "advocate"
     STANCE_HONEST = "stance_honest"
     STANCE_COVER_UP = "stance_cover_up"
+    STANCE_RED_TEAM = "stance_red_team"
     PROCESS_EXECUTOR = "process_executor"
     PROCESS_SELF = "process_self"
     RULES = "rules"

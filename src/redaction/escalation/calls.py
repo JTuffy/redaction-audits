@@ -30,6 +30,7 @@ from redaction.core.models import (
 )
 from redaction.core.parsing import ReplyFormatError, parse_reply
 from redaction.core.roles import Role, Stance
+from redaction.escalation.adversary import scripted_requests
 from redaction.escalation.mock import is_mock
 from redaction.escalation.policies import Policy
 from redaction.escalation.prompting import (
@@ -102,7 +103,9 @@ async def ask[T: Reply](
 async def advocate(
     scenario: Scenario, report: Report, policy: Policy, stance: Stance
 ) -> tuple[RedactionRequest, ...]:
-    """The lab advocate's redaction requests."""
+    """The lab advocate's redaction requests; a scripted stance needs no model."""
+    if stance.scripted:
+        return scripted_requests(scenario, report, stance)
     prompt = advocate_prompt(scenario, report, policy, stance)
     return (await ask(Role.ADVOCATE, prompt, AdvocateReply)).requests
 

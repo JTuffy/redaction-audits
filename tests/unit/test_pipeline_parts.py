@@ -55,6 +55,7 @@ class TestPrompts:
             advocate_prompt(violation, violation_report, policy, stance)
             for policy in (Policy.CONTEXTUAL_REWRITE, Policy.SELF_REDACTION)
             for stance in Stance
+            if not stance.scripted
         ]
         prompts += [
             executor_prompt(violation_report, []),

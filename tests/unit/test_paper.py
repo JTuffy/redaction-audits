@@ -39,7 +39,7 @@ def test_generated_files_without_runs(tmp_path: Path) -> None:
     built, ledger, paper = tmp_path / "built", tmp_path / "runs", tmp_path / "paper"
     _manifest(built, "val", "v1")
     names = {p.name for p in write_generated(paper, built_dir=built, ledger_dir=ledger)}
-    assert names == {"builds.tex", "p1_pilot.tex", "numbers.tex"}
+    assert names == {"builds.tex", "p1_pilot.tex", "numbers.tex", "figures.tex"}
     assert "No recorded P1 run" in (paper / "generated" / "p1_pilot.tex").read_text()
 
 
