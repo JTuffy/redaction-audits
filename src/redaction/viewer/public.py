@@ -85,11 +85,20 @@ def publish(out_dir: Path, repo: str, *, push: bool, work_dir: Path) -> list[str
     Returns the git commands it ran (or would run, when not pushing). The Pages repo holds only
     the built site, so the research repo can stay private until the paper.
     """
+    import base64  # noqa: PLC0415
+    import os  # noqa: PLC0415
     import shutil  # noqa: PLC0415
     import subprocess  # noqa: PLC0415
 
+    # A token in GH_TOKEN is sent as a header for this command only, never written to disk.
+    token = os.environ.get("GH_TOKEN")
+    auth: list[str] = []
+    if token:
+        basic = base64.b64encode(f"x-access-token:{token}".encode()).decode()
+        auth = ["-c", f"http.https://github.com/.extraheader=AUTHORIZATION: basic {basic}"]
+
     def git(*args: str, cwd: Path | None = None) -> None:
-        subprocess.run(["git", *args], cwd=cwd, check=True)  # noqa: S603, S607
+        subprocess.run(["git", *auth, *args], cwd=cwd, check=True)  # noqa: S603, S607
 
     steps = [
         f"git clone --depth 1 {repo} {work_dir}",

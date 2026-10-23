@@ -6,6 +6,7 @@ One line per decision, newest first, with the reason. Change a line only to mark
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-10-23 | The full public profile is published on GitHub Pages, from a separate public repo that holds only the built site; the research repo stays private. A Google Site embedding it is next. Pushes stay manual (`redaction deploy --push`) for now. | The author chose to publish everything the public profile allows, to start. |
 | 2026-10-23 | `redaction deploy` is the one update command: figures, paper, private site, and a public build that is linted every time and pushed only when `REDACTION_PUBLISH_ON_UPDATE` is on (GitHub Pages or Firebase Hosting, embedded in a Google Site by hand). Recorded runs do the site part. | Publishing should be one switch away once it is approved, and a private detail should fail the lint the day it's written. |
 | 2026-10-23 | H4 is measured by the executor's rulings (granted as asked, rewritten, denied), not by "granted or modified". | Counting rewrites as grants made the executor look permissive; it mostly rewrites harmful requests into safe ones. |
 | 2026-10-23 | Benchmark rebuilt with lab-style background: dev `df752f7876` 80/80, val `2c18bc99df` 78/80. Two blueprint variants reordered so an approval precedes the change it covers (classifier migration, opt-out re-consent). | The blind reviewer flagged them on the rebuild. |

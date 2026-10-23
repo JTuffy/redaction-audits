@@ -47,14 +47,3 @@ Decided on 22 Oct: lead with the leakage contrast. Since then the stronger resul
 Leaning: lead with entanglement and the executor, with leakage as the third point.
 
 Needs a decision: Josh's.
-
-## Should the site be public, and in what form?
-
-`redaction publish` builds a public profile (no Questions page, no transcripts, no test split, names replaced by roles, a lint for private details) and can push it to a Pages repo that a Google Site embeds (docs/publishing.md). Nothing is published yet. Two things stand in the way:
-
-1. Most of the notes and the question summaries are written by Claude; Cath asked that AI-written text not go to other people.
-2. The repo was to stay private until the paper; the public site shows prompts, blueprints and scenarios.
-
-Options: publish data, runs and figures only (no notes); rewrite the notes and answers by hand, then publish all; or wait for the paper.
-
-Needs a decision: Josh's, after asking Cath.
