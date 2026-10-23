@@ -9,7 +9,7 @@ a local path, a hostname, an e-mail address or something shaped like a key.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Final
 
@@ -79,6 +79,14 @@ def lint_site(out_dir: Path, *, skip: Iterable[str] = ("paper/main.pdf",)) -> li
     return issues
 
 
+def _force_remove(func: Callable[[str], object], path: str, _exc: BaseException) -> None:
+    """Rmtree helper: clear the read-only bit (git objects on Windows) and retry."""
+    import stat  # noqa: PLC0415
+
+    Path(path).chmod(stat.S_IWRITE)
+    func(path)
+
+
 def publish(out_dir: Path, repo: str, *, push: bool, work_dir: Path) -> list[str]:
     """Copy a linted public build into a clone of the Pages repo; commit and push if `push`.
 
@@ -108,7 +116,7 @@ def publish(out_dir: Path, repo: str, *, push: bool, work_dir: Path) -> list[str
     if not push:
         return steps
     if work_dir.exists():
-        shutil.rmtree(work_dir)
+        shutil.rmtree(work_dir, onexc=_force_remove)  # git marks its objects read-only
     git("clone", "--depth", "1", repo, str(work_dir))
     for child in work_dir.iterdir():
         if child.name != ".git":
