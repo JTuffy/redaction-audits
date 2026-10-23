@@ -19,6 +19,7 @@ from typing import Any, Final
 from inspect_ai.log import EvalSample, read_eval_log
 
 from redaction.core.metrics import leakage
+from redaction.core.registry import REGISTRY
 from redaction.infra.log_setup import get_logger
 
 log = get_logger(__name__)
@@ -186,6 +187,20 @@ def _ledger(ledger_dir: Path | None) -> list[dict[str, Any]]:
 NOTES_PAGES: Final = ("pipeline", "protocol", "findings", "questions", "decisions")
 
 
+def _registry() -> list[dict[str, Any]]:
+    """The secret registry: what can be planted, its tier and its options."""
+    return [
+        {
+            "secret_type": str(spec.secret_type),
+            "label": spec.label,
+            "tier": str(spec.tier),
+            "sensitivity": str(spec.sensitivity),
+            "options": list(spec.options),
+        }
+        for spec in REGISTRY.values()
+    ]
+
+
 def _direction(path: Path | None) -> dict[str, Any] | None:
     """The curated direction file: the question, the focus and the experiment threads."""
     if path is None or not path.is_file():
@@ -302,6 +317,7 @@ def build_site(
     notes_dir: Path | None = None,
     paper_dir: Path | None = None,
     direction_file: Path | None = None,
+    blueprints: list[dict[str, Any]] | None = None,
 ) -> Path:
     """Write the viewer into `out_dir`, replacing what was there."""
     if out_dir.exists():
@@ -319,6 +335,8 @@ def build_site(
         "paper": _paper(paper_dir, out_dir),
         "figures": _figures(paper_dir, out_dir),
         "direction": _direction(direction_file),
+        "blueprints": blueprints or [],
+        "registry": _registry(),
         "decisions": _decisions(notes_dir),
     }
     (out_dir / "data").mkdir(exist_ok=True)

@@ -4,6 +4,10 @@ One line per decision, newest first, with the reason. Change a line only to mark
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-10-23 | AUROC and persistence are always computed over violations against red herrings, as in the spec, in the figures and the site's by-set tables too. | Some recomputations had counted clean cases as negatives, which understated the effects (for example text redaction's entangled persistence 0.63 instead of 0.52). Findings now uses the spec definition throughout. |
+| 2026-10-23 | Benchmark rebuilt with the reworded skipped_eval claim: dev `6df2f41adb`, val `6e44523e30`, 80/80 kept. | The previous claim read as approval timing and the reviewer dropped two cells per split. |
+| 2026-10-23 | Site reorganized: Data holds every input (scenarios, composition, checks, blueprints, secret registry); run pages show their setup first; the Overview shows headline findings, one figure at a time and status. | Josh: separate inputs from results; Overview too busy. |
+| 2026-10-23 | Notes reviewed: Findings opens with a summary; Pipeline describes the current pipeline with an archive; Protocol covers all policies and stances; Questions keeps only open questions. | Josh asked to review and brush up all notes. |
 | 2026-10-23 | Adversary harness: scripted link-break and remove-evidence stances (no model), and a red-team framing for the advocate model. New policy text generalize. Result figures drawn from recorded runs (`redaction paper figures`). | Josh: "let's do that". The scripted stances give bounds that don't depend on a model agreeing to cheat. |
 | 2026-10-22 | The benchmark is one build per split: the disjoint (original) set plus the entangled set for all six types; `data build` defaults to it and it is LATEST. Scenario IDs carry the set (`dev-e012-…`). The deep draft is archived. | Josh asked why there was "dev" and "dev deep". Entanglement is the variable, so both sets belong in one build. |
 | 2026-10-22 | New policy: text pseudonyms (consistent pseudonyms by script). | Tests the first protocol option directly. It restores identity links, not magnitudes. |

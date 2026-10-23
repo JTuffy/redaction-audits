@@ -22,7 +22,10 @@ def _secret(p_edited: float) -> dict[str, float]:
 def _p1_rows() -> list[dict[str, object]]:
     rows = []
     for k, sid in enumerate(["dev-001-x-violation", "dev-e001-x-violation"]):
-        for label, unedited, edited in (("violation", 95, 90 - 40 * k), ("clean", 5, 10 + 70 * k)):
+        for label, unedited, edited in (
+            ("violation", 95, 90 - 40 * k),
+            ("red_herring", 5, 10 + 70 * k),
+        ):
             rows.append(
                 {
                     "scenario_id": sid

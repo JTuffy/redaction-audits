@@ -6,7 +6,29 @@ question = "When a lab redacts an audit report to protect its secrets, how much 
 hypothesis = "Redaction is nearly free when secrets and evidence are separate. When the secret is the evidence, the kind of link decides what is safe: consistent pseudonyms keep identity links, only property-preserving generalization keeps magnitudes and dates, and markers can hide real violations or incriminate innocent labs."
 focus = "The honest executor is what keeps the signal under attack; consistent pseudonyms plus comparison-preserving generalization are what it should enforce."
 next = "Replicate on val; leakage under attack (scripts leave correlates); a model adversary for self-redaction via another provider; rebuild with the reworded skipped_eval claim; write it up for Cath."
-updated = "2026-10-22"
+updated = "2026-10-23"
+
+# Headline findings for the Overview, most important first. Keep each to one sentence.
+
+[[headline]]
+text = "Redaction is free when secrets and evidence are separate: every policy keeps the signal on the disjoint scenarios."
+link = "#/notes/findings/does-editing-preserve-the-audit-signal"
+
+[[headline]]
+text = "When the secret is the evidence, type markers cut the judge's separation by about a third and fail both ways: they hide real violations and make innocent labs look guilty."
+link = "#/notes/findings/does-redaction-cost-signal-when-the-secret-is-the-evidence"
+
+[[headline]]
+text = "Consistent pseudonyms keep identity links; only a generalization that keeps the comparison keeps numbers and dates."
+link = "#/notes/findings/does-redaction-cost-signal-when-the-secret-is-the-evidence"
+
+[[headline]]
+text = "The honest executor is what holds under attack: a link-break attack keeps 0.52 of the entangled signal without it and 0.95 with it."
+link = "#/notes/findings/does-the-executor-stop-an-adversarial-lab"
+
+[[headline]]
+text = "Literal redaction leaks through details around the value: about 0.85 of what the evidence reveals, against 0.2–0.4 for the model policies."
+link = "#/notes/findings/how-much-do-secrets-leak"
 
 # One entry per experiment thread, newest first. status: planned | running | open | settled | blocked
 # finding names the Findings section the thread feeds; runs lists recorded run names.
@@ -16,7 +38,7 @@ id = "adversary"
 title = "Adversarial lab"
 question = "Does the honest executor stop a lab that asks for edits which hide the finding: removing evidence outright, or markers that break the link a finding turns on?"
 status = "open"
-result = "Yes: without the executor, link-break keeps 0.63 of entangled signal and evidence removal none; with it, 0.97. Red-team self-redaction not measured (model refused)."
+result = "Yes: without the executor, link-break keeps 0.52 of entangled signal and evidence removal 0.15; with it, 0.95. Red-team self-redaction not measured (model refused)."
 finding = "Does the executor stop an adversarial lab?"
 runs = []
 
@@ -25,7 +47,7 @@ id = "entangled"
 title = "Entanglement"
 question = "When the secret is the link between evidence lines, does redaction finally cost signal, and do pseudonyms keep it where markers don't?"
 status = "open"
-result = "Yes, on all six types: markers drop entangled AUROC to 0.72–0.78 (disjoint stays 1.00); pseudonyms restore identity links, not magnitudes. With an honest lab, the model policies win on both signal and leakage."
+result = "Yes, on all six types: markers drop entangled AUROC to 0.67–0.74 (disjoint stays 1.00); pseudonyms restore identity links, generalization restores magnitudes."
 finding = "Does redaction cost signal when the secret is the evidence?"
 runs = []
 

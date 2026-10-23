@@ -200,7 +200,7 @@ const tipper = (() => {
 })();
 
 let SITE = null;
-const state = { allSecrets: false, runPolicy: "contextual_rewrite", runSample: null, split: "dev", scenario: null, showBackground: false, runFilter: "all", runGroup: "experiment", feed: "all", scLabel: "", scType: "", scSet: "" };
+const state = { fig: "", bpSet: "", allSecrets: false, runPolicy: "contextual_rewrite", runSample: null, split: "dev", scenario: null, showBackground: false, runFilter: "all", runGroup: "experiment", feed: "all", scLabel: "", scType: "", scSet: "" };
 
 /* ---------- Data access ---------- */
 
@@ -238,6 +238,48 @@ function pageHead({ crumbs, title, sub, purpose }) {
 
 function section(title, body, aside = "") {
   return `<section><header><h2>${title}</h2>${aside ? `<div class="aside">${aside}</div>` : ""}</header>${body}</section>`;
+}
+
+function setupGrid(e) {
+  const c = e?.config || {};
+  const cells = [];
+  const add = (k, v) => { if (v != null && v !== "" && !(Array.isArray(v) && !v.length)) cells.push(`<div><dt>${k}</dt><dd>${esc(Array.isArray(v) ? v.join(", ") : v)}</dd></div>`); };
+  add("Data", c.data);
+  add("Split", c.split);
+  if (c.stance) add("Advocate", STANCE[c.stance] || c.stance);
+  if (c.policies) add("Policies", c.policies.map((p) => POLICY[p] || p));
+  if (c.conditions) add("Display conditions", c.conditions.map((x) => CONDITION[x] || x));
+  add("Scenarios", c.sample_ids?.length ? `${c.sample_ids.length} chosen` : c.limit ? `first ${c.limit}` : "all");
+  add("Judge samples", c.judge_samples);
+  if (c.report_context != null) add("Report quotes context", c.report_context ? "yes" : "no");
+  if (c.cache_replies != null) add("Reply cache", c.cache_replies ? "on" : "off");
+  const inputs = cells.length ? `<dl class="kv">${cells.join("")}</dl>` : "";
+  return `<div class="setup">${inputs}${protocolGrid(e)}</div>`;
+}
+
+const isEntangledId = (id) => String(id).split("-")[1]?.startsWith("e");
+function aurocOf(pos, neg) {
+  if (!pos.length || !neg.length) return null;
+  let w = 0;
+  for (const a of pos) for (const b of neg) w += a > b ? 1 : a === b ? 0.5 : 0;
+  return w / (pos.length * neg.length);
+}
+function bySetSection(r) {
+  const sets = [false, true].filter((st) => r.samples.some((s) => isEntangledId(s.scenario_id) === st));
+  if (sets.length < 2) return "";
+  const rows = runPolicies(r).flatMap((p) => sets.map((st) => {
+    const xs = r.samples.filter((s) => s.policy === p && isEntangledId(s.scenario_id) === st);
+    const v = xs.filter((s) => s.label === "violation"), nv = xs.filter((s) => s.label !== "violation");
+    const rh = xs.filter((s) => s.label === "red_herring"); // persistence is against red herrings, as in the spec
+    const au = aurocOf(v.map((s) => s.judge_unedited), rh.map((s) => s.judge_unedited));
+    const ae = aurocOf(v.map((s) => s.judge_edited), rh.map((s) => s.judge_edited));
+    const pers = au != null && ae != null && au > 0.5 ? (ae - 0.5) / (au - 0.5) : null;
+    const leaks = xs.flatMap((s) => s.secrets.map((x) => x.leakage).filter((x) => x != null));
+    const fnr = mean(v.map((s) => (s.judge_edited < 50 ? 1 : 0)));
+    const fpr = mean(nv.map((s) => (s.judge_edited >= 50 ? 1 : 0)));
+    return `<tr><td>${esc(POLICY[p] || p)}</td><td>${st ? "Entangled" : "Disjoint"}</td><td class="num">${xs.length}</td><td class="num">${f2(pers)}</td><td class="num">${f2(mean(leaks))}</td><td class="num">${f2(fnr)}</td><td class="num">${f2(fpr)}</td></tr>`;
+  })).join("");
+  return section("By set", `<div class="panel"><div class="scroll"><table><thead><tr><th>Policy</th><th>Set</th><th class="num">n</th><th class="num">${term("persistence", "Persistence")}</th><th class="num">${term("leakage", "Leakage")}</th><th class="num">FNR</th><th class="num">FPR</th></tr></thead><tbody>${rows}</tbody></table></div></div>`, `<span>recomputed from samples</span>`);
 }
 
 function protocolGrid(e) {
@@ -520,9 +562,10 @@ function pageRun(name, tab = "") {
     const legend = `<span class="legend-mark"><i class="before"></i>Unedited</span><span class="legend-mark"><i class="after"></i>Edited</span><span class="legend-mark"><i class="bad"></i>${term("wrong_way", `Moved ${SHIFT}+ the wrong way`)}</span>`;
     const counts = hasSamples ? secretCounts(r) : null;
     const toggle = counts ? `<span>${counts.leakedRows} of ${counts.scored} leaked</span><button type="button" class="link-btn" id="all-secrets">${state.allSecrets ? "Show leaked only" : "Show all"}</button>` : "";
-    body = section("Results", resultsTable(r))
-      + (hasSamples ? section(term("judge_score", "Judge score"), dumbbells(r), legend) + section(term("leakage", "Secret leakage"), secretsTable(r), toggle) : "")
-      + section("Protocol", protocolGrid(e));
+    body = section("Setup", setupGrid(e))
+      + section("Results", resultsTable(r))
+      + (hasSamples ? bySetSection(r) : "")
+      + (hasSamples ? section(term("judge_score", "Judge score"), dumbbells(r), legend) + section(term("leakage", "Secret leakage"), secretsTable(r), toggle) : "");
   }
   $("view").innerHTML = `<div>${head}${tabs}</div>${body}`;
   const open = (id, p) => { state.runSample = id; if (p) state.runPolicy = p; location.hash = `${base}/samples`; };
@@ -609,7 +652,7 @@ function pageAblation(name) {
     <tbody>${matrix}</tbody></table></div></div>`;
 
   $("view").innerHTML = head
-    + section("Protocol", protocolGrid(e))
+    + section("Setup", setupGrid(e))
     + section("Mean judge score", table, reask ? `<span>shift vs ${esc(baseRun?.name || "—")}</span>` : `<span>shift vs unedited</span>`)
     + section("By scenario", matrixTable, `<span>shaded by shift from unedited</span>`);
 }
@@ -667,40 +710,56 @@ function scenarioDetail(s) {
     </div>`;
 }
 
-function pageScenarios(id) {
+const DATA_TABS = [["scenarios", "Scenarios"], ["composition", "Composition"], ["checks", "Checks"], ["blueprints", "Blueprints"], ["secrets", "Secrets"]];
+
+function dataHead(build, tab) {
+  const m = build.manifest;
+  const sub = `<span class="mono">build ${esc(m.version)}</span><span>${esc(m.split)}</span><span>renderer ${esc(m.renderer)}</span>${m.depth === "benchmark" ? "<span>disjoint + entangled</span>" : m.depth && m.depth !== "shallow" ? `<span>${esc(m.depth)} set</span>` : ""}<span>${esc(m.built_at.replace("T", " ").slice(0, 16))} UTC</span>`;
+  const tabs = `<nav class="tabs" aria-label="Data">${DATA_TABS.map(([k, t]) => `<a href="#/data/${k}" ${k === tab ? 'aria-current="page"' : ""}>${t}</a>`).join("")}</nav>`;
+  return `<div>${pageHead({ title: "Data", sub })}<p class="purpose muted">The inputs to every run: the frozen scenarios, how they were built and checked, the blueprints they come from, and the secrets they plant.</p>${tabs}</div>`;
+}
+
+function splitSeg(build) {
+  return `<div class="seg" role="group" aria-label="Split">${SITE.builds.map((b) =>
+    `<button type="button" data-split="${esc(b.key ?? b.manifest.split)}" aria-pressed="${b === build}">${esc(b.key ?? b.manifest.split)}</button>`).join("")}</div>`;
+}
+
+function pageData(tab = "scenarios", arg = "") {
   const build = currentBuild();
-  if (!build) { $("view").innerHTML = pageHead({ title: "Scenarios" }) + `<p class="empty">No builds. Run <code>uv run redaction data build</code>.</p>`; return; }
+  if (!build) { $("view").innerHTML = pageHead({ title: "Data" }) + `<p class="empty">No builds. Run <code>uv run redaction data build</code>.</p>`; return; }
+  if (!DATA_TABS.some(([k]) => k === tab)) tab = "scenarios";
+  const body = { scenarios: dataScenarios, composition: dataComposition, checks: dataChecks, blueprints: dataBlueprints, secrets: dataSecrets }[tab](build, arg);
+  $("view").innerHTML = dataHead(build, tab) + body;
+  $("view").querySelectorAll("[data-split]").forEach((b) => { b.onclick = () => { state.split = b.dataset.split; pageData(tab, tab === "scenarios" ? "" : arg); }; });
+  if (tab === "scenarios") wireScenarios(arg);
+  if (tab === "blueprints") wireBlueprints();
+}
+
+function dataScenarios(build, id) {
   const types = [...new Set(build.scenarios.map((s) => s.violation_type))];
   const sets = [...new Set(build.scenarios.map(setOf))];
   const list = build.scenarios.filter((s) => (!state.scLabel || s.label === state.scLabel) && (!state.scType || s.violation_type === state.scType) && (!state.scSet || setOf(s) === state.scSet));
   const selected = build.scenarios.find((s) => s.scenario_id === id) || list[0] || null;
-  const splits = `<div class="seg" role="group" aria-label="Split">${SITE.builds.map((b) =>
-    `<button type="button" data-split="${esc(b.key ?? b.manifest.split)}" aria-pressed="${b === build}">${esc(b.key ?? b.manifest.split)}</button>`).join("")}</div>`;
-  const filters = `${splits}
+  const filters = `${splitSeg(build)}
     <select id="f-label" aria-label="Label"><option value="">All labels</option>${LABEL_ORDER.map((l) => `<option value="${l}" ${state.scLabel === l ? "selected" : ""}>${LABELS[l]}</option>`).join("")}</select>
     ${sets.length > 1 ? `<select id="f-set" aria-label="Set"><option value="">All sets</option>${sets.map((k) => `<option value="${k}" ${state.scSet === k ? "selected" : ""}>${esc(SETS[k] || k)}</option>`).join("")}</select>` : ""}
     <select id="f-type" aria-label="Violation type"><option value="">All types</option>${types.map((t) => `<option value="${t}" ${state.scType === t ? "selected" : ""}>${esc(human(t))}</option>`).join("")}</select>`;
   const items = list.map((s) => `<li tabindex="0" data-id="${esc(s.scenario_id)}" aria-selected="${s === selected}"><b>${esc(s.scenario_id)}</b><span class="label-${s.label}">${labelText(s)}${sets.length > 1 ? ` · ${esc((SETS[setOf(s)] || setOf(s)).toLowerCase())}` : ""}</span></li>`).join("")
     || `<li><span>No scenarios match.</span></li>`;
-  $("view").innerHTML = pageHead({ title: "Scenarios", sub: `<span>${list.length} of ${build.scenarios.length}</span><span class="mono">build ${esc(build.manifest.version)}</span>` })
-    + section("Browse", `<div class="browser"><ol class="list panel">${items}</ol><article class="detail">${scenarioDetail(selected)}</article></div>`, filters);
-  $("view").querySelectorAll(".list li[data-id]").forEach((li) => onKey(li, () => { location.hash = `#/scenarios/${li.dataset.id}`; }));
-  $("view").querySelectorAll("[data-split]").forEach((b) => { b.onclick = () => { state.split = b.dataset.split; location.hash = "#/scenarios"; route(); }; });
-  $("f-label").onchange = (e) => { state.scLabel = e.target.value; pageScenarios(); };
-  $("f-type").onchange = (e) => { state.scType = e.target.value; pageScenarios(); };
-  if ($("f-set")) $("f-set").onchange = (e) => { state.scSet = e.target.value; pageScenarios(); };
-  const bg = $("show-bg");
-  if (bg) bg.onchange = (e) => { state.showBackground = e.target.checked; pageScenarios(selected?.scenario_id); };
+  return section(`Scenarios <span class="count">${list.length} of ${build.scenarios.length}</span>`, `<div class="browser"><ol class="list panel">${items}</ol><article class="detail">${scenarioDetail(selected)}</article></div>`, filters);
 }
 
-/* ---------- Page: data ---------- */
+function wireScenarios(id) {
+  $("view").querySelectorAll(".list li[data-id]").forEach((li) => onKey(li, () => { location.hash = `#/data/scenarios/${li.dataset.id}`; }));
+  $("f-label").onchange = (e) => { state.scLabel = e.target.value; pageData("scenarios"); };
+  $("f-type").onchange = (e) => { state.scType = e.target.value; pageData("scenarios"); };
+  if ($("f-set")) $("f-set").onchange = (e) => { state.scSet = e.target.value; pageData("scenarios"); };
+  const bg = $("show-bg");
+  if (bg) bg.onchange = (e) => { state.showBackground = e.target.checked; pageData("scenarios", id); };
+}
 
-function pageData() {
-  const build = currentBuild();
-  if (!build) { $("view").innerHTML = pageHead({ title: "Data" }) + `<p class="empty">No builds.</p>`; return; }
+function dataComposition(build) {
   const m = build.manifest;
-  const splits = `<div class="seg" role="group" aria-label="Split">${SITE.builds.map((b) =>
-    `<button type="button" data-split="${esc(b.key ?? b.manifest.split)}" aria-pressed="${b === build}">${esc(b.key ?? b.manifest.split)}</button>`).join("")}</div>`;
   const stages = `<div class="stages">${STAGES.map(([key, name]) => {
     const skipped = key === "reviewed" && !m.reviewer;
     return `<div class="stage ${skipped ? "skipped" : ""}"><b>${skipped ? "—" : m.stages[key]}</b><span>${term(key, name)}</span></div>`;
@@ -721,16 +780,54 @@ function pageData() {
       `<i class="k-${k}" style="width:${(100 * (m.line_kinds[k] || 0) / total).toFixed(2)}%"></i>`).join("")}</div>
     <div class="legend">${KINDS.map(([k, name]) => `<div><i class="k-${k}"></i><span>${term(k === "correlate" ? "correlate" : k, name)}</span><span>${(100 * (m.line_kinds[k] || 0) / total).toFixed(0)}%</span></div>`).join("")}</div>
     <div class="sub" style="margin-top:14px"><span>${m.lines.min}–${m.lines.max} lines per scenario</span><span>mean ${m.lines.mean}</span>${m.background_jobs ? `<span>${m.background_jobs.toLocaleString()} real jobs sampled</span>` : ""}</div></div>`;
+  return section("Pipeline", stages, splitSeg(build))
+    + `<div class="grid2">${section("Kept scenarios by cell", composition)}${section("Lines by kind", kinds)}</div>`;
+}
+
+function dataChecks(build) {
+  const m = build.manifest;
   const counts = m.issues || {};
   const checks = `<div class="panel"><div class="scroll"><table><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>${Object.entries(CHECKS).map(([k, name]) => {
     const n = counts[k] || 0;
     return `<tr><td>${name}</td><td><span class="badge ${n ? "fail" : "pass"}">${n ? n + " failed" : "pass"}</span></td></tr>`;
   }).join("")}<tr><td>Blind label review</td><td>${m.reviewer ? `<span class="badge ${build.records.some((r) => r.status === "review_disagrees") ? "fail" : "pass"}">${esc(m.reviewer)}</span>` : '<span class="badge">not run</span>'}</td></tr></tbody></table></div></div>`;
-  $("view").innerHTML = pageHead({ title: "Data", sub: `<span class="mono">build ${esc(m.version)}</span><span>renderer ${esc(m.renderer)}</span>${m.depth === "benchmark" ? "<span>disjoint + entangled</span>" : m.depth && m.depth !== "shallow" ? `<span>${esc(m.depth)} set</span>` : ""}<span>${esc(m.built_at.replace("T", " ").slice(0, 16))} UTC</span>` })
-    + section("Pipeline", stages, splits)
-    + `<div class="grid2">${section("Composition", composition)}${section("Line kinds", kinds)}</div>`
-    + section("Validation", checks);
-  $("view").querySelectorAll("[data-split]").forEach((b) => { b.onclick = () => { state.split = b.dataset.split; pageData(); }; });
+  const dropped = build.records.filter((r) => r.status !== "kept");
+  const droppedTable = dropped.length ? `<div class="panel"><div class="scroll"><table class="left"><thead><tr><th>Scenario</th><th>Planned as</th><th>Why it was dropped</th></tr></thead><tbody>${dropped.map((r) => `<tr>
+      <td class="mono-cell nowrap">${esc(r.scenario_id)}</td><td class="nowrap">${labelText(r)}</td>
+      <td class="wrap">${r.status === "review_disagrees" ? `Reviewer read it as <b>${esc(human(r.review?.verdict || ""))}</b>: ${esc(r.review?.reason || "")}` : esc((r.issues || []).map((i) => `${i.check}${i.detail ? ": " + i.detail : ""}`).join("; "))}</td></tr>`).join("")}</tbody></table></div></div>`
+    : `<p class="empty">Every planned scenario was kept.</p>`;
+  return section("Code checks and review", checks, splitSeg(build))
+    + section(`Dropped scenarios <span class="count">${dropped.length}</span>`, droppedTable);
+}
+
+const CELL_ORDER = [["violation", null], ["red_herring", "easy"], ["red_herring", "medium"], ["red_herring", "hard"], ["clean", null]];
+const placeholderHtml = (t) => esc(t).replace(/\{([a-z_0-9]+)\}/g, '<span class="ph">$1</span>');
+
+function dataBlueprints(build, arg) {
+  const all = SITE.blueprints || [];
+  if (!all.length) return `<p class="empty">No blueprint catalog in this site build.</p>`;
+  const sets = [...new Set(all.map((b) => b.set))];
+  const set = state.bpSet && sets.includes(state.bpSet) ? state.bpSet : (sets.includes("entangled") ? "entangled" : sets[0]);
+  const inSet = all.filter((b) => b.set === set);
+  const bp = inSet.find((b) => b.violation_type === arg) || inSet[0];
+  const seg = `<div class="seg" role="group" aria-label="Set">${sets.map((k) => `<button type="button" data-bpset="${k}" aria-pressed="${k === set}">${esc(SETS[k] || k)}</button>`).join("")}</div>`;
+  const side = `<nav class="side" aria-label="Types">${inSet.map((b) => `<a href="#/data/blueprints/${b.violation_type}" ${b === bp ? 'aria-current="page"' : ""}>${esc(human(b.violation_type))}</a>`).join("")}</nav>`;
+  const cell = (c) => `<article class="bp-cell"><header><span class="label-${c.label}">${labelText(c)}</span><span class="muted">${esc(c.description)}</span></header>
+    <ol class="bp-lines">${c.lines.map((l) => `<li><span class="src">${esc(l.source)}</span><span class="txt">${placeholderHtml(l.template)}</span></li>`).join("")}</ol></article>`;
+  const cells = CELL_ORDER.map(([l, d]) => bp.cells.find((c) => c.label === l && (c.difficulty ?? null) === d)).filter(Boolean).map(cell).join("");
+  const meta = `<dl class="kv"><div><dt>Claim</dt><dd class="text">${esc(bp.claim)}</dd></div>
+    <div><dt>Deciding details</dt><dd class="text">${esc(bp.separating_cues.join("; "))}</dd></div>
+    <div><dt>Secrets planted</dt><dd class="text">${esc([...bp.core_secrets, ...bp.extra_secrets.map((t) => t + " (second)")].map(human).join(", "))}</dd></div></dl>`;
+  return section("Blueprints", `<div class="notes">${side}<div class="bp">${meta}<p class="muted small">Every scenario of this type and set uses these evidence lines; the highlighted names are filled in per scenario.</p>${cells}</div></div>`, seg);
+}
+
+function wireBlueprints() {
+  $("view").querySelectorAll("[data-bpset]").forEach((b) => { b.onclick = () => { state.bpSet = b.dataset.bpset; location.hash = "#/data/blueprints"; route(); }; });
+}
+
+function dataSecrets() {
+  const rows = (SITE.registry || []).map((r) => `<tr><td>${esc(r.label)}</td><td>${esc(human(r.tier))}</td><td>${esc(r.sensitivity)}</td><td class="wrap mono-cell">${r.options.map(esc).join("<br>")}</td></tr>`).join("");
+  return section("Secret registry", `<p class="muted small">Each scenario draws its secrets' true values from these options. Always-redact secrets are removed under every policy; context secrets are ruled on case by case.</p><div class="panel"><div class="scroll"><table class="left"><thead><tr><th>Secret</th><th>Tier</th><th>Sensitivity</th><th>Options</th></tr></thead><tbody>${rows}</tbody></table></div></div>`);
 }
 
 /* ---------- Page: notes ---------- */
@@ -866,53 +963,30 @@ function wireTimeline() {
   $("view").querySelectorAll("[data-feed]").forEach((b) => { b.onclick = () => { state.feed = b.dataset.feed; pageNotes("timeline"); }; });
 }
 
-function figuresSection() {
-  const figs = SITE.figures || [];
-  if (!figs.length) return "";
-  const body = figs.map((f) => `<figure class="result-fig"><figcaption><b>${esc(f.title)}</b></figcaption>
-    <picture><source media="(prefers-color-scheme: dark)" srcset="figures/${esc(f.id)}-dark.svg"><img src="figures/${esc(f.id)}-light.svg" alt="${esc(f.title)}. ${esc(f.caption)}" loading="lazy"></picture>
-    <p class="muted small">${esc(f.caption)} Numbers are on the <a href="#/notes/findings">Findings</a> page.</p></figure>`).join("");
-  return section("Results", `<div class="figs">${body}</div>`);
-}
-
 function pageOverview() {
   const d = SITE.direction;
   if (!d) { $("view").innerHTML = pageHead({ title: "Overview" }) + `<p class="empty">No direction file. Add <code>docs/direction.toml</code>.</p>`; return; }
   const p = d.project || {};
-  const head = `<div class="ov-head">
-    <p class="eyebrow">Research question</p>
-    <h1 class="ov-q">${esc(p.question)}</h1>
-    <dl class="ov-kv">
-      <div><dt>Working hypothesis</dt><dd>${esc(p.hypothesis)}</dd></div>
-      <div><dt>Current focus</dt><dd>${esc(p.focus)}</dd></div>
-      <div><dt>Next</dt><dd>${esc(p.next)}</dd></div>
-    </dl></div>`;
-  const active = experiments().filter((x) => x.status !== "settled");
-  const settled = experiments().filter((x) => x.status === "settled");
-  const cards = active.map((x) => {
-    const rs = runsOf(x);
-    const latest = rs.length ? dayOf(rs[0].name) : "";
-    const links = [findingHref(x) ? `<a href="${findingHref(x)}">Finding</a>` : "", rs.length ? `<a href="#/runs" data-exp="${esc(x.id)}">${rs.length} run${rs.length === 1 ? "" : "s"}</a>` : ""].filter(Boolean).join("");
-    return `<article class="exp exp-${esc(x.status)}"><header><h3>${esc(x.title)}</h3>${statusBadge(x.status)}</header>
-      <p class="exp-q">${esc(x.question)}</p><p class="exp-r">${esc(x.result)}</p>
-      <footer><span class="faint">${esc(latest)}</span><span class="exp-links">${links}</span></footer></article>`;
-  }).join("");
-  const settledList = settled.length ? `<ul class="settled">${settled.map((x) => {
-    const rs = runsOf(x);
-    const href = findingHref(x);
-    return `<li><span class="s-title">${href ? `<a href="${href}">${esc(x.title)}</a>` : esc(x.title)}</span><span class="s-result">${esc(x.result)}</span><span class="faint">${rs.length} run${rs.length === 1 ? "" : "s"}</span></li>`;
-  }).join("")}</ul>` : "";
+  const heads = d.headline || [];
   const open = openDecisions();
-  const decisions = open.length
-    ? `<ul class="plain">${open.map((q) => `<li><a href="#/notes/questions/${slugify(q.title)}">${esc(q.title)}</a><span class="muted small">${esc(q.needs)}</span></li>`).join("")}</ul>`
-    : `<p class="empty">Nothing waiting on a decision.</p>`;
-  const recent = feedItems().slice(0, 6).map(feedRow).join("");
-  $("view").innerHTML = head
-    + section("Experiments", `<div class="exps">${cards}</div>`, `<span>${active.length} active</span><span>updated ${esc(p.updated || "")}</span>`)
-    + figuresSection()
-    + (settled.length ? section("Settled", settledList) : "")
-    + `<div class="grid2">${section(`Open decisions <span class="count">${open.length}</span>`, decisions)}${section("Recent", `<ol class="feed compact">${recent}</ol>`, `<a href="#/notes/timeline">Timeline</a>`)}</div>`;
-  $("view").querySelectorAll("[data-exp]").forEach((a) => { a.onclick = () => { state.runGroup = "experiment"; state.openExp = a.dataset.exp; }; });
+  const figs = SITE.figures || [];
+  const fig = figs.find((f) => f.id === state.fig) || figs[0];
+  const head = `<div class="ov-head"><p class="eyebrow">Research question</p><h1 class="ov-q">${esc(p.question)}</h1>
+    <p class="ov-hyp">${esc(p.hypothesis)}</p></div>`;
+  const headlines = heads.length ? section("What we've found", `<ol class="headlines">${heads.map((h) =>
+    `<li><p>${esc(h.text)}</p>${h.link ? `<a class="small" href="${esc(h.link)}">Details</a>` : ""}</li>`).join("")}</ol>`, `<span>updated ${esc(p.updated || "")}</span>`) : "";
+  const figSeg = figs.length > 1 ? `<div class="seg" role="group" aria-label="Figure">${figs.map((f, i) =>
+    `<button type="button" data-fig="${esc(f.id)}" aria-pressed="${f === fig}">${i + 1}</button>`).join("")}</div>` : "";
+  const figure = fig ? section("Results", `<figure class="result-fig solo"><figcaption><b>${esc(fig.title)}</b></figcaption>
+    <picture><source media="(prefers-color-scheme: dark)" srcset="figures/${esc(fig.id)}-dark.svg"><img src="figures/${esc(fig.id)}-light.svg" alt="${esc(fig.title)}. ${esc(fig.caption)}"></picture>
+    <p class="muted small">${esc(fig.caption)}</p></figure>`, figSeg) : "";
+  const status = `<div class="ov-status">
+    <div><h3>Now</h3><p>${esc(p.focus)}</p></div>
+    <div><h3>Next</h3><p>${esc(p.next)}</p></div>
+    <div><h3>Waiting on a decision</h3>${open.length ? `<ul class="plain">${open.map((q) => `<li><a href="#/notes/questions/${slugify(q.title)}">${esc(q.title)}</a></li>`).join("")}</ul>` : `<p class="muted">Nothing.</p>`}</div>
+  </div>`;
+  $("view").innerHTML = head + headlines + figure + section("Status", status, `<a href="#/runs">All experiments</a><a href="#/notes/timeline">Timeline</a>`);
+  $("view").querySelectorAll("[data-fig]").forEach((b) => { b.onclick = () => { state.fig = b.dataset.fig; pageOverview(); }; });
 }
 
 
@@ -932,7 +1006,57 @@ function paperSide(st) {
   const errors = st.ok ? "" : `<pre class="paper-errors">${st.errors.map(esc).join("\n")}</pre>`;
   return `<p class="status">${state}</p>${errors}
     <ol class="outline">${items}</ol>
-    <p class="muted small">${total.toLocaleString()} words written · <a href="paper/main.pdf" target="_blank" rel="noopener">Open PDF ↗</a></p>`;
+    <p class="muted small">${total.toLocaleString()} words written · auto-refreshes on save</p>`;
+}
+
+let pdfjsReady = null;
+function loadPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  pdfjsReady = pdfjsReady || new Promise((resolve, reject) => {
+    const tag = document.createElement("script");
+    tag.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+    tag.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      resolve(window.pdfjsLib);
+    };
+    tag.onerror = () => reject(new Error("could not load the PDF renderer"));
+    document.head.appendChild(tag);
+  });
+  return pdfjsReady;
+}
+
+let paperBlobUrl = null;
+async function renderPaper(stamp) {
+  const box = $("paper-pdf");
+  if (!box) return;
+  try {
+    const bytes = await (await fetch(`paper/main.pdf?v=${encodeURIComponent(stamp)}`, { cache: "no-store" })).arrayBuffer();
+    if (paperBlobUrl) URL.revokeObjectURL(paperBlobUrl);
+    paperBlobUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+    const dl = $("paper-dl"), tab = $("paper-tab");
+    if (dl) dl.href = paperBlobUrl;
+    if (tab) tab.href = paperBlobUrl;
+    const lib = await loadPdfJs();
+    const doc = await lib.getDocument({ data: new Uint8Array(bytes) }).promise;
+    const scroll = box.scrollTop;
+    const width = box.clientWidth - 32;
+    const frag = document.createDocumentFragment();
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const base = page.getViewport({ scale: 1 });
+      const scale = width / base.width;
+      const view = page.getViewport({ scale: scale * (window.devicePixelRatio || 1) });
+      const canvas = document.createElement("canvas");
+      canvas.width = view.width; canvas.height = view.height;
+      canvas.style.width = `${width}px`; canvas.style.height = `${(view.height / view.width) * width}px`;
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport: view }).promise;
+      frag.appendChild(canvas);
+    }
+    box.replaceChildren(frag);
+    box.scrollTop = scroll;
+  } catch (err) {
+    box.innerHTML = `<p class="empty pad">Couldn't show the PDF here (${esc(err.message)}). Use Download.</p>`;
+  }
 }
 
 function pagePaper() {
@@ -943,7 +1067,9 @@ function pagePaper() {
   }
   let stamp = st.built_at;
   $("view").innerHTML = `<div class="paper"><aside class="paper-side" id="paper-side">${paperSide(st)}</aside>
-    <iframe class="paper-pdf" id="paper-pdf" title="Paper PDF" src="paper/main.pdf?v=${encodeURIComponent(stamp)}#view=FitH"></iframe></div>`;
+    <div class="paper-view"><div class="paper-bar"><a class="btn" id="paper-dl" download="redaction-paper.pdf" href="#">Download PDF</a><a class="btn" id="paper-tab" target="_blank" rel="noopener" href="#">Open in new tab</a></div>
+    <div class="paper-pdf" id="paper-pdf" role="document" aria-label="Paper PDF"><p class="empty pad">Rendering…</p></div></div></div>`;
+  renderPaper(stamp);
   paperTimer = setInterval(() => {
     fetch(`paper/status.json?t=${Date.now()}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -952,7 +1078,7 @@ function pagePaper() {
         stamp = next.built_at;
         SITE.paper = next;
         $("paper-side").innerHTML = paperSide(next);
-        if (next.ok) $("paper-pdf").src = `paper/main.pdf?v=${encodeURIComponent(stamp)}#view=FitH`;
+        if (next.ok) renderPaper(stamp);
       })
       .catch(() => {});
   }, 2000);
@@ -963,7 +1089,7 @@ function pagePaper() {
 function route() {
   const hash = location.hash === "#runs" ? "#/runs" : location.hash || "#/";
   const [, page = "", arg = ""] = hash.match(/^#\/([^/]*)\/?(.*)$/) || [];
-  const nav = { "": "overview", runs: "runs", run: "runs", ablation: "runs", scenarios: "scenarios", data: "data", notes: "notes", paper: "paper" }[page] || "overview";
+  const nav = { "": "overview", runs: "runs", run: "runs", ablation: "runs", scenarios: "data", data: "data", notes: "notes", paper: "paper" }[page] || "overview";
   clearInterval(paperTimer);
   document.querySelectorAll("[data-nav]").forEach((a) => a.toggleAttribute("aria-current", false));
   document.querySelector(`[data-nav="${nav}"]`)?.setAttribute("aria-current", "page");
@@ -974,8 +1100,8 @@ function route() {
     pageRun(runName, tab);
   }
   else if (page === "ablation") pageAblation(name);
-  else if (page === "scenarios") pageScenarios(name);
-  else if (page === "data") pageData();
+  else if (page === "scenarios") pageData("scenarios", name);
+  else if (page === "data") { const [tab, ...rest] = name.split("/"); pageData(tab || "scenarios", rest.join("/")); }
   else if (page === "notes") pageNotes(name);
   else if (page === "paper") pagePaper();
   else if (page === "runs") pageRuns();

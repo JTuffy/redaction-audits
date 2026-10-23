@@ -14,7 +14,7 @@ from inspect_ai.model import Model
 from redaction.core.models import Split
 from redaction.core.roles import Role, Stance
 from redaction.data.background import build_sample, load_sample
-from redaction.data.blueprints import DEPTHS
+from redaction.data.blueprints import DEPTHS, catalog
 from redaction.data.generator import build_split
 from redaction.data.pipeline.build import build_split_v2, manifest, write_build
 from redaction.data.pipeline.model_render import ModelRenderer, ModelReviewer
@@ -172,6 +172,7 @@ def site(
         notes_dir=settings.notes_dir,
         paper_dir=settings.paper_dir,
         direction_file=settings.direction_file,
+        blueprints=catalog(),
     )
     typer.echo(str(out))
 
@@ -250,6 +251,7 @@ def _refresh_site(settings: Settings) -> None:
             notes_dir=settings.notes_dir,
             paper_dir=settings.paper_dir,
             direction_file=settings.direction_file,
+            blueprints=catalog(),
         )
     except OSError as error:  # the run is recorded either way; the site can be rebuilt by hand
         log.warning("site_refresh_failed", error=str(error))

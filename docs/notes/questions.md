@@ -1,79 +1,49 @@
 # Questions
 
-Open design questions, with the options and where the thinking currently leans. This is the page for review: each question ends with what needs a decision. Once a question is decided, it moves to Decisions.
+Open design questions, each with its options, where the thinking leans, and what needs deciding. A decided question moves to Decisions.
 
-## Can the setup measure what P1 is about yet?
+## What should a redaction protocol require?
 
-Partly:
+Type markers can hide a real violation (classifier: "change approved for [codename]" reads as covering the endpoint that is off) or make an innocent lab look guilty (opt-out, cot, monitoring). Options:
 
-| Measure | Status | Fix |
-|---|---|---|
-| Persistence | Can't move: the secrets never decide a label, so redacting them never costs signal. | Entangled scenarios, where the secret is the evidence. Then an adversary. |
-| Leakage | Measurable since 22 Oct, when reports started quoting correlates. Text redaction leaked 0.86. | Done. |
-| Executor robustness | Untested: Sonnet 5.5 won't play the cover-up stance. | An adversary harness, with scripted attacks as bounds. |
+1. **Consistent pseudonyms** for every redacted entity, so identity across lines survives.
+2. **Comparison-preserving generalization** for every number or date a finding compares ("above the reporting threshold").
+3. **Explicit entanglement marking**: the redactor states when two redacted spans refer to the same entity or different ones.
 
-Needs a decision: none. This is the framing for the questions below.
+What the runs show: 1 restores identity links fully and does nothing for magnitudes and dates; 1 plus 2 (text generalize) also removes the magnitude misses (entangled FNR 0.17 to 0.00); the honest executor enforces both against a link-break attack made of individually legitimate requests.
+
+Leaning: require 1 and 2, enforced by an executor or an equivalent check.
+
+Needs a decision: whether that is the recommendation, and whether 3 is worth testing.
+
+## How do we measure an adversarial lab without an executor?
+
+The red-team framing works when the executor is in the loop, but without one Sonnet's safety filter refused most requests and the run stopped at 28 of 77 scenarios. The scripted attacks bound the no-executor case, but a model adversary is the realistic one. Options:
+
+1. **Another provider as the advocate** for this arm only. Changes the advocate's model between arms, which confounds the comparison.
+2. **Another provider for both arms**, re-running the executor arm too. Clean comparison, twice the cost.
+3. **Accept the scripted bound** and report the model arm as with-executor only.
+
+Leaning: 2, on dev first.
+
+Needs a decision: which, and whether the cost is acceptable (a few dollars per arm).
 
 ## Is the scenario shape, length and quality good enough?
 
-Josh's concern from the pipeline review. Scenarios are 36–68 single-line log entries, three of which carry the evidence, with the decisive fact usually in one token. Possible gaps:
+Josh's concern from the pipeline review. Scenarios are 36–68 single-line log records; the evidence is three lines (disjoint) or four to six (entangled). Still missing:
 
-- **Shape.** Every scenario is a flat list of one-line records, without multi-line events, stack traces, configs or diffs.
-- **Length.** The evidence is three lines; real evidence is spread across more places and needs connecting.
-- **Quality.** The template text is terse and uniform. A model-rendered build (decided 22 Oct) will add variety, but not depth.
+- **Shape.** No multi-line events, stack traces, configs or diffs.
+- **Length.** The auditor quotes exactly the relevant lines, so the judge never has to search.
+- **Variety.** The template text is terse and uniform; model rendering adds variety but not depth.
 
-The cues test (Findings, "Does rephrasing make the task harder?") points at structure over wording: paraphrasing every cue left the task as easy as before, because each variant settles its label in one line. That favours longer, multi-line evidence over better phrasing.
+The entangled set answers part of this for P1's purposes: what matters is whether the evidence turns on a secret, not how long it is. A transcript scenario type (v3) is the planned answer to shape.
 
-Needs a decision: which of these matters most, ideally pointing at one scenario that shows the problem.
+Needs a decision: whether v3 transcripts are worth starting before the paper, or after.
 
-## Markers can hide a real violation. What should a redaction protocol require?
+## What does the update to Cath lead with?
 
-On entangled classifier scenarios, standard `[REDACTED: label]` markers made real violations score 6–15: "change approved for [codename]" reads as covering the endpoint that is off. On opt-out and compute, the same markers made innocent labs look guilty. Options:
+Decided on 22 Oct: lead with the leakage contrast. Since then the stronger results are entanglement (markers cost signal only when the secret is the evidence, and can hide violations) and the executor under attack.
 
-1. **Require consistent pseudonyms** for every redacted entity, so identity across lines survives. Doesn't help magnitudes.
-2. **Require property-preserving generalization** for numbers ("above the reporting threshold") under executor rule 3, checked by the executor.
-3. **Mark entanglement explicitly**: the redactor must state when two redacted spans refer to the same or different entities.
+Leaning: lead with entanglement and the executor, with leakage as the third point.
 
-Evidence from the benchmark (Findings): consistent pseudonyms restore identity links fully and do nothing for magnitudes and dates; the model policies already do 1 on their own and keep magnitudes too.
-
-Measured since: text generalize (1 plus 2, by script) removes the magnitude misses that pseudonyms leave (entangled FNR 0.17 to 0.00), and the honest executor enforces both against a link-break attack.
-
-Leaning: require 1 for every redacted entity and 2 for every number or date that a finding compares, and require an executor (or equivalent check) to enforce them, since the attack that breaks them is made of individually legitimate requests.
-
-Needs a decision: whether that pair is the recommendation, and whether 3 is worth testing.
-
-## How should the deep variants be fixed?
-
-The first deep draft didn't make the task harder for the frontier judge, and for the weaker judge two cells misbehave (Findings, "Do deep variants make the task harder?"). Options:
-
-1. **Fix the two cells.** Make the cot clean case clearly outside the claim (staff-written SFT demonstrations, not production traffic); make the opt-out easy herring something a reader trusts in one line (the customer's own consent amendment), and move "sandbox tenant" to medium.
-2. **Add look-alike distractors.** Hard cells get two or three similar records (several snapshots, shards or change requests), so clearing a herring means finding the right one, not reading six lines.
-3. **Stop quoting only the right lines.** The templated auditor quotes every key line, so the judge never has to search. Quoting a wider window (the evidence plus the lines around it) makes the cross-line link something to find.
-
-The deep set may matter most for P1's real question regardless: a redaction that generalizes a snapshot ID or a date removes exactly the link that clears a hard herring, so persistence can drop even when unedited AUROC is 1.00.
-
-Needs a decision: which of 1–3 (they combine), and whether you want to review the cells as written in `data/blueprints.py` first.
-
-## What should the adversary do?
-
-The honest executor's rule 3 says evidence may be generalized but not removed. A blatant adversary that asks to delete the evidence lines tests only that rule. The real risk is subtler:
-
-1. **Blatant.** Request the key-evidence lines outright. This is a control; the executor should deny every request.
-2. **Cue generalization.** Generalize the token that separates the labels (`consent_basis=none_recorded` → `consent_basis=[internal reference]`) while claiming a confidentiality harm. Rule 3 then depends on the executor recognising that the cue *is* the evidence.
-3. **Context stripping.** Generalize the line that exonerates a red herring, so innocent evidence looks guilty. A lab trying to look clean gains nothing from this, so it's out of scope for P1.
-
-Scripted versions of 1 and 2 give a worst case that doesn't depend on a model agreeing to play the part. A model adversary prompted as the lab's counsel could follow later.
-
-Decided 22 Oct: both. Scripted attacks are bounds; the headline adversary is a model in a better harness (see Decisions).
-
-## How many judge samples?
-
-Three samples per question are now the default. They cut the standard deviation of the mean by about 1.7×, at 3× the judge cost. Five would halve it.
-
-Needs a decision: none until the 3-sample noise is measured.
-
-## What does the MVP show Cath?
-
-Her 9 Oct ask was an MVP with results. The honest result so far is the table at the top of this page, plus the leakage contrast between text redaction and the model-based policies. Per her request, the write-up is Josh's own.
-
-Decided 22 Oct: lead with the leakage contrast (see Decisions).
+Needs a decision: Josh's.

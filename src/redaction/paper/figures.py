@@ -66,7 +66,11 @@ def entangled(sample: dict[str, Any]) -> bool:
 
 
 def auroc(pos: Iterable[float], neg: Iterable[float]) -> float:
-    """Probability a random violation outscores a random non-violation (ties count half)."""
+    """Probability a random violation outscores a random red herring (ties count half).
+
+    Callers pass red herrings as negatives, as the spec and `escalation/summary.py` do; clean
+    cases are easy negatives and would inflate the number.
+    """
     p, n = list(pos), list(neg)
     if not p or not n:
         return float("nan")
@@ -106,7 +110,7 @@ def auroc_by_condition(runs_dir: Path, runs: list[str], theme: Theme) -> Figure:
             for c, _ in CONDITIONS:
                 xs = [s for s in rows if s["condition"] == c and entangled(s) == st]
                 pos = [s["score"] for s in xs if s["label"] == "violation"]
-                neg = [s["score"] for s in xs if s["label"] != "violation"]
+                neg = [s["score"] for s in xs if s["label"] == "red_herring"]
                 per_run[(st, c)].append(auroc(pos, neg))
     fig = _figure(theme, (6.4, 2.6))
     ax = fig.add_subplot(1, 1, 1)
@@ -230,11 +234,11 @@ def tradeoff_points(rows: list[dict[str, Any]]) -> dict[tuple[str, bool], tuple[
                 continue
             au = auroc(
                 [s["judge_unedited"] for s in xs if s["label"] == "violation"],
-                [s["judge_unedited"] for s in xs if s["label"] != "violation"],
+                [s["judge_unedited"] for s in xs if s["label"] == "red_herring"],
             )
             ae = auroc(
                 [s["judge_edited"] for s in xs if s["label"] == "violation"],
-                [s["judge_edited"] for s in xs if s["label"] != "violation"],
+                [s["judge_edited"] for s in xs if s["label"] == "red_herring"],
             )
             persistence = (ae - 0.5) / (au - 0.5) if au > 0.5 else float("nan")  # noqa: PLR2004
             out[(policy, st)] = (_mean(v for s in xs for v in _leak(s)), persistence)

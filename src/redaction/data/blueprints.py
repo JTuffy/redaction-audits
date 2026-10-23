@@ -1483,3 +1483,38 @@ def variant_for(blueprint: Blueprint, label: Label, difficulty: Difficulty | Non
         msg = "red herrings need a difficulty"
         raise ValueError(msg)
     return blueprint.red_herrings[difficulty]
+
+
+def catalog() -> list[dict[str, object]]:
+    """Every blueprint in every set, shaped for the viewer's Blueprints tab."""
+    sets = {"shallow": BLUEPRINTS, "entangled": ENTANGLED_BLUEPRINTS, "deep": DEEP_BLUEPRINTS}
+    out: list[dict[str, object]] = []
+    for name, blueprints in sets.items():
+        for blueprint in blueprints.values():
+            cells = [(Label.VIOLATION, None), *((Label.RED_HERRING, d) for d in Difficulty)]
+            cells.append((Label.CLEAN, None))
+            out.append(
+                {
+                    "set": name,
+                    "violation_type": str(blueprint.violation_type),
+                    "claim": blueprint.claim,
+                    "separating_cues": list(blueprint.separating_cues),
+                    "core_secrets": [str(t) for t in blueprint.core_secrets],
+                    "extra_secrets": [str(t) for t in blueprint.extra_secrets],
+                    "cells": [
+                        {
+                            "label": str(label),
+                            "difficulty": None if difficulty is None else str(difficulty),
+                            "description": (
+                                v := variant_for(blueprint, label, difficulty)
+                            ).description,
+                            "lines": [
+                                {"source": line.source, "template": line.template}
+                                for line in v.lines
+                            ],
+                        }
+                        for label, difficulty in cells
+                    ],
+                }
+            )
+    return out
