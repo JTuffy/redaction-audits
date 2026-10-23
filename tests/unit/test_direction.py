@@ -35,6 +35,12 @@ def test_direction_file_is_consistent() -> None:
         assert not missing, (x["id"], missing)
         assert not set(x["runs"]) & seen, x["id"]  # a run belongs to one thread
         seen |= set(x["runs"])
+    followups = [f["id"] for f in direction.get("followup", [])]
+    assert len(followups) == len(set(followups))
+    for f in direction.get("followup", []):
+        assert f["status"] in {"idea", "planned", "running", "done"}, f["id"]
+        assert f["question"], f["id"]
+        assert f["tweak"], f["id"]
 
 
 def test_decisions_table_parses(tmp_path: Path) -> None:

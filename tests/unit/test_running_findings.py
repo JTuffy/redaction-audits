@@ -108,3 +108,22 @@ def test_ruling_shares() -> None:
     assert metric("rewritten", samples) == 0.5
     assert metric("denied", samples) == 0.25
     assert metric("denied", [{"rulings": []}]) is None
+
+
+def test_cluster_bootstrap_is_wider_than_scenario_bootstrap() -> None:
+    from redaction.viewer.results import _interval  # noqa: PLC0415
+
+    # Two skeletons, each repeated 10 times: one separates perfectly, one not at all.
+    good = [_sample(f"dev-{i:03d}-x-v", "violation", 90, 90) for i in range(10)]
+    good += [_sample(f"dev-{i:03d}-x-r", "red_herring", 10, 10) for i in range(10)]
+    bad = [_sample(f"dev-{i:03d}-y-v", "violation", 90, 40) for i in range(10)]
+    bad += [_sample(f"dev-{i:03d}-y-r", "red_herring", 10, 60) for i in range(10)]
+    for s in good:
+        s["cluster"] = "good-" + s["label"]
+    for s in bad:
+        s["cluster"] = "bad-" + s["label"]
+    clustered = _interval("persistence", good + bad)
+    loose = _interval("persistence", [{**s, "cluster": None} for s in good + bad])
+    assert clustered is not None
+    assert loose is not None
+    assert clustered[1] - clustered[0] > loose[1] - loose[0]

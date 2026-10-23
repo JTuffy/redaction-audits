@@ -431,3 +431,9 @@ details.archive > .threads { margin-top: 6px; opacity: 0.85; }
 .theme-btn { margin-left: auto; background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 6px;
   padding: 4px 10px; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
 .theme-btn:hover { color: var(--fg); background: var(--sunken); }
+
+/* Overview: follow-up questions */
+.fu-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; max-width: 90ch; }
+.fu-list li { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 12px; align-items: baseline; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.fu-list li .badge { justify-self: start; }
+.fu-list p { margin: 0; }

@@ -283,6 +283,23 @@ function bySetSection(r) {
   return section("By set", `<div class="panel"><div class="scroll"><table><thead><tr><th>Policy</th><th>Set</th><th class="num">n</th><th class="num">${term("persistence", "Persistence")}</th><th class="num">${term("leakage", "Leakage")}</th><th class="num">FNR</th><th class="num">FPR</th></tr></thead><tbody>${rows}</tbody></table></div></div>`, `<span>recomputed from samples</span>`);
 }
 
+function byTypeSection(r) {
+  const types = [...new Set(r.samples.map((s) => s.violation_type))].sort();
+  if (types.length < 2) return "";
+  const pols = runPolicies(r);
+  const cell = (xs) => {
+    const v = xs.filter((s) => s.label === "violation"), rh = xs.filter((s) => s.label === "red_herring");
+    const au = aurocOf(v.map((s) => s.judge_unedited), rh.map((s) => s.judge_unedited));
+    const ae = aurocOf(v.map((s) => s.judge_edited), rh.map((s) => s.judge_edited));
+    return au != null && ae != null && au > 0.5 ? (ae - 0.5) / (au - 0.5) : null;
+  };
+  const rows = types.map((t) => `<tr><td>${esc(human(t))}</td>${pols.map((p) => {
+    const xs = r.samples.filter((s) => s.policy === p && s.violation_type === t);
+    return `<td class="num">${f2(cell(xs))}</td>`;
+  }).join("")}<td class="num faint">${r.samples.filter((s) => s.policy === pols[0] && s.violation_type === t).length}</td></tr>`).join("");
+  return section("By violation type", `<div class="panel"><div class="scroll"><table><thead><tr><th>Type</th>${pols.map((p) => `<th class="num">${esc(POLICY[p] || p)}</th>`).join("")}<th class="num">n</th></tr></thead><tbody>${rows}</tbody></table></div></div>`, `<span>persistence, both sets; small n per cell, read as direction only</span>`);
+}
+
 function protocolGrid(e) {
   const c = e?.config || {};
   const models = c.models || {};
@@ -572,6 +589,7 @@ function pageRun(name, tab = "") {
     body = `<div class="io io-in">${section("Inputs", setupGrid(e), `<span>fixed before the run: data build, protocol, models</span>`)}</div>`
       + `<div class="io io-out">${section("Results", resultsTable(r), `<span>what came out</span>`)}`
       + (hasSamples ? bySetSection(r) : "")
+      + (hasSamples ? byTypeSection(r) : "")
       + (hasSamples ? section(term("judge_score", "Judge score"), dumbbells(r), legend) + section(term("leakage", "Secret leakage"), secretsTable(r), toggle) : "") + `</div>`;
   }
   $("view").innerHTML = `<div>${head}${tabs}</div>${body}`;
@@ -989,13 +1007,13 @@ function measureRow(m) {
   const ci = m.low != null ? `<span class="faint">${fmt(m.low)}–${fmt(m.high)}</span>` : "";
   const last = m.runs?.[m.runs.length - 1];
   const runs = m.runs?.length ? `<a href="#/run/${encodeURIComponent(last)}" ${dataTip(m.runs.map(esc).join("<br>"))}>${m.runs.length} run${m.runs.length > 1 ? "s" : ""}</a>` : `<span class="faint">no runs</span>`;
-  return `<tr><td>${esc(m.label)}</td><td class="num"><b>${value}</b></td><td class="num">${ci}</td><td class="num">${m.n || "—"}</td><td>${runs}</td><td>${spark(m.trend || [])}</td></tr>`;
+  return `<tr><td>${esc(m.label)}</td><td class="num"><b>${value}</b></td><td class="num">${ci}</td><td class="num" ${m.clusters ? dataTip(`${m.n} samples from ${m.clusters} evidence skeletons (set, type, label, difficulty, variant); the interval resamples skeletons`) : ""}>${m.n || "—"}${m.clusters ? `<span class="faint"> / ${m.clusters}</span>` : ""}</td><td>${runs}</td><td>${spark(m.trend || [])}</td></tr>`;
 }
 function questionCard(q) {
   const rows = (q.measure || []).map(measureRow).join("");
   return `<article class="q-card panel"><header><span class="q-id">${esc(q.id)}</span><h3>${esc(q.title)}</h3><span class="badge ${Q_STATUS[q.status] ?? ""}">${esc(q.status)}</span></header>
     <p class="q-answer">${esc(q.answer || "")}${q.link ? ` <a class="small" href="${esc(q.link)}">Details</a>` : ""}</p>
-    ${rows ? `<div class="scroll"><table class="q-table"><thead><tr><th>Measure</th><th class="num">Pooled</th><th class="num">95% CI</th><th class="num">n</th><th>Runs</th><th>Per run</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</article>`;
+    ${rows ? `<div class="scroll"><table class="q-table"><thead><tr><th>Measure</th><th class="num">Pooled</th><th class="num">95% CI</th><th class="num">n / skel.</th><th>Runs</th><th>Per run</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</article>`;
 }
 
 function pageOverview() {
@@ -1009,7 +1027,7 @@ function pageOverview() {
   const pool = d.pooling || {};
   const head = `<div class="ov-head"><p class="eyebrow">Research question</p><h1 class="ov-q">${esc(p.question)}</h1>
     <p class="ov-hyp">${esc(p.hypothesis)}</p></div>`;
-  const cards = qs.length ? section("Where the questions stand", `<p class="muted small q-note">Each number pools every full run that matches the measure (${esc(pool.split || "any split")}, judge ${esc(String(pool.judge || "any").split("/").pop())}), so it moves as runs accumulate. The dots are the runs one by one; a step usually means a rebuild or a protocol change.</p><div class="q-grid">${qs.map(questionCard).join("")}</div>`, `<span>status updated ${esc(p.updated || "")}</span>`) : "";
+  const cards = qs.length ? section("Where the questions stand", `<p class="muted small q-note">Each number pools every full run that matches the measure (${esc(pool.split || "any split")}, judge ${esc(String(pool.judge || "any").split("/").pop())}), so it moves as runs accumulate. Intervals resample evidence skeletons, not scenarios: scenarios built from the same hand-written variant aren't independent. The dots are the runs one by one; a step usually means a rebuild or a protocol change.</p><div class="q-grid">${qs.map(questionCard).join("")}</div>`, `<span>status updated ${esc(p.updated || "")}</span>`) : "";
   const figSeg = figs.length > 1 ? `<div class="seg" role="group" aria-label="Figure">${figs.map((f, i) =>
     `<button type="button" data-fig="${esc(f.id)}" aria-pressed="${f === fig}">${i + 1}</button>`).join("")}</div>` : "";
   const figure = fig ? section("Figures", `<figure class="result-fig solo"><figcaption><b>${esc(fig.title)}</b></figcaption>
@@ -1020,7 +1038,11 @@ function pageOverview() {
     <div><h3>Next</h3><p>${esc(p.next)}</p></div>
     ${SITE.public ? "" : `<div><h3>Waiting on a decision</h3>${open.length ? `<ul class="plain">${open.map((q) => `<li><a href="#/notes/questions/${slugify(q.title)}">${esc(q.title)}</a></li>`).join("")}</ul>` : `<p class="muted">Nothing.</p>`}</div>`}
   </div>`;
-  $("view").innerHTML = head + cards + section("Status", status, `<a href="#/runs">All experiments</a><a href="#/notes/timeline">Timeline</a>`) + figure;
+  const FU = { idea: "", planned: "info", running: "warn", done: "pass" };
+  const fus = d.followup || [];
+  const followups = fus.length ? section("Follow-up questions", `<p class="muted small q-note">Each tweaks one thing on the same dataset and harness; together they are the paper's later sections.</p><ul class="fu-list">${fus.map((f) =>
+    `<li><span class="badge ${FU[f.status] ?? ""}">${esc(f.status)}</span><div><p>${esc(f.question)}</p><p class="muted small">${esc(f.tweak)}</p></div></li>`).join("")}</ul>`, `<span>${fus.length} tracked</span>`) : "";
+  $("view").innerHTML = head + cards + followups + section("Status", status, `<a href="#/runs">All experiments</a><a href="#/notes/timeline">Timeline</a>`) + figure;
   $("view").querySelectorAll("[data-fig]").forEach((b) => { b.onclick = () => { state.fig = b.dataset.fig; pageOverview(); }; });
 }
 
