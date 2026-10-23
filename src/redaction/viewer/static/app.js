@@ -1143,6 +1143,7 @@ function wireTheme() {
 wireTheme();
 
 function route() {
+  if (!SITE) return; // still loading; the fetch below routes when it lands
   const hash = location.hash === "#runs" ? "#/runs" : location.hash || "#/";
   const [, page = "", arg = ""] = hash.match(/^#\/([^/]*)\/?(.*)$/) || [];
   const nav = { "": "overview", runs: "runs", run: "runs", ablation: "runs", scenarios: "data", data: "data", notes: "notes", paper: "paper" }[page] || "overview";
@@ -1166,6 +1167,7 @@ function route() {
 
 window.addEventListener("hashchange", () => { route(); window.scrollTo(0, 0); });
 
+$("view").innerHTML = `<p class="empty">Loading…</p>`;
 fetch("data/site.json")
   .then((r) => { if (!r.ok) throw new Error(`site.json: HTTP ${r.status}`); return r.json(); })
   .then((site) => {
@@ -1173,5 +1175,5 @@ fetch("data/site.json")
     route();
   })
   .catch((err) => {
-    $("view").innerHTML = `<p class="empty">Could not load data/site.json (${esc(err.message)}). Rebuild with <code>uv run redaction site</code>.</p>`;
+    $("view").innerHTML = `<p class="empty">Could not load data/site.json (${esc(err.message)}). </p>`;
   });

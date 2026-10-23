@@ -1,5 +1,7 @@
 # Publishing the site
 
+Live: https://jtuffy.github.io/redaction-audits-site/ (from the public repo `JTuffy/redaction-audits-site`, Pages on `main`). Push an update with `GH_TOKEN=$(gh auth token --user JTuffy) uv run redaction deploy --push`; the token is sent as a header for that command only and never written to disk.
+
 The site has two builds.
 
 - **Private** (`redaction site`): everything, served on the tailnet. This is the working space.
@@ -9,7 +11,7 @@ The site has two builds.
   looks private: names, amounts of money, local paths, hostnames, e-mail addresses, key-shaped
   strings, named third-party data sources.
 
-## Before the first publish
+## Caveats (read before publishing more widely)
 
 - Ask the mentor. The notes, findings and question summaries on the site are largely written by
   Claude, and the mentor has asked that AI-written text not be sent to other people. A public
