@@ -800,7 +800,7 @@ function dataSimulator(_build, id) {
   const about = b.about || {};
   const dist = about.distributions ? `<details class="sim-dist"><summary>Distributions the worlds are drawn from</summary><dl class="kv">${Object.entries(about.distributions).map(([k, v]) => `<div><dt>${esc(human(k))}</dt><dd>${esc(Array.isArray(v) ? v.join("–") : v)}</dd></div>`).join("")}</dl></details>` : "";
   const how = `<div class="panel pad sim-how">
-    <p><b>How these are made.</b> Code draws a lab's world (endpoints, deploys, change requests, migrations, rollbacks) from the distributions below, decides the label by checking the claim against those events, and only then writes each event as a log line${b.key === "model" ? ", phrased by a model and checked against the facts" : ""}. Nothing here was written for its label.</p>
+    <p><b>How these are made.</b> Code draws a lab (teams, leads, endpoints and who owns them) and what happened there (deploys, change requests, migrations, rollbacks) from the distributions below, decides the label by checking the claim against those events, and only then writes each event as a log line${b.key === "model" ? ", phrased by a model and checked against the facts" : ""}. Every violation comes with a red-herring twin that differs in one fact, so a redaction can be tested on exactly the fact that decides the case.</p>
     ${about.check ? `<p class="muted"><b>The check.</b> ${esc(about.check)}</p>` : ""}
     <dl class="kv">
       <div><dt>Kept</dt><dd>${kept} of ${planned}</dd></div>
@@ -808,6 +808,7 @@ function dataSimulator(_build, id) {
       <div><dt>Labels</dt><dd class="text">${labels}</dd></div>
       <div><dt>Secret links</dt><dd class="text">${count("entanglement")}</dd></div>
       <div><dt>Decisive facts</dt><dd class="text">${count("decisive_facts")}</dd></div>
+      <div><dt>Twin pairs</dt><dd>${new Set((b.attributes || []).map((x) => x.twin).filter(Boolean)).size}</dd></div>
     </dl>${dist}</div>`;
   const list = b.scenarios.filter((s) => !state.scLabel || s.label === state.scLabel);
   const pool = [...b.scenarios, ...b.records.filter((r) => r.status !== "kept").map((r) => ({ scenario_id: r.scenario_id, label: r.label, difficulty: r.difficulty, dropped: true }))];
@@ -820,11 +821,21 @@ function dataSimulator(_build, id) {
   const attrPanel = selected ? `<dl class="kv">${SIM_ATTRS.map(([k, t]) => `<div><dt>${t}</dt><dd>${esc(a[k] ?? "—")}</dd></div>`).join("")}
       <div><dt>Excused by</dt><dd class="text">${esc((a.excuses || []).join(", ") || "—")}</dd></div>
       <div><dt>Distractors</dt><dd class="text">${esc((a.decoys || []).join(", ") || "—")}</dd></div>
+      <div><dt>Proof links</dt><dd class="text">${esc((a.joins || []).map((j) => ({ id: "deploy number", codename: "codename", customer: "customer", person: "person's name" }[j] || j)).join(" → ") || "—")}</dd></div>
+      <div><dt>Twin</dt><dd class="text">${twinOf(b, selected)}</dd></div>
       <div><dt>Blind reviewer</dt><dd class="text">${r?.review ? `${esc(human(r.review.verdict))}` : "not run"}</dd></div></dl>` : "";
   const filter = `${seg}<select id="f-label" aria-label="Label"><option value="">All labels</option>${LABEL_ORDER.map((l) => `<option value="${l}" ${state.scLabel === l ? "selected" : ""}>${LABELS[l]}</option>`).join("")}</select>`;
   const droppedNote = dropped.length ? `<p class="muted small">Dropped: ${dropped.map((d) => { const rr = recs[d.scenario_id]; return `<b>${esc(short(d.scenario_id))}</b> (${esc(rr.status === "review_disagrees" ? `reviewer read ${human(rr.review?.verdict || "")}: ${rr.review?.reason || ""}` : (rr.issues || []).map((i) => i.check).join(", "))})`; }).join("; ")}</p>` : "";
   return section("Simulator demo · classifier off", how, `<span>build ${esc(b.manifest.version)}</span>`)
     + section(`Scenarios <span class="count">${list.length} of ${kept}</span>`, `${droppedNote}<div class="browser"><ol class="list panel">${items}</ol><article class="detail">${attrPanel}${scenarioDetail(selected)}</article></div>`, filter);
+}
+function twinOf(b, s) {
+  const a = (b.attributes || []).find((x) => x.scenario_id === s.scenario_id) || {};
+  if (!a.twin) return "none (no one-fact change flips this world)";
+  const other = (b.attributes || []).find((x) => x.twin === a.twin && x.scenario_id !== s.scenario_id);
+  if (!other) return "—";
+  const change = a.change || other.change;
+  return `<a href="#/data/simulator/${esc(other.scenario_id)}">${esc(short(other.scenario_id))}</a> · ${esc(LABELS[other.label] || other.label)}${change ? ` · differs by: ${esc(change)}` : ""}`;
 }
 function wireSimulator(id) {
   $("view").querySelectorAll(".list li[data-id]").forEach((li) => onKey(li, () => { location.hash = `#/data/simulator/${li.dataset.id}`; }));

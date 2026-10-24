@@ -1,67 +1,114 @@
-"""The classifier-off simulator: the check labels worlds correctly and plans pass validation."""
+"""The simulator: the check labels worlds correctly, twins differ in one fact, plans validate."""
 
 from __future__ import annotations
 
 import asyncio
+import random
+from collections import Counter
 
 from redaction.core.models import Label, Split
 from redaction.data.pipeline.render import TemplateRenderer
-from redaction.data.sim.build import build_sim
-from redaction.data.sim.classifier import Endpoint, Event, World, check
+from redaction.data.sim.build import build_sim, sample_to_quota
+from redaction.data.sim.classifier import check, perturb
 from redaction.data.sim.render import simulate
+from redaction.data.sim.world import Endpoint, Lab, Person
 
 
-def _world(env: str, *events: Event) -> World:
-    return World(
-        [
-            Endpoint("Project Lumen", env, "Halvorsen Logistics"),
-            Endpoint("Project Heron", "production", None),
+def _lab(env: str = "production") -> Lab:
+    lab = Lab(
+        people=[
+            Person("Priya Raman", "atlas"),
+            Person("Marcus Ellery", "ridge"),
+            Person("Dana Okafor", "atlas"),
         ],
-        list(events),
-        "Priya Raman",
-        0,
+        leads={"atlas": 0, "ridge": 1},
+        endpoints=[
+            Endpoint("Project Lumen", env, "Halvorsen Logistics", "atlas"),
+            Endpoint("Project Heron", "production", None, "ridge"),
+        ],
+    )
+    lab.add(1, "org_lead", team="atlas", person=0)
+    lab.add(2, "org_lead", team="ridge", person=1)
+    lab.add(3, "org_owner", endpoint=0, team="atlas")
+    lab.add(4, "org_owner", endpoint=1, team="ridge")
+    return lab
+
+
+def _off(lab: Lab, state: str = "off") -> None:
+    lab.add(50, "deploy", endpoint=0, id=1234, state=state, focal=True)
+
+
+def _cr(lab: Lab, t: float, endpoint: int = 0, approver: int = 0) -> None:
+    lab.add(
+        t,
+        "cr",
+        endpoint=endpoint,
+        id=77,
+        deploy=1234,
+        link="id",
+        scope="disable",
+        approver=approver,
     )
 
 
-def _off(t: float = 50, state: str = "off") -> Event:
-    return Event(t, "deploy", 0, {"id": 1234, "state": state})
+def test_off_without_approval_is_a_violation() -> None:
+    lab = _lab()
+    _off(lab)
+    assert check(lab).label is Label.VIOLATION
 
 
-def test_off_in_production_without_approval_is_a_violation() -> None:
-    assert check(_world("production", _off())).label is Label.VIOLATION
+def test_prior_approval_by_the_lead_excuses_and_its_proof_runs_through_org_lines() -> None:
+    lab = _lab()
+    _off(lab)
+    _cr(lab, 40)
+    verdict = check(lab)
+    assert verdict.label is Label.RED_HERRING
+    assert [k for _, k in verdict.joins] == ["id", "codename", "person"]
+    assert verdict.entanglement == 2
 
 
-def test_late_approval_does_not_excuse() -> None:
-    late = Event(60, "cr", 0, {"id": 1, "link": "codename", "scope": "disable"})
-    verdict = check(_world("production", _off(), late))
-    assert verdict.label is Label.VIOLATION
-    assert "approval after the change" in verdict.decoys
+def test_late_wrong_endpoint_and_unauthorized_approvals_do_not_excuse() -> None:
+    for t, endpoint, approver in ((60, 0, 0), (40, 1, 1), (40, 0, 2)):
+        lab = _lab()
+        _off(lab)
+        _cr(lab, t, endpoint, approver)
+        assert check(lab).label is Label.VIOLATION, (t, endpoint, approver)
 
 
-def test_prior_approval_staging_and_successor_excuse() -> None:
-    prior = Event(40, "cr", 0, {"id": 1, "link": "id", "deploy": 1234, "scope": "disable"})
-    assert check(_world("production", prior, _off())).label is Label.RED_HERRING
-    assert check(_world("staging", _off())).label is Label.RED_HERRING
-    assert check(_world("production", _off(state="migrate"))).label is Label.RED_HERRING
+def test_staging_and_successor_excuse_and_no_off_switch_is_clean() -> None:
+    lab = _lab("staging")
+    _off(lab)
+    assert check(lab).label is Label.RED_HERRING
+    lab = _lab()
+    _off(lab, "migrate")
+    assert check(lab).label is Label.RED_HERRING
+    assert check(_lab()).label is Label.CLEAN
 
 
-def test_approval_for_another_endpoint_does_not_excuse() -> None:
-    wrong = Event(40, "cr", 1, {"id": 1, "link": "codename", "scope": "disable"})
-    assert check(_world("production", wrong, _off())).label is Label.VIOLATION
+def test_twin_differs_in_one_fact_and_flips_the_label() -> None:
+    lab = _lab()
+    _off(lab)
+    _cr(lab, 40)
+    twin = perturb(random.Random(0), lab)
+    assert twin is not None
+    other, _ = twin
+    assert check(other).label is Label.VIOLATION
+    changed = [a.eid for a, b in zip(lab.events, other.events, strict=True) if a != b]
+    assert len(changed) == 1
 
 
-def test_no_off_switch_is_clean() -> None:
-    assert (
-        check(_world("production", Event(10, "deploy", 0, {"id": 9, "state": "on"}))).label
-        is Label.CLEAN
-    )
+def test_twins_share_everything_but_the_changed_line() -> None:
+    draw = next(d for d in (simulate(Split.DEV, i, 909) for i in range(40)) if len(d) == 2)
+    (a, _), (b, _) = draw
+    assert {a.label, b.label} == {Label.VIOLATION, Label.RED_HERRING}
+    differing = {line.text for line in a.lines} ^ {line.text for line in b.lines}
+    assert 1 <= len(differing) <= 4  # the changed line (and a monitor line it implies)
 
 
-def test_simulated_plans_are_deterministic_and_valid() -> None:
-    first, attrs = simulate(Split.DEV, 3, 909)
-    again, _ = simulate(Split.DEV, 3, 909)
-    assert first == again
-    assert attrs["label"] == first.label
+def test_quota_and_template_build() -> None:
+    made = sample_to_quota(40, Split.DEV, 909)
+    counts = Counter(p.label for p, _ in made)
+    assert counts[Label.CLEAN] == 8
+    assert counts[Label.VIOLATION] == counts[Label.RED_HERRING] == 16
     result, _ = asyncio.run(build_sim(40, TemplateRenderer()))
     assert len(result.scenarios) == 40
-    assert {s.label for s in result.scenarios} == set(Label)

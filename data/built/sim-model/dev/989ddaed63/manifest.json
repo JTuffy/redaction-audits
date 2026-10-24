@@ -1,13 +1,13 @@
 {
   "split": "dev",
-  "version": "fb48b67a6f",
-  "renderer": "template",
-  "reviewer": "anthropic/claude-sonnet-5-5",
+  "version": "989ddaed63",
+  "renderer": "openai/gpt-5.6",
+  "reviewer": "openai/gpt-5.6",
   "cues": "verbatim",
   "depth": "sim",
   "background": "lab",
   "surface_auroc": null,
-  "built_at": "2026-10-23T19:16:19+00:00",
+  "built_at": "2026-10-24T03:10:00+00:00",
   "background_jobs": 0,
   "stages": {
     "planned": 30,
@@ -19,23 +19,23 @@
   "issues": {},
   "refusals": 0,
   "rendered_by": {
-    "template": 30
+    "openai/gpt-5.6": 30
   },
   "labels": {
-    "violation": 13,
-    "red_herring": 15,
-    "clean": 2
+    "violation": 12,
+    "red_herring": 12,
+    "clean": 6
   },
   "lines": {
-    "min": 30,
-    "max": 64,
-    "mean": 44.2
+    "min": 38,
+    "max": 67,
+    "mean": 50.8
   },
   "line_kinds": {
-    "evidence": 173,
-    "correlate": 67,
+    "evidence": 329,
+    "correlate": 75,
     "secret_mention": 0,
     "lab_noise": 0,
-    "background": 1085
+    "background": 1120
   }
 }
