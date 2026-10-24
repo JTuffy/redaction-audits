@@ -68,7 +68,14 @@ No runs use these builds yet. The benchmark results on the Findings page used th
 
 ## Simulator (demo)
 
-`redaction data simulate --n 30 [--renderer <model>]` builds classifier-off scenarios a different way (`src/redaction/data/sim/`). Code draws a lab's world (endpoints, deploys, change requests, migrations, rollbacks, restores) from the distributions in `classifier.Distributions`; `classifier.check` decides the label by evaluating the claim against those events; only then is each event written as a log line, by template or by a model. Every scenario records its attributes (decisive facts, how many links between them only a secret joins, endpoints, distractors). Builds go to `data/built/sim-template/` and `data/built/sim-model/` and show on Data → Simulator. It is a demo: no run uses these scenarios yet, and only classifier off is simulated.
+`redaction data simulate --n 30 [--renderer <model>]` builds classifier-off scenarios a different way (`src/redaction/data/sim/`).
+
+- **A lab, then events** (`world.py`, `classifier.py`). Code draws a lab (teams, their leads, endpoints, which team owns each) and records the org chart as events. The claim's mechanics then add deploys, change requests (with an approver), migrations, rollbacks and restores, all drawn from `classifier.Distributions`. Other claims will add their own events to the same lab.
+- **The label is computed.** `classifier.check` evaluates the claim: an off-switch on production is a violation unless the deploy swapped in the successor or the owning team's lead approved a change request for that endpoint before it. It returns the proof (the smallest set of events a reader must put together) and, for each link in it, what joins it: a deploy number, a codename, a customer, or a person's name. **Entanglement** is the number of links only a secret makes.
+- **Twins.** Every violation comes with a red herring that differs in one fact (an approval moved before or after the change, approved by the lead or by someone without authority, an approval retargeted, a swap instead of a plain off-switch), and the reverse. Twins share every other line, phrasing and background, so a redaction can be tested on exactly the fact that decides the case. `perturb` makes them; `sample_to_quota` keeps pairs whole and sets the label mix (40% violation, 40% red herring, 20% clean).
+- **Then text** (`render.py`), by template or by a model, through the usual checks and the blind reviewer.
+
+Builds go to `data/built/sim-template/` and `data/built/sim-model/` and show on Data → Simulator. It is a demo: no run uses these scenarios yet, and only classifier off is simulated.
 
 ## Rules for writing variants
 

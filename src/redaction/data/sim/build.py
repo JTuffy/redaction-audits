@@ -6,8 +6,9 @@ import asyncio
 import json
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any, Final
 
-from redaction.core.models import Scenario, Split
+from redaction.core.models import Label, Scenario, Split
 from redaction.data.pipeline.build import (
     BuildResult,
     Reviewer,
@@ -24,6 +25,34 @@ from redaction.data.sim.render import DEPTH, simulate
 SIM_SEED = 909
 
 
+QUOTA: Final = {Label.VIOLATION: 0.4, Label.RED_HERRING: 0.4, Label.CLEAN: 0.2}
+
+
+def sample_to_quota(
+    n: int, split: Split, seed: int, dist: Distributions | None = None
+) -> list[tuple[ScenarioPlan, dict[str, Any]]]:
+    """Draw worlds until the label mix hits `QUOTA`; violations and red herrings come as twins.
+
+    The distributions decide what a world looks like; the quota decides which worlds are kept,
+    so the mix is set by design rather than by how often a classifier happens to be switched off.
+    """
+    want = {label: round(share * n) for label, share in QUOTA.items()}
+    have = dict.fromkeys(QUOTA, 0)
+    kept: list[tuple[ScenarioPlan, dict[str, Any]]] = []
+    index = 0
+    while sum(have.values()) < sum(want.values()) and index < n * 50:
+        draw = simulate(split, index, seed, dist)
+        index += 1
+        labels = [p.label for p, _ in draw]
+        if len(draw) == 1 and labels[0] is not Label.CLEAN:
+            continue  # violations and red herrings come only as twins, so they stay paired
+        if all(have[label] + labels.count(label) <= want[label] for label in set(labels)):
+            kept += draw
+            for label in labels:
+                have[label] += 1
+    return kept
+
+
 async def build_sim(
     n: int,
     renderer: Renderer,
@@ -35,7 +64,7 @@ async def build_sim(
     concurrency: int = 8,
 ) -> tuple[BuildResult, list[dict[str, object]]]:
     """`n` simulated classifier-off scenarios through the usual render, validate and review."""
-    made = [simulate(split, i, seed, dist) for i in range(n)]
+    made = sample_to_quota(n, split, seed, dist)
     plans = tuple(p for p, _ in made)
     gate = asyncio.Semaphore(concurrency)
     attempts = 1 if renderer.name == "template" else 3
